@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Expenso",
+    "slug": "expenso",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0A0A0A",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A0A"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.expenso.app",
+      "userInterfaceStyle": "dark"
+    },
+    "android": {
+      "package": "com.expenso.app",
+      "userInterfaceStyle": "dark",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A0A0A"
+      }
+    },
+    "extra": {
+      "apiUrl": "http://localhost:4000"
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}
