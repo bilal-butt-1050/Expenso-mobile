@@ -12,7 +12,7 @@ interface Props {
 // Month navigation selector: allows stepping month-by-month,
 // preventing navigation beyond the current month.
 export function MonthPicker({ month, onChange }: Props) {
-  const atPresent = isCurrentOrFutureMonth(shiftMonth(month, 1));
+  const isCurrentMonth = isCurrentOrFutureMonth(month);
 
   return (
     <View style={styles.row}>
@@ -27,12 +27,12 @@ export function MonthPicker({ month, onChange }: Props) {
       <Text style={styles.label}>{formatMonthLabel(month)}</Text>
 
       <TouchableOpacity
-        style={[styles.arrow, atPresent && styles.arrowDisabled]}
-        onPress={() => !atPresent && onChange(shiftMonth(month, 1))}
-        disabled={atPresent}
+        style={[styles.arrow, isCurrentMonth && styles.arrowDisabled]}
+        onPress={() => !isCurrentMonth && onChange(shiftMonth(month, 1))}
+        disabled={isCurrentMonth}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Text style={[styles.arrowText, atPresent && styles.arrowTextDisabled]}>›</Text>
+        <Text style={[styles.arrowText, isCurrentMonth && styles.arrowTextDisabled]}>›</Text>
       </TouchableOpacity>
     </View>
   );
