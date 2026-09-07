@@ -2,6 +2,7 @@ import React from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useAppData } from "../../context/AppDataContext";
 import { useAuth } from "../../context/AuthContext";
@@ -12,7 +13,7 @@ import { PieChart } from "../../components/PieChart";
 import { BarChart } from "../../components/BarChart";
 import { Button } from "../../components/Button";
 import { colors } from "../../theme/colors";
-import { spacing } from "../../theme/spacing";
+import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { formatCurrency } from "../../utils/currency";
 import { RootStackParamList } from "../../types/navigation";
@@ -34,7 +35,7 @@ export function HomeScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Hi{user?.name ? `, ${user.name}` : ""} 👋</Text>
-            <Text style={styles.subGreeting}>Here's your money at a glance</Text>
+            <Text style={styles.subGreeting}>Here's your monthly money flow</Text>
           </View>
         </View>
 
@@ -49,49 +50,193 @@ export function HomeScreen() {
           <ActivityIndicator style={styles.loader} color={colors.accent} />
         ) : (
           <>
-            <View style={styles.metricsGrid}>
-              <MetricTile label="Income" value={data.monthlyIncome} highlight />
-              <MetricTile label="Expenses" value={data.totalExpenses} />
-              <MetricTile
-                label="Remaining"
-                value={data.remainingBalance}
-                tone={data.remainingBalance >= 0 ? "good" : "bad"}
-              />
-              <MetricTile
-                label="Unpaid"
-                value={data.unpaidExpenses}
-                tone={data.unpaidExpenses > 0 ? "bad" : undefined}
-              />
-            </View>
-
-            <Card style={styles.card}>
+            {/* Hero Net Balance Card */}
+            <Card style={styles.heroCard}>
               <View style={styles.rowBetween}>
-                <Text style={styles.cardTitle}>Projected balance</Text>
-                <Text style={styles.caption}>after pending dues</Text>
+                <Text style={styles.heroLabel}>Net Monthly Balance</Text>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    {
+                      backgroundColor:
+                        data.remainingBalance >= 0 ? colors.accentMuted + "55" : colors.dangerMuted + "55",
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusBadgeText,
+                      { color: data.remainingBalance >= 0 ? colors.accent : colors.danger },
+                    ]}
+                  >
+                    {data.remainingBalance >= 0 ? "Surplus" : "Over Budget"}
+                  </Text>
+                </View>
               </View>
+
               <Text
                 style={[
-                  typography.metricValue,
-                  { color: data.projectedBalance >= 0 ? colors.accent : colors.danger, marginTop: spacing.xs },
+                  styles.heroAmount,
+                  { color: data.remainingBalance >= 0 ? colors.accent : colors.danger },
                 ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
               >
-                {formatCurrency(data.projectedBalance)}
+                {formatCurrency(data.remainingBalance)}
               </Text>
-              <Text style={styles.caption}>
-                All-time savings: {formatCurrency(data.savingsAllTime)} · This month:{" "}
-                {(data.savingsPercentage * 100).toFixed(0)}%
-              </Text>
+
+              <View style={styles.heroSubRow}>
+                <View style={styles.heroSubItem}>
+                  <Text style={styles.heroSubLabel}>Cash in Hand</Text>
+                  <Text style={styles.heroSubValue}>
+                    {formatCurrency(data.cashInHand ?? data.monthlyIncome - data.paidExpenses)}
+                  </Text>
+                </View>
+                <View style={styles.subDivider} />
+                <View style={styles.heroSubItem}>
+                  <Text style={styles.heroSubLabel}>Savings Rate</Text>
+                  <Text style={styles.heroSubValue}>
+                    {(data.savingsPercentage * 100).toFixed(0)}%
+                  </Text>
+                </View>
+              </View>
             </Card>
 
+            {/* 3 Core Metric Pillars */}
+            <View style={styles.pillarsGrid}>
+              <View style={styles.pillarTile}>
+                <Text style={styles.pillarLabel}>Income</Text>
+                <Text style={[styles.pillarValue, { color: colors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
+                  {formatCurrency(data.monthlyIncome)}
+                </Text>
+                <Text style={styles.pillarSub}>Total earned</Text>
+              </View>
+
+              <View style={styles.pillarTile}>
+                <Text style={styles.pillarLabel}>Expenses</Text>
+                <Text style={[styles.pillarValue, { color: colors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
+                  {formatCurrency(data.totalExpenses)}
+                </Text>
+                <Text style={styles.pillarSub}>Total logged</Text>
+              </View>
+
+              <View style={styles.pillarTile}>
+                <Text style={styles.pillarLabel}>Pending Dues</Text>
+                <Text
+                  style={[
+                    styles.pillarValue,
+                    { color: data.unpaidExpenses > 0 ? colors.warning : colors.accent },
+                  ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  {formatCurrency(data.unpaidExpenses)}
+                </Text>
+                <Text style={styles.pillarSub}>
+                  {data.unpaidExpenses > 0 ? "To pay" : "All clear"}
+                </Text>
+              </View>
+            </View>
+
+            {/* Smart In-Month Insights Card */}
+            <Card style={styles.card}>
+              <View style={styles.rowBetween}>
+                <Text style={styles.cardTitle}>In-Month Insights</Text>
+                {data.pacingStatus && (
+                  <View
+                    style={[
+                      styles.pacingBadge,
+                      {
+                        backgroundColor:
+                          data.pacingStatus === "On Track"
+                            ? colors.accentMuted + "44"
+                            : data.pacingStatus === "Pacing Fast"
+                            ? colors.warning + "33"
+                            : colors.dangerMuted + "55",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.pacingBadgeText,
+                        {
+                          color:
+                            data.pacingStatus === "On Track"
+                              ? colors.accent
+                              : data.pacingStatus === "Pacing Fast"
+                              ? colors.warning
+                              : colors.danger,
+                        },
+                      ]}
+                    >
+                      {data.pacingStatus}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Daily Safe-to-Spend */}
+              <View style={styles.insightBlock}>
+                <View style={styles.insightIconWrap}>
+                  <MaterialCommunityIcons name="wallet-outline" size={20} color={colors.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.insightTitle}>
+                    {data.daysRemaining && data.daysRemaining > 0
+                      ? `${formatCurrency(data.dailyAllowance ?? 0)} / day`
+                      : "Month ended"}
+                  </Text>
+                  <Text style={styles.insightDesc}>
+                    {data.daysRemaining && data.daysRemaining > 0
+                      ? `Safe to spend for the remaining ${data.daysRemaining} days`
+                      : "All days in this billing period have elapsed"}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Needs vs Wants Breakdown */}
+              {data.totalExpenses > 0 && (
+                <View style={styles.needsWantsContainer}>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.needsWantsLabel}>Spending Purpose</Text>
+                    <Text style={styles.needsWantsValues}>
+                      Needs {data.needsPercentage ?? 0}% · Wants {data.wantsPercentage ?? 0}%
+                    </Text>
+                  </View>
+
+                  <View style={styles.barTrack}>
+                    <View
+                      style={[
+                        styles.barSegmentNeeds,
+                        { width: `${Math.max(4, Math.min(96, data.needsPercentage ?? 0))}%` },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.barSegmentWants,
+                        { width: `${Math.max(4, Math.min(96, data.wantsPercentage ?? 0))}%` },
+                      ]}
+                    />
+                  </View>
+                </View>
+              )}
+            </Card>
+
+            {/* Spending by Category Card (Donut with full-width legend) */}
             <Card style={styles.card}>
               <Text style={styles.cardTitle}>Spending by category</Text>
-              <View style={{ marginTop: spacing.md }}>
+              <View style={{ marginTop: spacing.sm }}>
                 <PieChart
-                  data={data.categoryBreakdown.map((c) => ({ label: c.name, value: c.amount, color: c.color }))}
+                  data={data.categoryBreakdown.map((c) => ({
+                    label: c.name,
+                    value: c.amount,
+                    color: c.color,
+                  }))}
                 />
               </View>
             </Card>
 
+            {/* Monthly Trend Bar Chart */}
             <Card style={styles.card}>
               <Text style={styles.cardTitle}>Last 12 months</Text>
               <View style={{ marginTop: spacing.md, alignItems: "center" }}>
@@ -99,6 +244,7 @@ export function HomeScreen() {
               </View>
             </Card>
 
+            {/* Budget vs Actual Card */}
             {data.budgetVsActual.length > 0 && (
               <Card style={styles.card}>
                 <Text style={styles.cardTitle}>Budget vs actual</Text>
@@ -119,28 +265,6 @@ export function HomeScreen() {
   );
 }
 
-function MetricTile({
-  label,
-  value,
-  highlight,
-  tone,
-}: {
-  label: string;
-  value: number;
-  highlight?: boolean;
-  tone?: "good" | "bad";
-}) {
-  const color = tone === "bad" ? colors.danger : highlight ? colors.accent : colors.textPrimary;
-  return (
-    <Card style={styles.tile}>
-      <Text style={styles.tileLabel}>{label}</Text>
-      <Text style={[styles.tileValue, { color }]} numberOfLines={1} adjustsFontSizeToFit>
-        {formatCurrency(value)}
-      </Text>
-    </Card>
-  );
-}
-
 const styles = StyleSheet.create({
   noPad: { paddingHorizontal: 0 },
   scroll: {
@@ -158,14 +282,181 @@ const styles = StyleSheet.create({
   greeting: { ...typography.title, fontSize: 24, letterSpacing: -0.3 },
   subGreeting: { ...typography.caption, marginTop: 4 },
   loader: { marginTop: spacing.xxl },
-  metricsGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
-  tile: { width: "48%", padding: spacing.md },
-  tileLabel: { ...typography.small, textTransform: "uppercase", letterSpacing: 0.5 },
-  tileValue: { fontSize: 18, fontWeight: "700", marginTop: spacing.xs },
-  card: { marginTop: spacing.md },
-  cardTitle: { ...typography.subtitle },
-  caption: { ...typography.small, marginTop: spacing.xs },
-  rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+
+  // Hero Net Balance Card
+  heroCard: {
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: spacing.xs,
+  },
+  heroLabel: {
+    ...typography.small,
+    color: colors.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  heroAmount: {
+    fontSize: 32,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+    marginVertical: spacing.xs,
+  },
+  statusBadge: {
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  heroSubRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border + "88",
+    marginTop: spacing.xs,
+  },
+  heroSubItem: {
+    flex: 1,
+  },
+  subDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.md,
+  },
+  heroSubLabel: {
+    ...typography.small,
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  heroSubValue: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    marginTop: 2,
+  },
+
+  // 3-Pillars Grid
+  pillarsGrid: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    width: "100%",
+  },
+  pillarTile: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    justifyContent: "space-between",
+  },
+  pillarLabel: {
+    ...typography.small,
+    fontSize: 10,
+    textTransform: "uppercase",
+    color: colors.textSecondary,
+    letterSpacing: 0.5,
+  },
+  pillarValue: {
+    fontSize: 14,
+    fontWeight: "700",
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  pillarSub: {
+    ...typography.small,
+    fontSize: 10,
+    color: colors.textMuted,
+  },
+
+  // In-Month Insights Card
+  card: {
+    padding: spacing.lg,
+  },
+  cardTitle: {
+    ...typography.subtitle,
+    fontSize: 16,
+  },
+  pacingBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+  },
+  pacingBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  insightBlock: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    backgroundColor: colors.surfaceRaised,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginTop: spacing.md,
+  },
+  insightIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.accentMuted + "44",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  insightTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  insightDesc: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+
+  // Needs vs Wants Progress Bar
+  needsWantsContainer: {
+    marginTop: spacing.md,
+    gap: spacing.xs,
+  },
+  needsWantsLabel: {
+    ...typography.small,
+    color: colors.textSecondary,
+    fontSize: 12,
+  },
+  needsWantsValues: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
+  barTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.surfaceRaised,
+    flexDirection: "row",
+    overflow: "hidden",
+    marginTop: 4,
+  },
+  barSegmentNeeds: {
+    height: "100%",
+    backgroundColor: colors.accent,
+  },
+  barSegmentWants: {
+    height: "100%",
+    backgroundColor: "#7C4DFF",
+  },
+
+  rowBetween: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   budgetRow: {
     flexDirection: "row",
     justifyContent: "space-between",
