@@ -6,9 +6,39 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const TOKEN_KEY = "expenso_auth_token";
 
-// `extra.apiUrl` comes from app.json so switching between a local backend
-// and a deployed one is a config change, not a code change.
-const apiUrl = (Constants.expoConfig?.extra?.apiUrl as string) ?? "http://localhost:4000";
+declare const process: { env: Record<string, string | undefined> };
+
+function resolveApiUrl(): string {
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+
+  const extraUrl = Constants.expoConfig?.extra?.apiUrl as string | undefined;
+
+  if (Platform.OS === "web") {
+    return extraUrl || "http://localhost:4000";
+  }
+
+  if (extraUrl && !extraUrl.includes("localhost") && !extraUrl.includes("127.0.0.1")) {
+    return extraUrl;
+  }
+
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const host = hostUri.split(":")[0];
+    if (host && !host.includes("exp.direct")) {
+      return `http://${host}:4000`;
+    }
+  }
+
+  return extraUrl || "http://localhost:4000";
+}
+
+const apiUrl = resolveApiUrl();
+
+if (__DEV__) {
+  console.log(`[Expenso API] Connecting to: ${apiUrl}`);
+}
 
 export const apiClient = axios.create({ baseURL: apiUrl, timeout: 15000 });
 
