@@ -34,7 +34,10 @@ export function RootNavigator() {
 
   useEffect(() => {
     if (!isLoading) {
-      SplashScreen.hideAsync().catch(() => {});
+      const timer = setTimeout(() => {
+        SplashScreen.hideAsync().catch(() => {});
+      }, 1000);
+      return () => clearTimeout(timer);
     }
   }, [isLoading]);
 

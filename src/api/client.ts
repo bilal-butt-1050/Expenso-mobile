@@ -9,26 +9,31 @@ const TOKEN_KEY = "expenso_auth_token";
 declare const process: { env: Record<string, string | undefined> };
 
 function resolveApiUrl(): string {
+  // 1. Web browser runs on the same PC, so localhost or explicit URL works directly
+  if (Platform.OS === "web") {
+    return process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl || "http://localhost:4000";
+  }
+
+  // 2. On a mobile device in Expo Go (LAN mode), dynamically use the exact IP
+  // the phone used to download the bundle from Metro (hostUri).
+  // This automatically handles changing Wi-Fi networks and dynamic DHCP IPs!
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const host = hostUri.split(":")[0];
+    if (host && !host.includes("exp.direct") && host !== "localhost" && host !== "127.0.0.1") {
+      return `http://${host}:4000`;
+    }
+  }
+
+  // 3. Fallback to EXPO_PUBLIC_API_URL if defined (tunnel mode or manual override)
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
   }
 
+  // 4. Fallback to extra.apiUrl from app.json
   const extraUrl = Constants.expoConfig?.extra?.apiUrl as string | undefined;
-
-  if (Platform.OS === "web") {
-    return extraUrl || "http://localhost:4000";
-  }
-
   if (extraUrl && !extraUrl.includes("localhost") && !extraUrl.includes("127.0.0.1")) {
     return extraUrl;
-  }
-
-  const hostUri = Constants.expoConfig?.hostUri;
-  if (hostUri) {
-    const host = hostUri.split(":")[0];
-    if (host && !host.includes("exp.direct")) {
-      return `http://${host}:4000`;
-    }
   }
 
   return extraUrl || "http://localhost:4000";
