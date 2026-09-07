@@ -50,10 +50,63 @@ export function HomeScreen() {
           <ActivityIndicator style={styles.loader} color={colors.accent} />
         ) : (
           <>
-            {/* Hero Net Balance Card */}
-            <Card style={styles.heroCard}>
+            {/* 1. Big Total Income This Month Card */}
+            <Card style={styles.incomeCard}>
               <View style={styles.rowBetween}>
-                <Text style={styles.heroLabel}>Net Monthly Balance</Text>
+                <Text style={styles.cardHeaderLabel}>Total Income This Month</Text>
+                <View style={styles.incomeBadge}>
+                  <MaterialCommunityIcons name="arrow-down-left" size={14} color={colors.accent} />
+                  <Text style={styles.incomeBadgeText}>Earnings</Text>
+                </View>
+              </View>
+
+              <Text style={styles.incomeAmount} numberOfLines={1} adjustsFontSizeToFit>
+                {formatCurrency(data.monthlyIncome)}
+              </Text>
+
+              <Text style={styles.incomeSub}>Monthly income baseline</Text>
+            </Card>
+
+            {/* 2. Expenses Breakdown: Total (Paid + Unpaid), Paid, Unpaid */}
+            <View style={styles.pillarsGrid}>
+              <View style={styles.pillarTile}>
+                <Text style={styles.pillarLabel}>Total Expenses</Text>
+                <Text style={[styles.pillarValue, { color: colors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
+                  {formatCurrency(data.totalExpenses)}
+                </Text>
+                <Text style={styles.pillarSub}>Paid + Unpaid</Text>
+              </View>
+
+              <View style={styles.pillarTile}>
+                <Text style={styles.pillarLabel}>Paid Expenses</Text>
+                <Text style={[styles.pillarValue, { color: colors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
+                  {formatCurrency(data.paidExpenses)}
+                </Text>
+                <Text style={styles.pillarSub}>Settled</Text>
+              </View>
+
+              <View style={styles.pillarTile}>
+                <Text style={styles.pillarLabel}>Unpaid Expenses</Text>
+                <Text
+                  style={[
+                    styles.pillarValue,
+                    { color: data.unpaidExpenses > 0 ? colors.warning : colors.accent },
+                  ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  {formatCurrency(data.unpaidExpenses)}
+                </Text>
+                <Text style={styles.pillarSub}>
+                  {data.unpaidExpenses > 0 ? "Pending dues" : "All clear"}
+                </Text>
+              </View>
+            </View>
+
+            {/* 3. Remaining Balance Card */}
+            <Card style={styles.balanceCard}>
+              <View style={styles.rowBetween}>
+                <Text style={styles.cardHeaderLabel}>Remaining Balance</Text>
                 <View
                   style={[
                     styles.statusBadge,
@@ -76,7 +129,7 @@ export function HomeScreen() {
 
               <Text
                 style={[
-                  styles.heroAmount,
+                  styles.balanceAmount,
                   { color: data.remainingBalance >= 0 ? colors.accent : colors.danger },
                 ]}
                 numberOfLines={1}
@@ -85,58 +138,13 @@ export function HomeScreen() {
                 {formatCurrency(data.remainingBalance)}
               </Text>
 
-              <View style={styles.heroSubRow}>
-                <View style={styles.heroSubItem}>
-                  <Text style={styles.heroSubLabel}>Cash in Hand</Text>
-                  <Text style={styles.heroSubValue}>
-                    {formatCurrency(data.cashInHand ?? data.monthlyIncome - data.paidExpenses)}
-                  </Text>
-                </View>
-                <View style={styles.subDivider} />
-                <View style={styles.heroSubItem}>
-                  <Text style={styles.heroSubLabel}>Savings Rate</Text>
-                  <Text style={styles.heroSubValue}>
-                    {(data.savingsPercentage * 100).toFixed(0)}%
-                  </Text>
-                </View>
+              <View style={styles.balanceSubRow}>
+                <Text style={styles.balanceFormula}>Income − Total Expenses</Text>
+                <Text style={styles.balanceSavings}>
+                  Savings: {(data.savingsPercentage * 100).toFixed(0)}%
+                </Text>
               </View>
             </Card>
-
-            {/* 3 Core Metric Pillars */}
-            <View style={styles.pillarsGrid}>
-              <View style={styles.pillarTile}>
-                <Text style={styles.pillarLabel}>Income</Text>
-                <Text style={[styles.pillarValue, { color: colors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
-                  {formatCurrency(data.monthlyIncome)}
-                </Text>
-                <Text style={styles.pillarSub}>Total earned</Text>
-              </View>
-
-              <View style={styles.pillarTile}>
-                <Text style={styles.pillarLabel}>Expenses</Text>
-                <Text style={[styles.pillarValue, { color: colors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
-                  {formatCurrency(data.totalExpenses)}
-                </Text>
-                <Text style={styles.pillarSub}>Total logged</Text>
-              </View>
-
-              <View style={styles.pillarTile}>
-                <Text style={styles.pillarLabel}>Pending Dues</Text>
-                <Text
-                  style={[
-                    styles.pillarValue,
-                    { color: data.unpaidExpenses > 0 ? colors.warning : colors.accent },
-                  ]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                >
-                  {formatCurrency(data.unpaidExpenses)}
-                </Text>
-                <Text style={styles.pillarSub}>
-                  {data.unpaidExpenses > 0 ? "To pay" : "All clear"}
-                </Text>
-              </View>
-            </View>
 
             {/* Smart In-Month Insights Card */}
             <Card style={styles.card}>
@@ -283,24 +291,77 @@ const styles = StyleSheet.create({
   subGreeting: { ...typography.caption, marginTop: 4 },
   loader: { marginTop: spacing.xxl },
 
-  // Hero Net Balance Card
-  heroCard: {
+  // 1. Big Income Card
+  incomeCard: {
     backgroundColor: colors.surfaceRaised,
     borderRadius: radius.lg,
     padding: spacing.lg,
     gap: spacing.xs,
   },
-  heroLabel: {
+  cardHeaderLabel: {
     ...typography.small,
     color: colors.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 0.8,
   },
-  heroAmount: {
+  incomeAmount: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: colors.textPrimary,
+    letterSpacing: -0.5,
+    marginVertical: spacing.xs,
+  },
+  incomeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: colors.accentMuted + "44",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+  },
+  incomeBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.accent,
+  },
+  incomeSub: {
+    ...typography.small,
+    color: colors.textMuted,
+  },
+
+  // 3. Remaining Balance Card
+  balanceCard: {
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: spacing.xs,
+  },
+  balanceAmount: {
     fontSize: 32,
     fontWeight: "800",
     letterSpacing: -0.5,
     marginVertical: spacing.xs,
+  },
+  balanceSubRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border + "88",
+    marginTop: spacing.xs,
+  },
+  balanceFormula: {
+    ...typography.small,
+    color: colors.textSecondary,
+    fontSize: 12,
+  },
+  balanceSavings: {
+    ...typography.small,
+    color: colors.accent,
+    fontWeight: "700",
+    fontSize: 12,
   },
   statusBadge: {
     paddingHorizontal: spacing.sm + 2,
@@ -311,34 +372,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     textTransform: "uppercase",
-  },
-  heroSubRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border + "88",
-    marginTop: spacing.xs,
-  },
-  heroSubItem: {
-    flex: 1,
-  },
-  subDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: colors.border,
-    marginHorizontal: spacing.md,
-  },
-  heroSubLabel: {
-    ...typography.small,
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  heroSubValue: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.textPrimary,
-    marginTop: 2,
   },
 
   // 3-Pillars Grid
