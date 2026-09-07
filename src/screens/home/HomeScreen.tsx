@@ -54,17 +54,12 @@ export function HomeScreen() {
             <Card style={styles.incomeCard}>
               <View style={styles.rowBetween}>
                 <Text style={styles.cardHeaderLabel}>Total Income This Month</Text>
-                <View style={styles.incomeBadge}>
-                  <MaterialCommunityIcons name="arrow-down-left" size={14} color={colors.accent} />
-                  <Text style={styles.incomeBadgeText}>Earnings</Text>
-                </View>
               </View>
 
               <Text style={styles.incomeAmount} numberOfLines={1} adjustsFontSizeToFit>
                 {formatCurrency(data.monthlyIncome)}
               </Text>
 
-              <Text style={styles.incomeSub}>Monthly income baseline</Text>
             </Card>
 
             {/* 2. Expenses Breakdown: Total (Paid + Unpaid), Paid, Unpaid */}
@@ -74,7 +69,6 @@ export function HomeScreen() {
                 <Text style={[styles.pillarValue, { color: colors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
                   {formatCurrency(data.totalExpenses)}
                 </Text>
-                <Text style={styles.pillarSub}>Paid + Unpaid</Text>
               </View>
 
               <View style={styles.pillarTile}>
@@ -82,7 +76,6 @@ export function HomeScreen() {
                 <Text style={[styles.pillarValue, { color: colors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
                   {formatCurrency(data.paidExpenses)}
                 </Text>
-                <Text style={styles.pillarSub}>Settled</Text>
               </View>
 
               <View style={styles.pillarTile}>
@@ -97,9 +90,6 @@ export function HomeScreen() {
                 >
                   {formatCurrency(data.unpaidExpenses)}
                 </Text>
-                <Text style={styles.pillarSub}>
-                  {data.unpaidExpenses > 0 ? "Pending dues" : "All clear"}
-                </Text>
               </View>
             </View>
 
@@ -107,22 +97,9 @@ export function HomeScreen() {
             <Card style={styles.balanceCard}>
               <View style={styles.rowBetween}>
                 <Text style={styles.cardHeaderLabel}>Remaining Balance</Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    {
-                      backgroundColor:
-                        data.remainingBalance >= 0 ? colors.accentMuted + "55" : colors.dangerMuted + "55",
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusBadgeText,
-                      { color: data.remainingBalance >= 0 ? colors.accent : colors.danger },
-                    ]}
-                  >
-                    {data.remainingBalance >= 0 ? "Surplus" : "Over Budget"}
+                <View style={styles.savingsBadge}>
+                  <Text style={styles.savingsBadgeText}>
+                    Savings: {(data.savingsPercentage * 100).toFixed(0)}%
                   </Text>
                 </View>
               </View>
@@ -137,51 +114,11 @@ export function HomeScreen() {
               >
                 {formatCurrency(data.remainingBalance)}
               </Text>
-
-              <View style={styles.balanceSubRow}>
-                <Text style={styles.balanceFormula}>Income − Total Expenses</Text>
-                <Text style={styles.balanceSavings}>
-                  Savings: {(data.savingsPercentage * 100).toFixed(0)}%
-                </Text>
-              </View>
             </Card>
 
             {/* Smart In-Month Insights Card */}
             <Card style={styles.card}>
-              <View style={styles.rowBetween}>
-                <Text style={styles.cardTitle}>In-Month Insights</Text>
-                {data.pacingStatus && (
-                  <View
-                    style={[
-                      styles.pacingBadge,
-                      {
-                        backgroundColor:
-                          data.pacingStatus === "On Track"
-                            ? colors.accentMuted + "44"
-                            : data.pacingStatus === "Pacing Fast"
-                            ? colors.warning + "33"
-                            : colors.dangerMuted + "55",
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.pacingBadgeText,
-                        {
-                          color:
-                            data.pacingStatus === "On Track"
-                              ? colors.accent
-                              : data.pacingStatus === "Pacing Fast"
-                              ? colors.warning
-                              : colors.danger,
-                        },
-                      ]}
-                    >
-                      {data.pacingStatus}
-                    </Text>
-                  </View>
-                )}
-              </View>
+              <Text style={styles.cardTitle}>In-Month Insights</Text>
 
               {/* Daily Safe-to-Spend */}
               <View style={styles.insightBlock}>
@@ -232,16 +169,13 @@ export function HomeScreen() {
 
             {/* Spending by Category Card (Donut with full-width legend) */}
             <Card style={styles.card}>
-              <Text style={styles.cardTitle}>Spending by category</Text>
-              <View style={{ marginTop: spacing.sm }}>
-                <PieChart
-                  data={data.categoryBreakdown.map((c) => ({
-                    label: c.name,
-                    value: c.amount,
-                    color: c.color,
-                  }))}
-                />
-              </View>
+              <PieChart
+                data={data.categoryBreakdown.map((c) => ({
+                  label: c.name,
+                  value: c.amount,
+                  color: c.color,
+                }))}
+              />
             </Card>
 
             {/* Monthly Trend Bar Chart */}
@@ -311,24 +245,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     marginVertical: spacing.xs,
   },
-  incomeBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: colors.accentMuted + "44",
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: radius.pill,
-  },
-  incomeBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: colors.accent,
-  },
-  incomeSub: {
-    ...typography.small,
-    color: colors.textMuted,
-  },
 
   // 3. Remaining Balance Card
   balanceCard: {
@@ -343,35 +259,18 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     marginVertical: spacing.xs,
   },
-  balanceSubRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border + "88",
-    marginTop: spacing.xs,
-  },
-  balanceFormula: {
-    ...typography.small,
-    color: colors.textSecondary,
-    fontSize: 12,
-  },
-  balanceSavings: {
-    ...typography.small,
-    color: colors.accent,
-    fontWeight: "700",
-    fontSize: 12,
-  },
-  statusBadge: {
+  savingsBadge: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: 3,
     borderRadius: radius.pill,
   },
-  statusBadgeText: {
+  savingsBadgeText: {
     fontSize: 11,
     fontWeight: "700",
-    textTransform: "uppercase",
+    color: "#FFFFFF",
   },
 
   // 3-Pillars Grid
@@ -384,10 +283,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface,
     borderRadius: radius.md,
-    padding: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    justifyContent: "space-between",
+    justifyContent: "center",
   },
   pillarLabel: {
     ...typography.small,
@@ -399,13 +299,7 @@ const styles = StyleSheet.create({
   pillarValue: {
     fontSize: 14,
     fontWeight: "700",
-    marginTop: 4,
-    marginBottom: 2,
-  },
-  pillarSub: {
-    ...typography.small,
-    fontSize: 10,
-    color: colors.textMuted,
+    marginTop: spacing.xs,
   },
 
   // In-Month Insights Card
@@ -415,15 +309,6 @@ const styles = StyleSheet.create({
   cardTitle: {
     ...typography.subtitle,
     fontSize: 16,
-  },
-  pacingBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: radius.pill,
-  },
-  pacingBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
   },
   insightBlock: {
     flexDirection: "row",
