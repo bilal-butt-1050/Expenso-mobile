@@ -12,6 +12,7 @@ import { colors } from "../../theme/colors";
 import { spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { NeedWant, PaymentMethod, ExpenseStatus } from "../../types/models";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RootStackParamList } from "../../types/navigation";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ExpenseForm">;
@@ -21,6 +22,7 @@ const NEED_WANT: NeedWant[] = ["Need", "Want"];
 const STATUSES: ExpenseStatus[] = ["Paid", "Unpaid"];
 
 export function ExpenseFormScreen({ route, navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const editing = route.params?.expense;
   const { data: categories } = useCategories();
   const { addExpense, editExpense, removeExpense } = useExpenses();
@@ -86,7 +88,14 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: Math.max(insets.bottom, 24) + spacing.xxl + 32 },
+      ]}
+      keyboardShouldPersistTaps="handled"
+    >
       <TextField
         label="Amount (PKR)"
         keyboardType="decimal-pad"

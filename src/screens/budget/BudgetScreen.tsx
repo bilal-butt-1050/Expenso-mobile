@@ -18,6 +18,7 @@ import { formatMonthLabel } from "../../utils/date";
 import { Category } from "../../types/models";
 import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export function BudgetScreen() {
   const { selectedMonth } = useAppData();
@@ -107,13 +108,14 @@ function BudgetEditSheet({
   onClose: () => void;
   onSave: (amount: number) => void;
 }) {
+  const insets = useSafeAreaInsets();
   const [value, setValue] = useState(currentAmount ? String(currentAmount) : "");
 
   if (!category) return null;
 
   return (
     <View style={styles.sheetBackdrop}>
-      <View style={styles.sheet}>
+      <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) + spacing.md }]}>
         <View style={styles.sheetHeader}>
           <CategoryPill icon={category.icon} color={category.color} />
           <Text style={styles.sheetTitle}>{category.name} budget</Text>

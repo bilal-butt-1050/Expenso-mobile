@@ -2,6 +2,7 @@ import React from "react";
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useCategories } from "../../hooks/useCategories";
 import { useDialog } from "../../context/DialogContext";
@@ -17,6 +18,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export function CategoriesScreen() {
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const { data: categories, isLoading, removeCategory } = useCategories();
   const { confirm, alert, showToast } = useDialog();
 
@@ -42,13 +44,15 @@ export function CategoriesScreen() {
     });
   };
 
+  const bottomOffset = Math.max(insets.bottom, spacing.md) + spacing.md;
+
   return (
     <View style={styles.container}>
       <FlatList
         data={categories ?? []}
         keyExtractor={(item) => item.id}
         refreshing={isLoading}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: 80 + bottomOffset }]}
         ListEmptyComponent={<EmptyState icon="shape-outline" title="No categories" />}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.row} onPress={() => navigation.navigate("CategoryForm", { category: item })}>
@@ -65,7 +69,11 @@ export function CategoriesScreen() {
         )}
       />
 
-      <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate("CategoryForm", undefined)}>
+      <TouchableOpacity
+        style={[styles.addButton, { bottom: bottomOffset }]}
+        onPress={() => navigation.navigate("CategoryForm", undefined)}
+        activeOpacity={0.85}
+      >
         <MaterialCommunityIcons name="plus" size={20} color={colors.background} />
         <Text style={styles.addButtonText}>Add custom category</Text>
       </TouchableOpacity>

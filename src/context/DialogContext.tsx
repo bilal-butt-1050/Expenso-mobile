@@ -155,7 +155,7 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
         <TouchableWithoutFeedback
           onPress={dialogState.type === "confirm" ? handleCancel : handleDismiss}
         >
-          <View style={styles.backdrop}>
+          <View style={[styles.backdrop, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
             <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
               <View style={styles.dialogCard}>
                 {dialogIcon && (

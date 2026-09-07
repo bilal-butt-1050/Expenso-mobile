@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useIncome } from "../../hooks/useIncome";
 import { useDialog } from "../../context/DialogContext";
 import { getErrorMessage } from "../../api/client";
@@ -14,6 +15,7 @@ import { formatCurrency } from "../../utils/currency";
 import { currentMonthKey, formatMonthLabel } from "../../utils/date";
 
 export function IncomeScreen() {
+  const insets = useSafeAreaInsets();
   const { data: incomes, isLoading, saveIncome } = useIncome();
   const { showToast } = useDialog();
   const [salary, setSalary] = useState("");
@@ -55,7 +57,7 @@ export function IncomeScreen() {
         data={incomes ?? []}
         keyExtractor={(item) => item.id}
         refreshing={isLoading}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: 80 + Math.max(insets.bottom, 16) }]}
         ListHeaderComponent={
           <Card style={styles.form}>
             <Text style={styles.formTitle}>{formatMonthLabel(thisMonth)}</Text>

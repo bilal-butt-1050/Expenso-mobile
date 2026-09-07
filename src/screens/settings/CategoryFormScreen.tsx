@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useCategories } from "../../hooks/useCategories";
 import { useDialog } from "../../context/DialogContext";
@@ -16,6 +17,7 @@ import { RootStackParamList } from "../../types/navigation";
 type Props = NativeStackScreenProps<RootStackParamList, "CategoryForm">;
 
 export function CategoryFormScreen({ route, navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const editing = route.params?.category;
   const { addCategory, editCategory } = useCategories();
   const { showToast } = useDialog();
@@ -48,7 +50,14 @@ export function CategoryFormScreen({ route, navigation }: Props) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: Math.max(insets.bottom, 24) + spacing.xxl + 16 },
+      ]}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.preview}>
         <CategoryPill icon={icon} color={color} size={56} />
         <Text style={styles.previewName}>{name || "New category"}</Text>
