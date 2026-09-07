@@ -1,9 +1,10 @@
 import React from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext";
+import { useDialog } from "../../context/DialogContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { Card } from "../../components/Card";
 import { colors } from "../../theme/colors";
@@ -16,12 +17,17 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 export function SettingsScreen() {
   const navigation = useNavigation<Nav>();
   const { user, logout } = useAuth();
+  const { confirm } = useDialog();
 
   const confirmLogout = () => {
-    Alert.alert("Log out?", undefined, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Log Out", style: "destructive", onPress: logout },
-    ]);
+    confirm({
+      title: "Log out?",
+      message: "Are you sure you want to log out of your account?",
+      confirmText: "Log Out",
+      destructive: true,
+      icon: "logout",
+      onConfirm: logout,
+    });
   };
 
   return (

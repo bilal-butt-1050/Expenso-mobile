@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
 import { useIncome } from "../../hooks/useIncome";
+import { useDialog } from "../../context/DialogContext";
 import { getErrorMessage } from "../../api/client";
 import { Card } from "../../components/Card";
 import { TextField } from "../../components/TextField";
@@ -14,6 +15,7 @@ import { currentMonthKey, formatMonthLabel } from "../../utils/date";
 
 export function IncomeScreen() {
   const { data: incomes, isLoading, saveIncome } = useIncome();
+  const { showToast } = useDialog();
   const [salary, setSalary] = useState("");
   const [bonus, setBonus] = useState("");
   const [otherIncome, setOtherIncome] = useState("");
@@ -39,6 +41,7 @@ export function IncomeScreen() {
       setSalary("");
       setBonus("");
       setOtherIncome("");
+      showToast({ message: "Income saved for this month", type: "success" });
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {

@@ -1,9 +1,10 @@
 import React from "react";
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useCategories } from "../../hooks/useCategories";
+import { useDialog } from "../../context/DialogContext";
 import { EmptyState } from "../../components/EmptyState";
 import { CategoryPill } from "../../components/CategoryPill";
 import { colors } from "../../theme/colors";
@@ -17,26 +18,28 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 export function CategoriesScreen() {
   const navigation = useNavigation<Nav>();
   const { data: categories, isLoading, removeCategory } = useCategories();
+  const { confirm, alert, showToast } = useDialog();
 
   const confirmDelete = (id: string, name: string) => {
-    Alert.alert(
-      `Delete "${name}"?`,
-      "Any expenses in this category will move to \"Other\" — nothing gets lost.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await removeCategory(id);
-            } catch (err) {
-              Alert.alert("Couldn't delete category", getErrorMessage(err));
-            }
-          },
-        },
-      ]
-    );
+    confirm({
+      title: `Delete "${name}"?`,
+      message: 'Any expenses in this category will move to "Other" — nothing gets lost.',
+      confirmText: "Delete",
+      destructive: true,
+      icon: "trash-can-outline",
+      onConfirm: async () => {
+        try {
+          await removeCategory(id);
+          showToast({ message: `"${name}" deleted`, type: "success" });
+        } catch (err) {
+          alert({
+            title: "Couldn't delete category",
+            message: getErrorMessage(err),
+            icon: "alert-circle-outline",
+          });
+        }
+      },
+    });
   };
 
   return (

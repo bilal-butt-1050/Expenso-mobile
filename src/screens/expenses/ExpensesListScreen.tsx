@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useExpenses } from "../../hooks/useExpenses";
 import { useAppData } from "../../context/AppDataContext";
+import { useDialog } from "../../context/DialogContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { MonthPicker } from "../../components/MonthPicker";
 import { EmptyState } from "../../components/EmptyState";
@@ -23,16 +24,32 @@ type Filter = ExpenseStatus | "All";
 export function ExpensesListScreen() {
   const navigation = useNavigation<Nav>();
   const { selectedMonth, setSelectedMonth } = useAppData();
+  const { confirm, showToast } = useDialog();
   const [filter, setFilter] = useState<Filter>("All");
   const { data, isLoading, removeExpense, toggleStatus } = useExpenses(
     filter === "All" ? {} : { status: filter }
   );
 
   const confirmDelete = (expense: Expense) => {
-    Alert.alert("Delete expense?", `${expense.description || expense.category.name} · ${formatCurrency(expense.amount)}`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => removeExpense(expense.id) },
-    ]);
+    confirm({
+      title: "Delete expense?",
+      message: `${expense.description || expense.category.name} · ${formatCurrency(expense.amount)}`,
+      confirmText: "Delete",
+      destructive: true,
+      icon: "trash-can-outline",
+      onConfirm: async () => {
+        await removeExpense(expense.id);
+        showToast({ message: "Expense deleted", type: "success" });
+      },
+    });
+  };
+
+  const handleToggleStatus = async (expense: Expense) => {
+    await toggleStatus(expense.id);
+    showToast({
+      message: expense.status === "Paid" ? "Marked as Unpaid" : "Marked as Paid",
+      type: "info",
+    });
   };
 
   return (
@@ -86,7 +103,7 @@ export function ExpensesListScreen() {
             </View>
             <View style={styles.rowEnd}>
               <Text style={styles.amount}>{formatCurrency(item.amount)}</Text>
-              <TouchableOpacity onPress={() => toggleStatus(item.id)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+              <TouchableOpacity onPress={() => handleToggleStatus(item)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                 <StatusBadge status={item.status} />
               </TouchableOpacity>
             </View>

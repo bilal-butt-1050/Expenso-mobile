@@ -17,12 +17,14 @@ import { formatCurrency } from "../../utils/currency";
 import { formatMonthLabel } from "../../utils/date";
 import { Category } from "../../types/models";
 import { useAppData } from "../../context/AppDataContext";
+import { useDialog } from "../../context/DialogContext";
 
 export function BudgetScreen() {
   const { selectedMonth } = useAppData();
   const { data: summary, isLoading } = useDashboard();
   const { data: categories } = useCategories();
   const { setBudget } = useBudgets();
+  const { showToast } = useDialog();
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
   const rows = (categories ?? []).map((category) => {
@@ -82,7 +84,10 @@ export function BudgetScreen() {
           currentAmount={rows.find((r) => r.category.id === editingCategory?.id)?.budget ?? 0}
           onClose={() => setEditingCategory(null)}
           onSave={async (amount) => {
-            if (editingCategory) await setBudget(editingCategory.id, amount);
+            if (editingCategory) {
+              await setBudget(editingCategory.id, amount);
+              showToast({ message: `${editingCategory.name} budget updated`, type: "success" });
+            }
             setEditingCategory(null);
           }}
         />

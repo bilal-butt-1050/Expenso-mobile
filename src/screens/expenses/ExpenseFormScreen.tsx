@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useCategories } from "../../hooks/useCategories";
 import { useExpenses } from "../../hooks/useExpenses";
+import { useDialog } from "../../context/DialogContext";
 import { getErrorMessage } from "../../api/client";
 import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
@@ -23,6 +24,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const editing = route.params?.expense;
   const { data: categories } = useCategories();
   const { addExpense, editExpense, removeExpense } = useExpenses();
+  const { confirm, showToast } = useDialog();
 
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? "");
   const [description, setDescription] = useState(editing?.description ?? "");
@@ -54,8 +56,10 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       };
       if (editing) {
         await editExpense(editing.id, input);
+        showToast({ message: "Expense updated", type: "success" });
       } else {
         await addExpense(input);
+        showToast({ message: "Expense logged", type: "success" });
       }
       navigation.goBack();
     } catch (err) {
@@ -67,17 +71,18 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
   const handleDelete = () => {
     if (!editing) return;
-    Alert.alert("Delete this expense?", undefined, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          await removeExpense(editing.id);
-          navigation.goBack();
-        },
+    confirm({
+      title: "Delete this expense?",
+      message: "This expense will be permanently removed.",
+      confirmText: "Delete",
+      destructive: true,
+      icon: "trash-can-outline",
+      onConfirm: async () => {
+        await removeExpense(editing.id);
+        showToast({ message: "Expense deleted", type: "success" });
+        navigation.goBack();
       },
-    ]);
+    });
   };
 
   return (
