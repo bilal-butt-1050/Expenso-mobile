@@ -59,52 +59,70 @@ export function HomeScreen() {
           <ActivityIndicator style={styles.loader} color={colors.accent} />
         ) : (
           <>
-            {/* 1. Big Total Income This Month Card (Hero Card) */}
-            <View style={styles.incomeCard}>
+            {/* 1. Hero Total Income This Month (Open & Breathable) */}
+            <View style={styles.incomeHero}>
               <View style={styles.incomeBadge}>
                 <View style={styles.incomeDot} />
-                <Text style={styles.cardHeaderLabel}>TOTAL INCOME THIS MONTH</Text>
+                <Text style={styles.incomeBadgeText}>TOTAL INCOME THIS MONTH</Text>
               </View>
               <Text style={styles.incomeAmount} numberOfLines={1} adjustsFontSizeToFit>
                 {formatCurrency(data.monthlyIncome)}
               </Text>
             </View>
 
-            {/* 2. Expenses Breakdown: Total, Paid, Unpaid */}
-            <View style={styles.pillarsGrid}>
-              <View style={styles.pillarTile}>
-                <View style={styles.pillarHeaderRow}>
-                  <View style={[styles.pillarDot, { backgroundColor: colors.textSecondary }]} />
-                  <Text style={styles.pillarLabel} numberOfLines={1}>Total</Text>
+            {/* 2. Expenses Section Header */}
+            <View style={styles.sectionHeaderRow}>
+              <View style={styles.sectionHeaderLeft}>
+                <MaterialCommunityIcons name="arrow-top-right" size={18} color={colors.danger} />
+                <Text style={styles.sectionTitle}>Expenses</Text>
+              </View>
+              <Text style={styles.sectionSubtitle}>Breakdown</Text>
+            </View>
+
+            {/* Unified 3-Segment Expenses Precision Panel */}
+            <View style={styles.expensesSegmentedBar}>
+              {/* Total Segment */}
+              <View style={styles.expenseSegment}>
+                <View style={styles.segmentHeaderRow}>
+                  <View style={[styles.segmentDot, { backgroundColor: colors.textSecondary }]} />
+                  <Text style={styles.segmentLabel}>TOTAL</Text>
                 </View>
-                <Text style={[styles.pillarValue, { color: colors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
+                <Text style={[styles.segmentValue, { color: colors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
                   {formatCurrency(data.totalExpenses)}
                 </Text>
               </View>
 
-              <View style={styles.pillarTile}>
-                <View style={styles.pillarHeaderRow}>
-                  <View style={[styles.pillarDot, { backgroundColor: colors.accent }]} />
-                  <Text style={styles.pillarLabel} numberOfLines={1}>Paid</Text>
+              {/* Vertical Hairline Divider */}
+              <View style={styles.segmentDivider} />
+
+              {/* Paid Segment */}
+              <View style={styles.expenseSegment}>
+                <View style={styles.segmentHeaderRow}>
+                  <View style={[styles.segmentDot, { backgroundColor: colors.accent }]} />
+                  <Text style={styles.segmentLabel}>PAID</Text>
                 </View>
-                <Text style={[styles.pillarValue, { color: colors.accent }]} numberOfLines={1} adjustsFontSizeToFit>
+                <Text style={[styles.segmentValue, { color: colors.accent }]} numberOfLines={1} adjustsFontSizeToFit>
                   {formatCurrency(data.paidExpenses)}
                 </Text>
               </View>
 
-              <View style={styles.pillarTile}>
-                <View style={styles.pillarHeaderRow}>
+              {/* Vertical Hairline Divider */}
+              <View style={styles.segmentDivider} />
+
+              {/* Unpaid Segment */}
+              <View style={styles.expenseSegment}>
+                <View style={styles.segmentHeaderRow}>
                   <View
                     style={[
-                      styles.pillarDot,
+                      styles.segmentDot,
                       { backgroundColor: data.unpaidExpenses > 0 ? colors.warning : colors.accent },
                     ]}
                   />
-                  <Text style={styles.pillarLabel} numberOfLines={1}>Unpaid</Text>
+                  <Text style={styles.segmentLabel}>UNPAID</Text>
                 </View>
                 <Text
                   style={[
-                    styles.pillarValue,
+                    styles.segmentValue,
                     { color: data.unpaidExpenses > 0 ? colors.warning : colors.accent },
                   ]}
                   numberOfLines={1}
@@ -115,10 +133,15 @@ export function HomeScreen() {
               </View>
             </View>
 
-            {/* 3. Remaining Balance Card */}
-            <View style={styles.balanceCard}>
-              <View style={styles.rowBetween}>
-                <Text style={[styles.cardHeaderLabel, { flex: 1, marginRight: spacing.sm }]}>
+            {/* 3. Executive Remaining Balance Card */}
+            <View
+              style={[
+                styles.balanceCard,
+                data.remainingBalance >= 0 ? styles.balanceCardSurplus : styles.balanceCardDeficit,
+              ]}
+            >
+              <View style={styles.balanceHeaderRow}>
+                <Text style={styles.balanceHeaderLabel}>
                   Remaining Balance After Clearing Dues
                 </Text>
                 <View style={styles.savingsBadge}>
@@ -153,68 +176,14 @@ export function HomeScreen() {
               </View>
             </View>
 
-            {/* 4. Smart In-Month Insights Card */}
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>In-Month Insights</Text>
-
-              {/* Daily Safe-to-Spend Widget */}
-              <View style={styles.insightBlock}>
-                <View style={styles.insightIconWrap}>
-                  <MaterialCommunityIcons name="wallet-outline" size={22} color={colors.accent} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <View style={styles.dailyRow}>
-                    <Text style={styles.dailyAmount}>
-                      {data.daysRemaining && data.daysRemaining > 0
-                        ? formatCurrency(data.dailyAllowance ?? 0)
-                        : "—"}
-                    </Text>
-                    <Text style={styles.dailyUnit}>
-                      {data.daysRemaining && data.daysRemaining > 0 ? " / day" : "month ended"}
-                    </Text>
-                  </View>
-                  <Text style={styles.insightDesc}>
-                    {data.daysRemaining && data.daysRemaining > 0
-                      ? `Safe daily spending for next ${data.daysRemaining} days`
-                      : "All days in this billing period have elapsed"}
-                  </Text>
-                </View>
+            {/* 4. Spending by Category (Centered Donut Ring & Full-Width Legend) */}
+            <View style={styles.sectionHeaderRow}>
+              <View style={styles.sectionHeaderLeft}>
+                <MaterialCommunityIcons name="chart-donut" size={18} color={colors.accent} />
+                <Text style={styles.sectionTitle}>Spending by Category</Text>
               </View>
-
-              {/* Needs vs Wants Breakdown */}
-              {data.totalExpenses > 0 && (
-                <View style={styles.needsWantsContainer}>
-                  <View style={styles.rowBetween}>
-                    <View style={styles.legendRow}>
-                      <View style={[styles.legendDot, { backgroundColor: colors.accent }]} />
-                      <Text style={styles.needsWantsLabel}>Needs {data.needsPercentage ?? 0}%</Text>
-                    </View>
-                    <View style={styles.legendRow}>
-                      <View style={[styles.legendDot, { backgroundColor: "#7C4DFF" }]} />
-                      <Text style={styles.needsWantsLabel}>Wants {data.wantsPercentage ?? 0}%</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.barTrack}>
-                    <View
-                      style={[
-                        styles.barSegmentNeeds,
-                        { width: `${Math.max(4, Math.min(96, data.needsPercentage ?? 0))}%` },
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.barSegmentWants,
-                        { width: `${Math.max(4, Math.min(96, data.wantsPercentage ?? 0))}%` },
-                      ]}
-                    />
-                  </View>
-                </View>
-              )}
             </View>
-
-            {/* 5. Spending by Category (Centered Donut Ring & Full-Width Legend) */}
-            <View style={styles.card}>
+            <View style={styles.analyticsCard}>
               <PieChart
                 data={data.categoryBreakdown.map((c) => ({
                   label: c.name,
@@ -224,44 +193,62 @@ export function HomeScreen() {
               />
             </View>
 
-            {/* 6. Monthly Trend Bar Chart */}
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Last 12 months</Text>
-              <View style={{ marginTop: spacing.md, alignItems: "center" }}>
+            {/* 5. Monthly Trend Bar Chart */}
+            <View style={styles.sectionHeaderRow}>
+              <View style={styles.sectionHeaderLeft}>
+                <MaterialCommunityIcons name="chart-box-outline" size={18} color={colors.accent} />
+                <Text style={styles.sectionTitle}>Last 12 Months</Text>
+              </View>
+            </View>
+            <View style={styles.analyticsCard}>
+              <View style={{ alignItems: "center", paddingTop: spacing.xs }}>
                 <BarChart data={data.trend.map((t) => ({ month: t.month, value: t.totalExpenses }))} />
               </View>
             </View>
 
-            {/* 7. Budget vs Actual Card with Mini Progress Bars */}
+            {/* 6. Budget vs Actual Card with Mini Progress Bars */}
             {data.budgetVsActual.length > 0 && (
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Budget vs actual</Text>
-                {data.budgetVsActual.slice(0, 4).map((b) => {
-                  const progress = Math.min(100, (b.actual / Math.max(1, b.budget)) * 100);
-                  const isOver = b.actual > b.budget;
-                  return (
-                    <View key={b.categoryId} style={styles.budgetRow}>
-                      <View style={styles.rowBetween}>
-                        <Text style={styles.budgetLabel}>{b.name}</Text>
-                        <Text style={[styles.budgetStatus, isOver && { color: colors.danger }]}>
-                          {formatCurrency(b.actual)} / {formatCurrency(b.budget)}
-                        </Text>
+              <>
+                <View style={styles.sectionHeaderRow}>
+                  <View style={styles.sectionHeaderLeft}>
+                    <MaterialCommunityIcons name="bullseye-arrow" size={18} color={colors.accent} />
+                    <Text style={styles.sectionTitle}>Budget vs Actual</Text>
+                  </View>
+                </View>
+                <View style={styles.analyticsCard}>
+                  {data.budgetVsActual.slice(0, 4).map((b, idx) => {
+                    const progress = Math.min(100, (b.actual / Math.max(1, b.budget)) * 100);
+                    const isOver = b.actual > b.budget;
+                    return (
+                      <View
+                        key={b.categoryId}
+                        style={[
+                          styles.budgetRow,
+                          idx === 0 && { borderTopWidth: 0, marginTop: 0, paddingTop: 0 },
+                        ]}
+                      >
+                        <View style={styles.rowBetween}>
+                          <Text style={styles.budgetLabel}>{b.name}</Text>
+                          <Text style={[styles.budgetStatus, isOver && { color: colors.danger }]}>
+                            {formatCurrency(b.actual)} / {formatCurrency(b.budget)}
+                          </Text>
+                        </View>
+                        <View style={styles.budgetProgressTrack}>
+                          <View
+                            style={[
+                              styles.budgetProgressFill,
+                              {
+                                width: `${progress}%`,
+                                backgroundColor: isOver ? colors.danger : colors.accent,
+                              },
+                            ]}
+                          />
+                        </View>
                       </View>
-                      <View style={styles.budgetProgressTrack}>
-                        <View
-                          style={[
-                            styles.budgetProgressFill,
-                            {
-                              width: `${progress}%`,
-                              backgroundColor: isOver ? colors.danger : colors.accent,
-                            },
-                          ]}
-                        />
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
+                    );
+                  })}
+                </View>
+              </>
             )}
           </>
         )}
@@ -303,23 +290,20 @@ const styles = StyleSheet.create({
   },
   loader: { marginTop: spacing.xxl },
 
-  // 1. Big Income Card (Hero)
-  incomeCard: {
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: spacing.lg + 4,
-    paddingHorizontal: spacing.lg,
+  // 1. Hero Total Income This Month (Open & Minimalist)
+  incomeHero: {
     alignItems: "center",
     justifyContent: "center",
+    paddingVertical: spacing.md,
     gap: spacing.xs,
   },
   incomeBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
     paddingHorizontal: spacing.md,
     paddingVertical: 4,
     borderRadius: radius.pill,
@@ -331,81 +315,135 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: colors.accent,
   },
-  cardHeaderLabel: {
+  incomeBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.7,
+  },
+  incomeAmount: {
+    fontSize: 38,
+    fontWeight: "800",
+    color: colors.textPrimary,
+    letterSpacing: -0.6,
+    marginVertical: 2,
+    textAlign: "center",
+  },
+
+  // Section Headers
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: spacing.xs,
+    marginBottom: -spacing.xs + 2,
+  },
+  sectionHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  sectionTitle: {
+    ...typography.subtitle,
+    fontSize: 17,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    letterSpacing: -0.2,
+  },
+  sectionSubtitle: {
+    ...typography.caption,
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+
+  // 2. Expenses Unified Precision Segmented Panel
+  expensesSegmentedBar: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.md + 2,
+    paddingHorizontal: spacing.xs,
+  },
+  expenseSegment: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.xs,
+  },
+  segmentHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 3,
+  },
+  segmentDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  segmentLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    color: colors.textSecondary,
+    letterSpacing: 0.5,
+  },
+  segmentValue: {
+    fontSize: 17,
+    fontWeight: "800",
+    marginTop: 2,
+    textAlign: "center",
+  },
+  segmentDivider: {
+    width: 1,
+    height: "68%",
+    alignSelf: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
+
+  // 3. Executive Remaining Balance Card
+  balanceCard: {
+    borderRadius: 18,
+    padding: spacing.lg,
+    gap: spacing.xs,
+  },
+  balanceCardSurplus: {
+    backgroundColor: "#0D1812",
+    borderWidth: 1,
+    borderColor: "rgba(0, 230, 118, 0.28)",
+  },
+  balanceCardDeficit: {
+    backgroundColor: "#1A0E0E",
+    borderWidth: 1,
+    borderColor: "rgba(255, 82, 82, 0.3)",
+  },
+  balanceHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  balanceHeaderLabel: {
     ...typography.small,
     fontSize: 12,
     fontWeight: "700",
     color: colors.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 0.6,
-  },
-  incomeAmount: {
-    fontSize: 36,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    letterSpacing: -0.5,
-    marginVertical: 2,
-    textAlign: "center",
-  },
-
-  // 2. Pillars Grid
-  pillarsGrid: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    width: "100%",
-  },
-  pillarTile: {
     flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    paddingVertical: spacing.md + 3,
-    paddingHorizontal: spacing.xs + 2,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  pillarHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    marginBottom: 3,
-  },
-  pillarDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  pillarLabel: {
-    ...typography.small,
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    color: colors.textSecondary,
-    letterSpacing: 0.4,
-    textAlign: "center",
-  },
-  pillarValue: {
-    fontSize: 17,
-    fontWeight: "800",
-    marginTop: 2,
-    textAlign: "center",
-  },
-
-  // 3. Remaining Balance Card
-  balanceCard: {
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    gap: spacing.xs,
+    marginRight: spacing.sm,
   },
   balanceAmount: {
-    fontSize: 36,
+    fontSize: 34,
     fontWeight: "800",
     letterSpacing: -0.5,
-    marginVertical: 2,
+    marginVertical: 4,
   },
   savingsBadge: {
     backgroundColor: "rgba(255, 255, 255, 0.07)",
@@ -432,96 +470,13 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
 
-  // General Card
-  card: {
+  // Analytics Cards
+  analyticsCard: {
     backgroundColor: colors.surface,
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.lg,
-  },
-  cardTitle: {
-    ...typography.subtitle,
-    fontSize: 18,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-
-  // In-Month Insights Card
-  insightBlock: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    backgroundColor: colors.surfaceRaised,
-    padding: spacing.md,
-    borderRadius: 16,
-    marginTop: spacing.md,
-  },
-  insightIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: "rgba(0, 230, 118, 0.12)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dailyRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 4,
-  },
-  dailyAmount: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#FFFFFF",
-  },
-  dailyUnit: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.textSecondary,
-  },
-  insightDesc: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-
-  // Needs vs Wants Progress Bar
-  needsWantsContainer: {
-    marginTop: spacing.md,
-    gap: spacing.xs + 2,
-  },
-  legendRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  legendDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  needsWantsLabel: {
-    ...typography.small,
-    color: colors.textSecondary,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  barTrack: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.surfaceRaised,
-    flexDirection: "row",
-    overflow: "hidden",
-    marginTop: 4,
-  },
-  barSegmentNeeds: {
-    height: "100%",
-    backgroundColor: colors.accent,
-  },
-  barSegmentWants: {
-    height: "100%",
-    backgroundColor: "#7C4DFF",
   },
 
   rowBetween: {
