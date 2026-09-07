@@ -76,7 +76,6 @@ export function HomeScreen() {
                 <MaterialCommunityIcons name="arrow-top-right" size={18} color={colors.danger} />
                 <Text style={styles.sectionTitle}>Expenses</Text>
               </View>
-              <Text style={styles.sectionSubtitle}>Breakdown</Text>
             </View>
 
             {/* Unified 3-Segment Expenses Precision Panel */}
@@ -350,14 +349,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.textPrimary,
     letterSpacing: -0.2,
-  },
-  sectionSubtitle: {
-    ...typography.caption,
-    fontSize: 11,
-    fontWeight: "700",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
   },
 
   // 2. Expenses Unified Precision Segmented Panel
