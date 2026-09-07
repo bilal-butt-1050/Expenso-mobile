@@ -1,5 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
 import { radius, spacing } from "../theme/spacing";
 import { formatMonthLabel, isCurrentOrFutureMonth, shiftMonth } from "../utils/date";
@@ -9,52 +10,75 @@ interface Props {
   onChange: (month: string) => void;
 }
 
-// Month navigation selector: allows stepping month-by-month,
-// preventing navigation beyond the current month.
+// Sleek minimal Month Picker capsule
 export function MonthPicker({ month, onChange }: Props) {
   const isCurrentMonth = isCurrentOrFutureMonth(month);
 
   return (
-    <View style={styles.row}>
+    <View style={styles.container}>
       <TouchableOpacity
-        style={styles.arrow}
+        style={styles.arrowBtn}
         onPress={() => onChange(shiftMonth(month, -1))}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        activeOpacity={0.7}
       >
-        <Text style={styles.arrowText}>‹</Text>
+        <MaterialCommunityIcons name="chevron-left" size={22} color={colors.textPrimary} />
       </TouchableOpacity>
 
-      <Text style={styles.label}>{formatMonthLabel(month)}</Text>
+      <View style={styles.centerBadge}>
+        <MaterialCommunityIcons name="calendar-month-outline" size={16} color={colors.accent} />
+        <Text style={styles.label}>{formatMonthLabel(month)}</Text>
+      </View>
 
       <TouchableOpacity
-        style={[styles.arrow, isCurrentMonth && styles.arrowDisabled]}
+        style={[styles.arrowBtn, isCurrentMonth && styles.arrowDisabled]}
         onPress={() => !isCurrentMonth && onChange(shiftMonth(month, 1))}
         disabled={isCurrentMonth}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        activeOpacity={0.7}
       >
-        <Text style={[styles.arrowText, isCurrentMonth && styles.arrowTextDisabled]}>›</Text>
+        <MaterialCommunityIcons
+          name="chevron-right"
+          size={22}
+          color={isCurrentMonth ? colors.textMuted : colors.textPrimary}
+        />
       </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
+  container: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.lg,
-  },
-  label: { fontSize: 17, fontWeight: "700", color: colors.textPrimary, minWidth: 110, textAlign: "center" },
-  arrow: {
-    width: 36,
-    height: 36,
+    justifyContent: "space-between",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+  },
+  centerBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs + 2,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  arrowBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: colors.surfaceRaised,
     alignItems: "center",
     justifyContent: "center",
   },
-  arrowDisabled: { opacity: 0.3 },
-  arrowText: { fontSize: 20, color: colors.accent, fontWeight: "700", marginTop: -2 },
-  arrowTextDisabled: { color: colors.textMuted },
+  arrowDisabled: {
+    opacity: 0.25,
+  },
 });
