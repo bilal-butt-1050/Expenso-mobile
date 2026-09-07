@@ -39,7 +39,7 @@ export function BudgetScreen() {
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <Text style={typography.title}>Budget</Text>
+        <Text style={styles.title}>Budget</Text>
         <Text style={styles.subtitle}>{formatMonthLabel(selectedMonth)}</Text>
       </View>
 
@@ -131,8 +131,12 @@ function BudgetEditSheet({
 }
 
 const styles = StyleSheet.create({
-  header: { marginBottom: spacing.md },
-  subtitle: { ...typography.caption, marginTop: 2 },
+  header: {
+    paddingTop: spacing.lg + 4,
+    marginBottom: spacing.md,
+  },
+  title: { ...typography.title, fontSize: 24, letterSpacing: -0.3 },
+  subtitle: { ...typography.caption, marginTop: 4 },
   row: { marginBottom: spacing.sm, padding: spacing.md },
   rowTop: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   rowLabel: { ...typography.body, fontWeight: "600", flex: 1 },

@@ -26,7 +26,9 @@ export function SettingsScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={typography.title}>Settings</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>Settings</Text>
+      </View>
 
       <Card style={styles.profileCard}>
         <View style={styles.avatar}>
@@ -86,7 +88,12 @@ function SettingsRow({
 }
 
 const styles = StyleSheet.create({
-  profileCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.lg },
+  header: {
+    paddingTop: spacing.lg + 4,
+    marginBottom: spacing.xs,
+  },
+  title: { ...typography.title, fontSize: 24, letterSpacing: -0.3 },
+  profileCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.md },
   avatar: {
     width: 48,
     height: 48,

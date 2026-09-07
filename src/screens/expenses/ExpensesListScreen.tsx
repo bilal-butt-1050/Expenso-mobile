@@ -38,6 +38,9 @@ export function ExpensesListScreen() {
   return (
     <ScreenContainer style={styles.noPad}>
       <View style={styles.top}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Expenses</Text>
+        </View>
         <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
         <View style={styles.filterRow}>
           {(["All", "Unpaid", "Paid"] as Filter[]).map((f) => (
@@ -104,7 +107,16 @@ export function ExpensesListScreen() {
 
 const styles = StyleSheet.create({
   noPad: { paddingHorizontal: 0 },
-  top: { paddingHorizontal: spacing.lg, gap: spacing.md, paddingBottom: spacing.sm },
+  top: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg + 4,
+    gap: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  header: {
+    marginBottom: spacing.xs,
+  },
+  title: { ...typography.title, fontSize: 24, letterSpacing: -0.3 },
   filterRow: { flexDirection: "row", gap: spacing.sm, justifyContent: "center" },
   filterChip: {
     paddingHorizontal: spacing.md,

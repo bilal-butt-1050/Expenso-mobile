@@ -143,10 +143,20 @@ function MetricTile({
 
 const styles = StyleSheet.create({
   noPad: { paddingHorizontal: 0 },
-  scroll: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.md },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.sm },
-  greeting: { ...typography.title },
-  subGreeting: { ...typography.caption, marginTop: 2 },
+  scroll: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg + 4,
+    paddingBottom: spacing.xxl + 24,
+    gap: spacing.md,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.xs,
+  },
+  greeting: { ...typography.title, fontSize: 24, letterSpacing: -0.3 },
+  subGreeting: { ...typography.caption, marginTop: 4 },
   loader: { marginTop: spacing.xxl },
   metricsGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
   tile: { width: "48%", padding: spacing.md },
