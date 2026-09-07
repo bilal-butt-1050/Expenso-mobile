@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { ActivityIndicator, View, StyleSheet } from "react-native";
 import { NavigationContainer, DarkTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import * as SplashScreen from "expo-splash-screen";
 import { useAuth } from "../context/AuthContext";
 import { colors } from "../theme/colors";
 import { RootStackParamList } from "../types/navigation";
@@ -11,6 +12,8 @@ import { ExpenseFormScreen } from "../screens/expenses/ExpenseFormScreen";
 import { CategoriesScreen } from "../screens/settings/CategoriesScreen";
 import { CategoryFormScreen } from "../screens/settings/CategoryFormScreen";
 import { IncomeScreen } from "../screens/settings/IncomeScreen";
+
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -28,6 +31,12 @@ const navigationTheme = {
 
 export function RootNavigator() {
   const { user, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [isLoading]);
 
   if (isLoading) {
     return (
