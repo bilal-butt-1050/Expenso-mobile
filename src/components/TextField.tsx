@@ -24,17 +24,17 @@ export function TextField({ label, error, style, ...inputProps }: Props) {
 
 const styles = StyleSheet.create({
   wrapper: { marginBottom: spacing.md },
-  label: { fontSize: 13, fontWeight: "600", color: colors.textSecondary, marginBottom: spacing.xs },
+  label: { fontSize: 15, fontWeight: "600", color: colors.textSecondary, marginBottom: spacing.xs },
   input: {
-    height: 50,
+    height: 52,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
     color: colors.textPrimary,
-    fontSize: 15,
+    fontSize: 16,
   },
   inputError: { borderColor: colors.danger },
-  error: { color: colors.danger, fontSize: 12, marginTop: spacing.xs },
+  error: { color: colors.danger, fontSize: 13, marginTop: spacing.xs },
 });

@@ -7,9 +7,9 @@ export const colors = {
   surfaceRaised: "#1F1F1F",
   border: "#2A2A2A",
 
-  textPrimary: "#F5F5F5",
-  textSecondary: "#9A9A9A",
-  textMuted: "#6B6B6B",
+  textPrimary: "#FFFFFF",
+  textSecondary: "#B5B5B5",
+  textMuted: "#808080",
 
   accent: "#00E676", // neon green — primary actions, positive values
   accentMuted: "#0A5C33",

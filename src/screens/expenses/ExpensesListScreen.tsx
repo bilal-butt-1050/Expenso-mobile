@@ -120,12 +120,12 @@ const styles = StyleSheet.create({
   filterRow: { flexDirection: "row", gap: spacing.sm, justifyContent: "center" },
   filterChip: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.xs + 2,
     borderRadius: 999,
     backgroundColor: colors.surfaceRaised,
   },
   filterChipActive: { backgroundColor: colors.accentMuted },
-  filterText: { color: colors.textSecondary, fontSize: 12, fontWeight: "600" },
+  filterText: { color: colors.textSecondary, fontSize: 14, fontWeight: "600" },
   filterTextActive: { color: colors.accent },
   list: { paddingHorizontal: spacing.lg, paddingBottom: 100, flexGrow: 1 },
   row: {

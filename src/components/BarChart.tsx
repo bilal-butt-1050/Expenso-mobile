@@ -54,5 +54,5 @@ export function BarChart({ data, height = 140 }: Props) {
 
 const styles = StyleSheet.create({
   labels: { flexDirection: "row", marginTop: spacing.xs },
-  label: { width: 28, fontSize: 9, color: colors.textMuted, textAlign: "center" },
+  label: { width: 28, fontSize: 11, color: colors.textSecondary, fontWeight: "600", textAlign: "center" },
 });
