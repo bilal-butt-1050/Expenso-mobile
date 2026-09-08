@@ -28,6 +28,18 @@ import { RootStackParamList } from "../../types/navigation";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ExpenseForm">;
 
+interface BudgetAlertInfo {
+  categoryName: string;
+  categoryIcon: string;
+  categoryColor: string;
+  budget: number;
+  actualBefore: number;
+  actualAfter: number;
+  isOver: boolean;
+  overAmount: number;
+  pct: number;
+}
+
 const PAYMENT_METHODS: PaymentMethod[] = ["Cash", "Bank", "Card", "Easypaisa", "JazzCash"];
 const NEED_WANT: NeedWant[] = ["Need", "Want"];
 const STATUSES: ExpenseStatus[] = ["Paid", "Unpaid"];
@@ -52,6 +64,9 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   // Category Dropdown Sheet State
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Executive Budget Alert Modal State
+  const [budgetAlert, setBudgetAlert] = useState<BudgetAlertInfo | null>(null);
 
   const selectedCategory = (categories ?? []).find((c) => c.id === categoryId);
   const filteredCategories = (categories ?? []).filter((c) =>
@@ -88,26 +103,41 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         await addExpense(input);
       }
 
-      // Contextual Budget Alerts
+      // If budget threshold crossed, pause and show prominent executive modal!
       if (budgetItem && budgetItem.budget > 0 && newActual > budgetItem.budget) {
-        showToast({
-          message: `⚠️ Over budget: ${budgetItem.name} exceeded by ${formatCurrency(newActual - budgetItem.budget)}`,
-          type: "error",
+        setBudgetAlert({
+          categoryName: budgetItem.name,
+          categoryIcon: budgetItem.icon,
+          categoryColor: budgetItem.color,
+          budget: budgetItem.budget,
+          actualBefore: budgetItem.actual,
+          actualAfter: newActual,
+          isOver: true,
+          overAmount: newActual - budgetItem.budget,
+          pct: (newActual / budgetItem.budget) * 100,
         });
+        return;
       } else if (
         budgetItem &&
         budgetItem.budget > 0 &&
         newActual >= budgetItem.budget * 0.8 &&
         (budgetItem.actual ?? 0) < budgetItem.budget * 0.8
       ) {
-        showToast({
-          message: `Notice: ${budgetItem.name} reached ${((newActual / budgetItem.budget) * 100).toFixed(0)}% of monthly budget`,
-          type: "info",
+        setBudgetAlert({
+          categoryName: budgetItem.name,
+          categoryIcon: budgetItem.icon,
+          categoryColor: budgetItem.color,
+          budget: budgetItem.budget,
+          actualBefore: budgetItem.actual,
+          actualAfter: newActual,
+          isOver: false,
+          overAmount: 0,
+          pct: (newActual / budgetItem.budget) * 100,
         });
-      } else {
-        showToast({ message: editing ? "Expense updated" : "Expense logged", type: "success" });
+        return;
       }
 
+      showToast({ message: editing ? "Expense updated" : "Expense logged", type: "success" });
       navigation.goBack();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -285,6 +315,154 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
             </ScrollView>
           </TouchableOpacity>
         </TouchableOpacity>
+      </Modal>
+
+      {/* Prominent Executive Real-Time Budget Alert Modal */}
+      <Modal
+        visible={Boolean(budgetAlert)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setBudgetAlert(null);
+          navigation.goBack();
+        }}
+      >
+        <View style={styles.alertModalBackdrop}>
+          <View
+            style={[
+              styles.alertModalCard,
+              budgetAlert?.isOver ? styles.alertCardOver : styles.alertCardWarning,
+            ]}
+          >
+            {/* Pulsing Icon Badge */}
+            <View
+              style={[
+                styles.alertIconBadge,
+                budgetAlert?.isOver ? styles.alertIconBadgeOver : styles.alertIconBadgeWarning,
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={budgetAlert?.isOver ? "alert-octagon-outline" : "bell-ring-outline"}
+                size={34}
+                color={budgetAlert?.isOver ? colors.danger : colors.warning}
+              />
+            </View>
+
+            {/* Alert Title & Descriptive Subtitle */}
+            <Text style={styles.alertHeaderTitle}>
+              {budgetAlert?.isOver ? "Budget Limit Exceeded!" : "Budget Threshold Alert"}
+            </Text>
+            <Text style={styles.alertHeaderDesc}>
+              {budgetAlert?.isOver
+                ? "This expense pushes your spending over your allocated monthly budget."
+                : "You have consumed 80%+ of your planned monthly budget for this category."}
+            </Text>
+
+            {/* Category & Spending Breakdown Console */}
+            {budgetAlert && (
+              <View style={styles.alertConsole}>
+                {/* Category Header Row */}
+                <View style={styles.alertConsoleTop}>
+                  <View style={styles.alertCategoryInfo}>
+                    <CategoryPill
+                      icon={budgetAlert.categoryIcon}
+                      color={budgetAlert.categoryColor}
+                      size={32}
+                    />
+                    <Text style={styles.alertCategoryName}>{budgetAlert.categoryName}</Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.alertStatusPill,
+                      budgetAlert.isOver ? styles.alertStatusPillOver : styles.alertStatusPillWarning,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.alertStatusPillText,
+                        budgetAlert.isOver ? styles.alertStatusTextOver : styles.alertStatusTextWarning,
+                      ]}
+                    >
+                      {budgetAlert.isOver ? "OVER BUDGET" : `${budgetAlert.pct.toFixed(0)}% SPENT`}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* 6px Live Progress Bar */}
+                <View style={styles.alertProgressTrackBg}>
+                  <View
+                    style={[
+                      styles.alertProgressTrackFill,
+                      {
+                        width: `${Math.min(100, budgetAlert.pct)}%`,
+                        backgroundColor: budgetAlert.isOver ? colors.danger : colors.warning,
+                      },
+                    ]}
+                  />
+                </View>
+
+                {/* Figures Comparison Row */}
+                <View style={styles.alertFiguresRow}>
+                  <View style={styles.alertFigureCol}>
+                    <Text style={styles.alertFigureLabel}>TOTAL SPENT</Text>
+                    <Text
+                      style={[
+                        styles.alertFigureValue,
+                        { color: budgetAlert.isOver ? colors.danger : colors.warning },
+                      ]}
+                    >
+                      {formatCurrency(budgetAlert.actualAfter)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.alertFigureDivider} />
+
+                  <View style={styles.alertFigureCol}>
+                    <Text style={styles.alertFigureLabel}>MONTHLY BUDGET</Text>
+                    <Text style={styles.alertFigureValue}>{formatCurrency(budgetAlert.budget)}</Text>
+                  </View>
+
+                  {budgetAlert.isOver && (
+                    <>
+                      <View style={styles.alertFigureDivider} />
+                      <View style={styles.alertFigureCol}>
+                        <Text style={styles.alertFigureLabel}>OVER BY</Text>
+                        <Text style={[styles.alertFigureValue, { color: colors.danger }]}>
+                          +{formatCurrency(budgetAlert.overAmount)}
+                        </Text>
+                      </View>
+                    </>
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* Interactive Actions */}
+            <View style={styles.alertActions}>
+              <Button
+                label="View Budget"
+                variant="secondary"
+                onPress={() => {
+                  setBudgetAlert(null);
+                  navigation.navigate("Tabs", { screen: "Budget" } as any);
+                }}
+                style={{ flex: 1 }}
+              />
+              <Button
+                label="Got It, Continue"
+                onPress={() => {
+                  setBudgetAlert(null);
+                  showToast({
+                    message: editing ? "Expense updated" : "Expense logged",
+                    type: "success",
+                  });
+                  navigation.goBack();
+                }}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </View>
+        </View>
       </Modal>
     </>
   );
@@ -467,4 +645,153 @@ const styles = StyleSheet.create({
   segmentText: { ...typography.caption },
   segmentTextActive: { color: colors.accent, fontWeight: "700" },
   error: { color: colors.danger, marginBottom: spacing.md, fontSize: 13 },
+
+  // Executive Budget Alert Modal Styles
+  alertModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.78)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: spacing.lg,
+  },
+  alertModalCard: {
+    width: "100%",
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    padding: spacing.lg + 2,
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  alertCardOver: {
+    borderColor: "rgba(255, 82, 82, 0.45)",
+  },
+  alertCardWarning: {
+    borderColor: "rgba(255, 179, 0, 0.45)",
+  },
+  alertIconBadge: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  alertIconBadgeOver: {
+    backgroundColor: "rgba(255, 82, 82, 0.15)",
+  },
+  alertIconBadgeWarning: {
+    backgroundColor: "rgba(255, 179, 0, 0.15)",
+  },
+  alertHeaderTitle: {
+    ...typography.title,
+    fontSize: 20,
+    fontWeight: "800",
+    color: colors.textPrimary,
+    textAlign: "center",
+  },
+  alertHeaderDesc: {
+    ...typography.caption,
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 18,
+    paddingHorizontal: spacing.sm,
+  },
+
+  // Alert Console
+  alertConsole: {
+    width: "100%",
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    marginTop: spacing.xs,
+    gap: spacing.sm,
+  },
+  alertConsoleTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  alertCategoryInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    flex: 1,
+  },
+  alertCategoryName: {
+    ...typography.body,
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  alertStatusPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+  },
+  alertStatusPillOver: {
+    backgroundColor: "rgba(255, 82, 82, 0.15)",
+  },
+  alertStatusPillWarning: {
+    backgroundColor: "rgba(255, 179, 0, 0.15)",
+  },
+  alertStatusPillText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  alertStatusTextOver: {
+    color: colors.danger,
+  },
+  alertStatusTextWarning: {
+    color: colors.warning,
+  },
+
+  alertProgressTrackBg: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    overflow: "hidden",
+  },
+  alertProgressTrackFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+
+  alertFiguresRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    paddingTop: 4,
+  },
+  alertFigureCol: {
+    alignItems: "center",
+  },
+  alertFigureLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.textSecondary,
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  alertFigureValue: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.textPrimary,
+  },
+  alertFigureDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
+
+  alertActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    width: "100%",
+    marginTop: spacing.sm,
+  },
 });
