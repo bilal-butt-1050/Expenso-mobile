@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useIncome } from "../../hooks/useIncome";
@@ -178,19 +178,50 @@ export function IncomeScreen() {
           ) : null
         }
         renderItem={({ item }) => (
-          <Card style={styles.historyRow}>
-            <View>
-              <Text style={styles.historyMonth}>{formatMonthLabel(item.month)}</Text>
-              <Text style={styles.historyBreakdown}>
-                Salary: {formatCurrency(item.salary)}
-                {item.bonus > 0 ? ` · Bonus: ${formatCurrency(item.bonus)}` : ""}
-                {item.otherIncome > 0 ? ` · Other: ${formatCurrency(item.otherIncome)}` : ""}
-              </Text>
-            </View>
-            <Text style={styles.historyTotal}>
-              {formatCurrency(item.salary + item.bonus + item.otherIncome)}
-            </Text>
-          </Card>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setActiveMonth(item.month)}
+            style={{ marginBottom: spacing.xs }}
+          >
+            <Card style={styles.historyCard}>
+              <View style={styles.historyCardTop}>
+                <View style={styles.historyMonthRow}>
+                  <MaterialCommunityIcons name="calendar-month-outline" size={16} color={colors.accent} />
+                  <Text style={styles.historyMonth}>{formatMonthLabel(item.month)}</Text>
+                </View>
+                <Text style={styles.historyTotal} numberOfLines={1}>
+                  {formatCurrency(item.salary + item.bonus + item.otherIncome)}
+                </Text>
+              </View>
+
+              <View style={styles.historyDivider} />
+
+              <View style={styles.historyPillsRow}>
+                <View style={styles.historyPill}>
+                  <Text style={styles.historyPillLabel}>Salary</Text>
+                  <Text style={styles.historyPillVal} numberOfLines={1}>
+                    {formatCurrency(item.salary)}
+                  </Text>
+                </View>
+                {item.bonus > 0 && (
+                  <View style={styles.historyPill}>
+                    <Text style={styles.historyPillLabel}>Bonus</Text>
+                    <Text style={styles.historyPillVal} numberOfLines={1}>
+                      {formatCurrency(item.bonus)}
+                    </Text>
+                  </View>
+                )}
+                {item.otherIncome > 0 && (
+                  <View style={styles.historyPill}>
+                    <Text style={styles.historyPillLabel}>Other</Text>
+                    <Text style={styles.historyPillVal} numberOfLines={1}>
+                      {formatCurrency(item.otherIncome)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </Card>
+          </TouchableOpacity>
         )}
       />
     </View>
@@ -276,13 +307,62 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
     marginTop: spacing.xs,
   },
-  historyRow: {
+  historyCard: {
+    padding: spacing.md,
+    borderRadius: 16,
+    gap: spacing.xs + 2,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  historyCardTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.xs,
+  },
+  historyMonthRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flex: 1,
+    marginRight: spacing.sm,
   },
   historyMonth: { ...typography.body, fontWeight: "700" },
-  historyBreakdown: { ...typography.small, color: colors.textMuted, marginTop: 2 },
-  historyTotal: { ...typography.body, fontWeight: "800", color: colors.accent },
+  historyTotal: {
+    ...typography.body,
+    fontWeight: "800",
+    color: colors.accent,
+    fontSize: 16,
+  },
+  historyDivider: {
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    marginVertical: 2,
+  },
+  historyPillsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+  historyPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: colors.surfaceRaised,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  historyPillLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.textSecondary,
+  },
+  historyPillVal: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
 });
