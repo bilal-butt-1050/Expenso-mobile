@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useBudgets } from "../../hooks/useBudgets";
 import { useCategories } from "../../hooks/useCategories";
@@ -64,15 +63,43 @@ export function BudgetScreen() {
               <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
             </View>
 
-            {/* Zero-Based Budget Allocation Header Card */}
+            {/* Budget Allocation Header Card */}
             <Card style={styles.allocationCard}>
-              <View style={styles.allocationTopRow}>
-                <View style={styles.allocationTag}>
-                  <MaterialCommunityIcons name="scale-balance" size={16} color={colors.accent} />
-                  <Text style={styles.allocationTagText}>ZERO-BASED ALLOCATION</Text>
+              <View style={styles.allocationMetricsRow}>
+                <View style={styles.allocationMetricCol}>
+                  <Text style={styles.metricLabel}>TOTAL BUDGETED</Text>
+                  <Text style={styles.metricValue}>{formatCurrency(totalBudgeted)}</Text>
                 </View>
+                <View style={styles.metricDivider} />
+                <View style={styles.allocationMetricCol}>
+                  <Text style={styles.metricLabel}>MONTHLY INCOME</Text>
+                  <Text style={[styles.metricValue, { color: colors.accent }]}>
+                    {formatCurrency(monthlyIncome)}
+                  </Text>
+                </View>
+              </View>
 
-                {monthlyIncome > 0 && (
+              {/* Live Allocation Mini Progress Bar */}
+              {monthlyIncome > 0 && (
+                <View style={styles.allocationTrackBg}>
+                  <View
+                    style={[
+                      styles.allocationTrackFill,
+                      {
+                        width: `${Math.min(100, (totalBudgeted / monthlyIncome) * 100)}%`,
+                        backgroundColor: unallocated < 0 ? colors.danger : colors.accent,
+                      },
+                    ]}
+                  />
+                </View>
+              )}
+
+              {/* Status Pill & Allocation Insight Row */}
+              {monthlyIncome > 0 && (
+                <View style={styles.allocationBottomRow}>
+                  <Text style={styles.allocationProgressText}>
+                    {((totalBudgeted / Math.max(1, monthlyIncome)) * 100).toFixed(0)}% of income budgeted
+                  </Text>
                   <View
                     style={[
                       styles.statusPill,
@@ -100,35 +127,6 @@ export function BudgetScreen() {
                         : `${formatCurrency(unallocated)} unallocated`}
                     </Text>
                   </View>
-                )}
-              </View>
-
-              <View style={styles.allocationMetricsRow}>
-                <View style={styles.allocationMetricCol}>
-                  <Text style={styles.metricLabel}>TOTAL BUDGETED</Text>
-                  <Text style={styles.metricValue}>{formatCurrency(totalBudgeted)}</Text>
-                </View>
-                <View style={styles.metricDivider} />
-                <View style={styles.allocationMetricCol}>
-                  <Text style={styles.metricLabel}>MONTHLY INCOME</Text>
-                  <Text style={[styles.metricValue, { color: colors.accent }]}>
-                    {formatCurrency(monthlyIncome)}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Live Allocation Mini Progress Bar */}
-              {monthlyIncome > 0 && (
-                <View style={styles.allocationTrackBg}>
-                  <View
-                    style={[
-                      styles.allocationTrackFill,
-                      {
-                        width: `${Math.min(100, (totalBudgeted / monthlyIncome) * 100)}%`,
-                        backgroundColor: unallocated < 0 ? colors.danger : colors.accent,
-                      },
-                    ]}
-                  />
                 </View>
               )}
             </Card>
@@ -282,21 +280,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     gap: spacing.sm,
   },
-  allocationTopRow: {
+  allocationBottomRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginTop: 2,
   },
-  allocationTag: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  allocationTagText: {
-    fontSize: 11,
-    fontWeight: "700",
+  allocationProgressText: {
+    ...typography.caption,
+    fontSize: 12,
     color: colors.textSecondary,
-    letterSpacing: 0.6,
+    fontWeight: "500",
   },
   statusPill: {
     paddingHorizontal: spacing.sm + 2,
