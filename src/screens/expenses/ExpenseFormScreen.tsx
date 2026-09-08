@@ -12,6 +12,7 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useCategories } from "../../hooks/useCategories";
 import { useExpenses } from "../../hooks/useExpenses";
+import { useDashboard } from "../../hooks/useDashboard";
 import { useDialog } from "../../context/DialogContext";
 import { getErrorMessage } from "../../api/client";
 import { TextField } from "../../components/TextField";
@@ -22,6 +23,7 @@ import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { NeedWant, PaymentMethod, ExpenseStatus } from "../../types/models";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { formatCurrency } from "../../utils/currency";
 import { RootStackParamList } from "../../types/navigation";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ExpenseForm">;
@@ -34,6 +36,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const editing = route.params?.expense;
   const { data: categories } = useCategories();
+  const { data: dashboardData } = useDashboard();
   const { addExpense, editExpense, removeExpense } = useExpenses();
   const { confirm, showToast } = useDialog();
 
@@ -74,13 +77,37 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         needWant,
         status,
       };
+
+      const budgetItem = dashboardData?.budgetVsActual.find((b) => b.categoryId === categoryId);
+      const diff = editing ? parsedAmount - editing.amount : parsedAmount;
+      const newActual = (budgetItem?.actual ?? 0) + diff;
+
       if (editing) {
         await editExpense(editing.id, input);
-        showToast({ message: "Expense updated", type: "success" });
       } else {
         await addExpense(input);
-        showToast({ message: "Expense logged", type: "success" });
       }
+
+      // Contextual Budget Alerts
+      if (budgetItem && budgetItem.budget > 0 && newActual > budgetItem.budget) {
+        showToast({
+          message: `⚠️ Over budget: ${budgetItem.name} exceeded by ${formatCurrency(newActual - budgetItem.budget)}`,
+          type: "error",
+        });
+      } else if (
+        budgetItem &&
+        budgetItem.budget > 0 &&
+        newActual >= budgetItem.budget * 0.8 &&
+        (budgetItem.actual ?? 0) < budgetItem.budget * 0.8
+      ) {
+        showToast({
+          message: `Notice: ${budgetItem.name} reached ${((newActual / budgetItem.budget) * 100).toFixed(0)}% of monthly budget`,
+          type: "info",
+        });
+      } else {
+        showToast({ message: editing ? "Expense updated" : "Expense logged", type: "success" });
+      }
+
       navigation.goBack();
     } catch (err) {
       setError(getErrorMessage(err));

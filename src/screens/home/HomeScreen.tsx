@@ -143,9 +143,24 @@ export function HomeScreen() {
                 <Text style={styles.balanceHeaderLabel}>
                   Remaining Balance After Clearing Dues
                 </Text>
-                <View style={styles.savingsBadge}>
+                <View
+                  style={[
+                    styles.savingsBadge,
+                    Boolean(
+                      user?.savingsGoal &&
+                        user.savingsGoal > 0 &&
+                        data.savingsPercentage * 100 >= user.savingsGoal
+                    ) && {
+                      borderColor: colors.accent,
+                      backgroundColor: "rgba(0, 230, 118, 0.12)",
+                    },
+                  ]}
+                >
                   <Text style={styles.savingsBadgeText}>
                     Savings: {(data.savingsPercentage * 100).toFixed(0)}%
+                    {user?.savingsGoal && user.savingsGoal > 0
+                      ? ` / ${user.savingsGoal}%${data.savingsPercentage * 100 >= user.savingsGoal ? " ✓" : ""}`
+                      : ""}
                   </Text>
                 </View>
               </View>
