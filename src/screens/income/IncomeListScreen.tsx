@@ -166,20 +166,22 @@ function IncomeItem({
   };
 
   return (
-    <TouchableOpacity
-      style={styles.row}
-      onPress={onPress}
-      onLongPress={onLongPress}
-      activeOpacity={0.7}
-      accessibilityRole="button"
-      accessibilityLabel={`${item.source}, ${formatCurrency(item.amount)}, ${isReceived ? "Received" : "Expected"}`}
-    >
-      <CategoryPill icon={item.sourceIcon || "cash-multiple"} size={48} />
-      <View style={styles.rowMiddle}>
-        <Text style={styles.rowTitle} numberOfLines={1}>
-          {item.description || item.source}
-        </Text>
-      </View>
+    <View style={styles.row}>
+      <TouchableOpacity
+        style={styles.rowTouchArea}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.source}, ${formatCurrency(item.amount)}, ${isReceived ? "Received" : "Expected"}`}
+      >
+        <CategoryPill icon={item.sourceIcon || "cash-multiple"} size={48} />
+        <View style={styles.rowMiddle}>
+          <Text style={styles.rowTitle} numberOfLines={1}>
+            {item.description || item.source}
+          </Text>
+        </View>
+      </TouchableOpacity>
       <View style={styles.rowEnd}>
         <Text style={styles.rowAmount}>+{formatCurrency(item.amount)}</Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
@@ -195,7 +197,7 @@ function IncomeItem({
           />
         </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -316,6 +318,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceRaised,
     borderRadius: 16,
     marginBottom: 8,
+  },
+  rowTouchArea: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
   },
   rowMiddle: { flex: 1 },
   rowTitle: { ...typography.body, fontWeight: "600", fontSize: 18 },
