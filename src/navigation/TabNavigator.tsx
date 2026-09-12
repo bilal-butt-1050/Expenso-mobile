@@ -36,7 +36,7 @@ export function TabNavigator() {
         tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
           backgroundColor: colors.surface,
-          borderTopColor: colors.border,
+          borderTopWidth: 0,
           height,
           paddingBottom,
           paddingTop: 8,
@@ -50,8 +50,10 @@ export function TabNavigator() {
         tabBarIcon: ({ color, size, focused }) => {
           if (route.name === "Home") {
             return (
-              <View style={[styles.homeTabButton, focused && styles.homeTabActive]}>
-                <MaterialCommunityIcons name={ICONS[route.name] as any} color={colors.surface} size={32} />
+              <View style={styles.homeTabWrapper}>
+                <View style={[styles.homeTabButton, focused && styles.homeTabActive]}>
+                  <MaterialCommunityIcons name={ICONS[route.name] as any} color={colors.surface} size={32} />
+                </View>
               </View>
             );
           }
@@ -69,6 +71,15 @@ export function TabNavigator() {
 }
 
 const styles = StyleSheet.create({
+  homeTabWrapper: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: colors.background,
+    alignItems: "center",
+    justifyContent: "center",
+    top: -14,
+  },
   homeTabButton: {
     width: 56,
     height: 56,
@@ -76,9 +87,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     alignItems: "center",
     justifyContent: "center",
-    top: -24,
-    borderWidth: 4,
-    borderColor: colors.surface,
   },
   homeTabActive: {
     backgroundColor: "#818cf8", // Slightly lighter indigo when active
