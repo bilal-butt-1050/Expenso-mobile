@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { FlatList, StyleSheet, Text, TouchableOpacity, View, Switch, Animated, LayoutAnimation } from "react-native";
+import { FlatList, StyleSheet, Text, TouchableOpacity, View, Switch, Animated, LayoutAnimation, Modal } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -192,43 +192,45 @@ function FilterSheet({ options, selected, title, insets, onClose, onSelect }: an
   };
 
   return (
-    <View style={[StyleSheet.absoluteFill, { zIndex: 999 }]}>
-      <Animated.View style={[styles.sheetBackdrop, { opacity: anim, position: "absolute", top: 0, bottom: 0, left: 0, right: 0 }]}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => handleClose()} />
-      </Animated.View>
-      <Animated.View
-        style={[
-          styles.sheetContent,
-          {
-            position: "absolute", bottom: 0, left: 0, right: 0,
-            paddingBottom: Math.max(insets.bottom, 16) + spacing.md,
-            transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [400, 0] }) }]
-          }
-        ]}
-      >
-        <View style={styles.sheetDragHandle} />
-        <View style={styles.sheetHeader}>
-          <Text style={styles.sheetTitle}>{title}</Text>
-          <TouchableOpacity onPress={() => handleClose()} hitSlop={12}>
-            <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-        {options.map((f: string) => {
-          const isSelected = selected === f;
-          return (
-            <TouchableOpacity
-              key={f}
-              style={[styles.optionRow, isSelected && styles.optionRowSelected]}
-              onPress={() => handleClose(f)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>{f}</Text>
-              {isSelected && <MaterialCommunityIcons name="check" size={20} color={colors.textPrimary} />}
+    <Modal visible transparent animationType="none" onRequestClose={() => handleClose()}>
+      <View style={[StyleSheet.absoluteFill, { zIndex: 999 }]}>
+        <Animated.View style={[styles.sheetBackdrop, { opacity: anim, position: "absolute", top: 0, bottom: 0, left: 0, right: 0 }]}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => handleClose()} />
+        </Animated.View>
+        <Animated.View
+          style={[
+            styles.sheetContent,
+            {
+              position: "absolute", bottom: 0, left: 0, right: 0,
+              paddingBottom: Math.max(insets.bottom, 16) + spacing.md,
+              transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [400, 0] }) }]
+            }
+          ]}
+        >
+          <View style={styles.sheetDragHandle} />
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>{title}</Text>
+            <TouchableOpacity onPress={() => handleClose()} hitSlop={12}>
+              <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
-          );
-        })}
-      </Animated.View>
-    </View>
+          </View>
+          {options.map((f: string) => {
+            const isSelected = selected === f;
+            return (
+              <TouchableOpacity
+                key={f}
+                style={[styles.optionRow, isSelected && styles.optionRowSelected]}
+                onPress={() => handleClose(f)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>{f}</Text>
+                {isSelected && <MaterialCommunityIcons name="check" size={20} color={colors.textPrimary} />}
+              </TouchableOpacity>
+            );
+          })}
+        </Animated.View>
+      </View>
+    </Modal>
   );
 }
 
