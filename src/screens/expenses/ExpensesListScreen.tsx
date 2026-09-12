@@ -49,6 +49,8 @@ export function ExpensesListScreen() {
     return sections;
   }, [data]);
 
+  const totalExpenses = data?.reduce((sum, item) => sum + item.amount, 0) ?? 0;
+
   const confirmDelete = (expense: Expense) => {
     confirm({
       title: "Delete expense?",
@@ -76,6 +78,14 @@ export function ExpensesListScreen() {
           </TouchableOpacity>
         </View>
         <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
+
+        {/* Hero */}
+        <View style={styles.hero}>
+          <Text style={styles.heroLabel}>TOTAL</Text>
+          <Text style={styles.heroAmount} numberOfLines={1} adjustsFontSizeToFit>
+            {formatCurrency(totalExpenses)}
+          </Text>
+        </View>
       </View>
 
       <SectionList
@@ -266,6 +276,24 @@ const styles = StyleSheet.create({
   },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: { ...typography.title },
+
+  hero: {
+    alignItems: "center",
+    paddingVertical: spacing.sm,
+    gap: 4,
+  },
+  heroLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.textMuted,
+    letterSpacing: 1,
+  },
+  heroAmount: {
+    fontSize: 36,
+    fontWeight: "800",
+    color: colors.textPrimary,
+    letterSpacing: -0.5,
+  },
 
   list: { paddingHorizontal: spacing.lg, paddingBottom: 100, flexGrow: 1 },
   sectionHeader: {
