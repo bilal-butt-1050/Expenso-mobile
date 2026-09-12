@@ -190,7 +190,7 @@ function IncomeItem({
           <Switch
             value={isReceived}
             onValueChange={handleToggle}
-            trackColor={{ false: colors.border, true: colors.success }}
+            trackColor={{ false: colors.warning, true: colors.success }}
             thumbColor={colors.textPrimary}
             style={{ transform: [{ scale: 0.85 }] }}
           />
