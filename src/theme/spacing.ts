@@ -1,17 +1,17 @@
-// A fixed spacing scale keeps every screen's padding/gaps consistent
-// instead of every component inventing its own magic numbers.
+// Expenso — Spacing & Radius tokens.
+// Generous, breathable spacing for a premium feel.
 export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 24,
-  xxl: 32,
+  xs: 6,
+  sm: 10,
+  md: 16,
+  lg: 20,
+  xl: 28,
+  xxl: 40,
 } as const;
 
 export const radius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
+  sm: 10,
+  md: 14,
+  lg: 20,
   pill: 999,
 } as const;

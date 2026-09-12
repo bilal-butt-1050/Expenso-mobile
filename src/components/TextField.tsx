@@ -26,15 +26,15 @@ const styles = StyleSheet.create({
   wrapper: { marginBottom: spacing.md },
   label: { fontSize: 15, fontWeight: "600", color: colors.textSecondary, marginBottom: spacing.xs },
   input: {
-    height: 52,
+    height: 56,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
     color: colors.textPrimary,
-    fontSize: 16,
+    fontSize: 17,
   },
   inputError: { borderColor: colors.danger },
-  error: { color: colors.danger, fontSize: 13, marginTop: spacing.xs },
+  error: { color: colors.danger, fontSize: 14, marginTop: spacing.xs },
 });

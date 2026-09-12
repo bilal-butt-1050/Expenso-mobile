@@ -30,6 +30,8 @@ export function Button({ label, onPress, variant = "primary", loading, disabled,
       disabled={isDisabled}
       activeOpacity={0.8}
       style={[styles.base, variantStyles[variant], isDisabled && styles.disabled, style]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
     >
       {loading ? (
         <ActivityIndicator color={variant === "primary" ? colors.accentForeground : colors.textPrimary} />
@@ -42,13 +44,13 @@ export function Button({ label, onPress, variant = "primary", loading, disabled,
 
 const styles = StyleSheet.create({
   base: {
-    height: 50,
+    height: 54,
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: spacing.lg,
   },
-  label: { fontSize: 15, fontWeight: "700" },
+  label: { fontSize: 16, fontWeight: "700" },
   disabled: { opacity: 0.5 },
 });
 

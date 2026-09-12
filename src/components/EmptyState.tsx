@@ -13,7 +13,7 @@ interface Props {
 export function EmptyState({ icon, title, subtitle }: Props) {
   return (
     <View style={styles.container}>
-      <MaterialCommunityIcons name={icon as any} size={40} color={colors.textMuted} />
+      <MaterialCommunityIcons name={icon as any} size={48} color={colors.textMuted} />
       <Text style={styles.title}>{title}</Text>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
     </View>
@@ -21,7 +21,7 @@ export function EmptyState({ icon, title, subtitle }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { alignItems: "center", justifyContent: "center", paddingVertical: spacing.xxl, gap: spacing.sm },
-  title: { color: colors.textSecondary, fontSize: 15, fontWeight: "600" },
-  subtitle: { color: colors.textMuted, fontSize: 13, textAlign: "center", paddingHorizontal: spacing.xl },
+  container: { alignItems: "center", justifyContent: "center", paddingVertical: spacing.xxl + 16, gap: spacing.sm },
+  title: { color: colors.textSecondary, fontSize: 17, fontWeight: "600" },
+  subtitle: { color: colors.textMuted, fontSize: 15, textAlign: "center", paddingHorizontal: spacing.xl },
 });

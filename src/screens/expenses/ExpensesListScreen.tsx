@@ -11,7 +11,7 @@ import { MonthPicker } from "../../components/MonthPicker";
 import { EmptyState } from "../../components/EmptyState";
 import { CategoryPill, StatusBadge } from "../../components/CategoryPill";
 import { colors } from "../../theme/colors";
-import { spacing } from "../../theme/spacing";
+import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
@@ -33,13 +33,13 @@ export function ExpensesListScreen() {
   const confirmDelete = (expense: Expense) => {
     confirm({
       title: "Delete expense?",
-      message: `${expense.description || expense.category.name} · ${formatCurrency(expense.amount)}`,
+      message: `${expense.category.name} · ${formatCurrency(expense.amount)}`,
       confirmText: "Delete",
       destructive: true,
       icon: "trash-can-outline",
       onConfirm: async () => {
         await removeExpense(expense.id);
-        showToast({ message: "Expense deleted", type: "success" });
+        showToast({ message: "Deleted", type: "success" });
       },
     });
   };
@@ -47,7 +47,7 @@ export function ExpensesListScreen() {
   const handleToggleStatus = async (expense: Expense) => {
     await toggleStatus(expense.id);
     showToast({
-      message: expense.status === "Paid" ? "Marked as Unpaid" : "Marked as Paid",
+      message: expense.status === "Paid" ? "Marked Unpaid" : "Marked Paid",
       type: "info",
     });
   };
@@ -55,9 +55,7 @@ export function ExpensesListScreen() {
   return (
     <ScreenContainer style={styles.noPad}>
       <View style={styles.top}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Expenses</Text>
-        </View>
+        <Text style={styles.title}>Expenses</Text>
         <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
         <View style={styles.filterRow}>
           {(["All", "Unpaid", "Paid"] as Filter[]).map((f) => (
@@ -65,6 +63,8 @@ export function ExpensesListScreen() {
               key={f}
               onPress={() => setFilter(f)}
               style={[styles.filterChip, filter === f && styles.filterChipActive]}
+              accessibilityRole="button"
+              accessibilityLabel={`Filter: ${f}`}
             >
               <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
             </TouchableOpacity>
@@ -79,11 +79,7 @@ export function ExpensesListScreen() {
         refreshing={isLoading}
         ListEmptyComponent={
           !isLoading ? (
-            <EmptyState
-              icon="receipt-text-outline"
-              title="No expenses yet"
-              subtitle="Tap the + button to log your first one — it takes about 10 seconds."
-            />
+            <EmptyState icon="receipt-text-outline" title="No expenses yet" />
           ) : null
         }
         renderItem={({ item }) => (
@@ -91,22 +87,20 @@ export function ExpensesListScreen() {
             style={styles.row}
             onPress={() => navigation.navigate("ExpenseForm", { expense: item })}
             onLongPress={() => confirmDelete(item)}
-            activeOpacity={0.75}
+            activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel={`Expense: ${item.description || item.category.name}, Amount: ${formatCurrency(item.amount)}, Status: ${item.status}`}
+            accessibilityLabel={`${item.category.name}, ${formatCurrency(item.amount)}, ${item.status}`}
           >
-            <CategoryPill icon={item.category.icon} />
+            <CategoryPill icon={item.category.icon} size={42} />
             <View style={styles.rowMiddle}>
               <Text style={styles.rowTitle} numberOfLines={1}>
                 {item.description || item.category.name}
               </Text>
-              <Text style={styles.rowSubtitle}>
-                {item.category.name} · {formatDate(item.date)}
-              </Text>
+              <Text style={styles.rowSub}>{formatDate(item.date)}</Text>
             </View>
             <View style={styles.rowEnd}>
-              <Text style={styles.amount}>{formatCurrency(item.amount)}</Text>
-              <TouchableOpacity onPress={() => handleToggleStatus(item)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+              <Text style={styles.rowAmount}>{formatCurrency(item.amount)}</Text>
+              <TouchableOpacity onPress={() => handleToggleStatus(item)} hitSlop={10}>
                 <StatusBadge status={item.status} />
               </TouchableOpacity>
             </View>
@@ -119,9 +113,9 @@ export function ExpensesListScreen() {
         onPress={() => navigation.navigate("ExpenseForm", undefined)}
         activeOpacity={0.85}
         accessibilityRole="button"
-        accessibilityLabel="Add New Expense"
+        accessibilityLabel="Add Expense"
       >
-        <MaterialCommunityIcons name="plus" size={26} color={colors.accentForeground} />
+        <MaterialCommunityIcons name="plus" size={28} color={colors.accentForeground} />
       </TouchableOpacity>
     </ScreenContainer>
   );
@@ -131,29 +125,27 @@ const styles = StyleSheet.create({
   noPad: { paddingHorizontal: 0 },
   top: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg + 4,
+    paddingTop: spacing.lg,
     gap: spacing.md,
     paddingBottom: spacing.sm,
   },
-  header: {
-    marginBottom: spacing.xs,
-  },
-  title: { ...typography.title, fontSize: 24, letterSpacing: -0.3 },
+  title: { ...typography.title },
   filterRow: { flexDirection: "row", gap: spacing.sm, justifyContent: "center" },
   filterChip: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: 999,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
     backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
     borderColor: colors.border,
   },
   filterChipActive: {
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    backgroundColor: "rgba(255,255,255,0.12)",
     borderColor: colors.borderLight,
   },
-  filterText: { color: colors.textSecondary, fontSize: 13, fontWeight: "600" },
+  filterText: { color: colors.textSecondary, fontSize: 14, fontWeight: "600" },
   filterTextActive: { color: colors.textPrimary, fontWeight: "700" },
+
   list: { paddingHorizontal: spacing.lg, paddingBottom: 100, flexGrow: 1 },
   row: {
     flexDirection: "row",
@@ -165,20 +157,21 @@ const styles = StyleSheet.create({
   },
   rowMiddle: { flex: 1 },
   rowTitle: { ...typography.body, fontWeight: "600" },
-  rowSubtitle: { ...typography.small, color: colors.textMuted, marginTop: 2 },
+  rowSub: { ...typography.caption, color: colors.textMuted, marginTop: 2, fontSize: 14 },
   rowEnd: { alignItems: "flex-end", gap: spacing.xs },
-  amount: { ...typography.body, fontWeight: "700", color: colors.textPrimary },
+  rowAmount: { fontSize: 17, fontWeight: "700", color: colors.textPrimary },
+
   fab: {
     position: "absolute",
     right: spacing.lg,
     bottom: spacing.xl,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: colors.accent,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000000",
+    shadowColor: "#000",
     shadowOpacity: 0.4,
     shadowRadius: 10,
     elevation: 6,

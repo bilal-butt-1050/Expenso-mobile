@@ -15,7 +15,6 @@ import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { formatCurrency } from "../../utils/currency";
-import { formatMonthLabel } from "../../utils/date";
 import { Category } from "../../types/models";
 import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
@@ -35,7 +34,6 @@ export function BudgetScreen() {
       category,
       budget: match?.budget ?? 0,
       actual: match?.actual ?? 0,
-      unpaid: match?.unpaid ?? 0,
       hasBudget: Boolean(match),
     };
   });
@@ -43,13 +41,10 @@ export function BudgetScreen() {
   const totalBudgeted = rows.reduce((sum, r) => sum + r.budget, 0);
   const monthlyIncome = summary?.monthlyIncome ?? 0;
   const unallocated = monthlyIncome - totalBudgeted;
-  const monthElapsed = summary?.monthProgressPercentage ?? 50;
 
   return (
     <ScreenContainer>
-      <View style={styles.header}>
-        <Text style={styles.title}>Budget</Text>
-      </View>
+      <Text style={styles.title}>Budget</Text>
 
       <FlatList
         data={rows}
@@ -58,151 +53,75 @@ export function BudgetScreen() {
         contentContainerStyle={{ paddingBottom: spacing.xxl + 32 }}
         ListHeaderComponent={
           <>
-            {/* Month Picker Capsule */}
             <View style={{ marginBottom: spacing.md }}>
               <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
             </View>
 
-            {/* Budget Allocation Header Card */}
-            <Card style={styles.allocationCard}>
-              <View style={styles.allocationMetricsRow}>
-                <View style={styles.allocationMetricCol}>
-                  <Text style={styles.metricLabel}>TOTAL BUDGETED</Text>
-                  <Text style={styles.metricValue}>{formatCurrency(totalBudgeted)}</Text>
+            {/* Summary */}
+            <View style={styles.summaryCard}>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryCol}>
+                  <Text style={styles.summaryLabel}>BUDGETED</Text>
+                  <Text style={styles.summaryValue}>{formatCurrency(totalBudgeted)}</Text>
                 </View>
-                <View style={styles.metricDivider} />
-                <View style={styles.allocationMetricCol}>
-                  <Text style={styles.metricLabel}>MONTHLY INCOME</Text>
-                  <Text style={[styles.metricValue, { color: colors.textPrimary }]}>
-                    {formatCurrency(monthlyIncome)}
-                  </Text>
+                <View style={styles.summaryDivider} />
+                <View style={styles.summaryCol}>
+                  <Text style={styles.summaryLabel}>INCOME</Text>
+                  <Text style={styles.summaryValue}>{formatCurrency(monthlyIncome)}</Text>
                 </View>
               </View>
 
-              {/* Live Allocation Mini Progress Bar */}
               {monthlyIncome > 0 && (
-                <View style={styles.allocationTrackBg}>
-                  <View
-                    style={[
-                      styles.allocationTrackFill,
-                      {
+                <>
+                  <View style={styles.trackBg}>
+                    <View
+                      style={[styles.trackFill, {
                         width: `${Math.min(100, (totalBudgeted / monthlyIncome) * 100)}%`,
                         backgroundColor: unallocated < 0 ? colors.danger : colors.textPrimary,
-                      },
-                    ]}
-                  />
-                </View>
-              )}
-
-              {/* Status Pill & Allocation Insight Row */}
-              {monthlyIncome > 0 && (
-                <View style={styles.allocationBottomRow}>
-                  <Text style={styles.allocationProgressText}>
-                    {((totalBudgeted / Math.max(1, monthlyIncome)) * 100).toFixed(0)}% of income budgeted
-                  </Text>
-                  <View
-                    style={[
-                      styles.statusPill,
-                      unallocated < 0
-                        ? styles.statusPillOver
-                        : unallocated === 0
-                        ? styles.statusPillExact
-                        : styles.statusPillUnder,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.statusPillText,
-                        unallocated < 0
-                          ? styles.statusTextOver
-                          : unallocated === 0
-                          ? styles.statusTextExact
-                          : styles.statusTextUnder,
-                      ]}
-                    >
-                      {unallocated < 0
-                        ? `Over by ${formatCurrency(Math.abs(unallocated))}`
-                        : unallocated === 0
-                        ? `100% Allocated ✓`
-                        : `${formatCurrency(unallocated)} unallocated`}
-                    </Text>
+                      }]}
+                    />
                   </View>
-                </View>
+                  <Text style={styles.unallocatedText}>
+                    {unallocated < 0
+                      ? `Over by ${formatCurrency(Math.abs(unallocated))}`
+                      : `${formatCurrency(unallocated)} unallocated`}
+                  </Text>
+                </>
               )}
-            </Card>
-
-            <View style={styles.listSectionHeader}>
-              <Text style={styles.listSectionTitle}>Category Allocations</Text>
-              <Text style={styles.listSectionSubtitle}>Tap row to edit budget</Text>
             </View>
+
+            <Text style={styles.sectionTitle}>Categories</Text>
           </>
         }
         ListEmptyComponent={
-          <EmptyState icon="chart-donut" title="No categories yet" subtitle="Add categories in Settings first." />
+          <EmptyState icon="chart-donut" title="No categories yet" />
         }
         renderItem={({ item }) => {
           const progress = item.budget > 0 ? item.actual / item.budget : 0;
-          const progressPct = progress * 100;
           const isOver = item.actual > item.budget;
-          const isPacingFast = !isOver && progressPct > monthElapsed + 15;
 
           return (
-            <Card style={styles.row}>
-              <TouchableOpacity style={styles.rowTop} onPress={() => setEditingCategory(item.category)}>
-                <CategoryPill icon={item.category.icon} color={item.category.color} size={32} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.rowLabel}>{item.category.name}</Text>
-                  {item.hasBudget && item.budget > 0 && (
-                    <View style={styles.pacingRow}>
-                      <View
-                        style={[
-                          styles.pacingTag,
-                          isOver
-                            ? styles.pacingTagOver
-                            : isPacingFast
-                            ? styles.pacingTagFast
-                            : styles.pacingTagTrack,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.pacingTagText,
-                            isOver
-                              ? styles.pacingTextOver
-                              : isPacingFast
-                              ? styles.pacingTextFast
-                              : styles.pacingTextTrack,
-                          ]}
-                        >
-                          {isOver ? "Over Budget" : isPacingFast ? "Pacing Fast" : "On Track"}
-                        </Text>
-                      </View>
-                      <Text style={styles.pacingPctText}>{progressPct.toFixed(0)}% spent</Text>
-                    </View>
-                  )}
-                </View>
-
-                <View style={{ alignItems: "flex-end" }}>
-                  <Text style={styles.rowAmounts}>
-                    {formatCurrency(item.actual)}
-                  </Text>
-                  <Text style={styles.rowBudget}>
-                    {item.hasBudget ? `of ${formatCurrency(item.budget)}` : "no budget"}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              {item.hasBudget && (
-                <View style={{ marginTop: spacing.sm }}>
-                  <ProgressBar progress={progress} color={isOver ? colors.danger : colors.textPrimary} />
-                  {item.unpaid > 0 && (
-                    <Text style={styles.unpaidNote}>{formatCurrency(item.unpaid)} unpaid</Text>
-                  )}
-                </View>
-              )}
-            </Card>
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => setEditingCategory(item.category)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.category.name}, ${formatCurrency(item.actual)} of ${formatCurrency(item.budget)}`}
+            >
+              <CategoryPill icon={item.category.icon} color={item.category.color} size={38} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowLabel}>{item.category.name}</Text>
+              </View>
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={styles.rowAmount}>{formatCurrency(item.actual)}</Text>
+                <Text style={styles.rowBudget}>
+                  {item.hasBudget ? `of ${formatCurrency(item.budget)}` : "no budget"}
+                </Text>
+              </View>
+            </TouchableOpacity>
           );
         }}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
 
       <Modal visible={!!editingCategory} animationType="slide" transparent onRequestClose={() => setEditingCategory(null)}>
@@ -243,8 +162,8 @@ function BudgetEditSheet({
     <View style={styles.sheetBackdrop}>
       <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) + spacing.md }]}>
         <View style={styles.sheetHeader}>
-          <CategoryPill icon={category.icon} color={category.color} />
-          <Text style={styles.sheetTitle}>{category.name} budget</Text>
+          <CategoryPill icon={category.icon} color={category.color} size={38} />
+          <Text style={styles.sheetTitle}>{category.name}</Text>
         </View>
         <TextField
           label="Monthly budget (PKR)"
@@ -264,159 +183,79 @@ function BudgetEditSheet({
 }
 
 const styles = StyleSheet.create({
-  header: {
-    paddingTop: spacing.lg + 4,
-    marginBottom: spacing.xs,
-  },
-  title: { ...typography.title, fontSize: 24, letterSpacing: -0.3 },
+  title: { ...typography.title, marginTop: spacing.lg, marginBottom: spacing.sm },
 
-  // Allocation Card Styles
-  allocationCard: {
+  summaryCard: {
     backgroundColor: colors.surfaceRaised,
-    borderRadius: 18,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.md + 4,
+    padding: spacing.lg,
     marginBottom: spacing.md,
     gap: spacing.sm,
   },
-  allocationBottomRow: {
+  summaryRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 2,
   },
-  allocationProgressText: {
-    ...typography.caption,
+  summaryCol: { flex: 1 },
+  summaryLabel: {
     fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: "500",
-  },
-  statusPill: {
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: 3,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-  },
-  statusPillUnder: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderColor: "rgba(255, 255, 255, 0.14)",
-  },
-  statusPillExact: {
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
-    borderColor: colors.borderLight,
-  },
-  statusPillOver: {
-    backgroundColor: colors.dangerMuted,
-    borderColor: "rgba(239, 68, 68, 0.3)",
-  },
-  statusPillText: {
-    fontSize: 11,
     fontWeight: "700",
-  },
-  statusTextUnder: { color: colors.textPrimary },
-  statusTextExact: { color: colors.textPrimary },
-  statusTextOver: { color: colors.danger },
-
-  allocationMetricsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 2,
-  },
-  allocationMetricCol: {
-    flex: 1,
-  },
-  metricLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: colors.textSecondary,
+    color: colors.textMuted,
     letterSpacing: 0.5,
-    marginBottom: 2,
+    marginBottom: 4,
   },
-  metricValue: {
-    fontSize: 20,
+  summaryValue: {
+    fontSize: 22,
     fontWeight: "800",
     color: colors.textPrimary,
   },
-  metricDivider: {
+  summaryDivider: {
     width: 1,
-    height: 32,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    height: 36,
+    backgroundColor: "rgba(255,255,255,0.08)",
     marginHorizontal: spacing.md,
   },
-  allocationTrackBg: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  trackBg: {
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: "rgba(255,255,255,0.08)",
     overflow: "hidden",
   },
-  allocationTrackFill: {
+  trackFill: {
     height: "100%",
-    borderRadius: 2,
+    borderRadius: 3,
+  },
+  unallocatedText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.textSecondary,
   },
 
-  listSectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: spacing.xs,
-    marginTop: spacing.xs,
-  },
-  listSectionTitle: {
+  sectionTitle: {
     ...typography.subtitle,
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700",
     color: colors.textPrimary,
-  },
-  listSectionSubtitle: {
-    ...typography.caption,
-    fontSize: 12,
-    color: colors.textMuted,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
   },
 
-  // Row Styles
-  row: { marginBottom: spacing.sm, padding: spacing.md, borderRadius: 16 },
-  rowTop: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  rowLabel: { ...typography.body, fontWeight: "600" },
-  pacingRow: {
+  row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginTop: 3,
+    gap: spacing.md,
+    paddingVertical: spacing.md,
   },
-  pacingTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  pacingTagTrack: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-  },
-  pacingTagFast: {
-    backgroundColor: colors.warningMuted,
-  },
-  pacingTagOver: {
-    backgroundColor: colors.dangerMuted,
-  },
-  pacingTagText: {
-    fontSize: 10,
-    fontWeight: "700",
-  },
-  pacingTextTrack: { color: colors.textPrimary },
-  pacingTextFast: { color: colors.warning },
-  pacingTextOver: { color: colors.danger },
-  pacingPctText: {
-    fontSize: 11,
-    color: colors.textMuted,
-    fontWeight: "500",
-  },
-  rowAmounts: { ...typography.body, fontWeight: "700" },
-  rowBudget: { ...typography.small, color: colors.textMuted, marginTop: 1 },
-  unpaidNote: { ...typography.small, color: colors.warning, marginTop: spacing.xs },
+  rowLabel: { ...typography.body, fontWeight: "600" },
+  rowAmount: { fontSize: 17, fontWeight: "700", color: colors.textPrimary },
+  rowBudget: { fontSize: 14, color: colors.textMuted, marginTop: 2 },
+  separator: { height: 1, backgroundColor: colors.border },
 
   sheetBackdrop: { flex: 1, backgroundColor: "#000000AA", justifyContent: "flex-end" },
-  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: spacing.lg },
+  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: spacing.lg },
   sheetHeader: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.lg },
-  sheetTitle: { ...typography.subtitle, color: colors.textPrimary },
+  sheetTitle: { ...typography.subtitle, color: colors.textPrimary, fontSize: 20 },
   sheetActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.sm },
 });

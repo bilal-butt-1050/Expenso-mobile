@@ -26,9 +26,19 @@ export function TabNavigator() {
         headerShown: false,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          height: 88,
+          paddingBottom: 24,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "600",
+        },
         tabBarIcon: ({ color, size }) => (
-          <MaterialCommunityIcons name={ICONS[route.name] as any} color={color} size={size} />
+          <MaterialCommunityIcons name={ICONS[route.name] as any} color={color} size={24} />
         ),
       })}
     >

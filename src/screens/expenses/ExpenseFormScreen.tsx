@@ -7,9 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Platform,
 } from "react-native";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useCategories } from "../../hooks/useCategories";
@@ -19,6 +17,7 @@ import { useDialog } from "../../context/DialogContext";
 import { getErrorMessage } from "../../api/client";
 import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
+import { DatePicker } from "../../components/DatePicker";
 import { CategoryPill } from "../../components/CategoryPill";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
@@ -60,28 +59,19 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(editing?.paymentMethod ?? "Cash");
   const [needWant, setNeedWant] = useState<NeedWant>(editing?.needWant ?? "Need");
   const [status, setStatus] = useState<ExpenseStatus>(editing?.status ?? "Paid");
+  const [date, setDate] = useState<Date>(editing ? new Date(editing.date) : new Date());
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Category Dropdown Sheet State
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Executive Budget Alert Modal State
   const [budgetAlert, setBudgetAlert] = useState<BudgetAlertInfo | null>(null);
 
   const selectedCategory = (categories ?? []).find((c) => c.id === categoryId);
   const filteredCategories = (categories ?? []).filter((c) =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
   );
-
-  const [date, setDate] = useState<Date>(editing ? new Date(editing.date) : new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-
-  const onDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(Platform.OS === 'ios');
-    if (selectedDate) setDate(selectedDate);
-  };
 
   const handleSave = async () => {
     const parsedAmount = Number(amount);
@@ -111,7 +101,6 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         await addExpense(input);
       }
 
-      // If budget threshold crossed, pause and show prominent executive modal!
       if (budgetItem && budgetItem.budget > 0 && newActual > budgetItem.budget) {
         setBudgetAlert({
           categoryName: budgetItem.name,
@@ -158,7 +147,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
     if (!editing) return;
     confirm({
       title: "Delete this expense?",
-      message: "This expense will be permanently removed.",
+      message: "This action cannot be undone.",
       confirmText: "Delete",
       destructive: true,
       icon: "trash-can-outline",
@@ -176,7 +165,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         style={styles.container}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: Math.max(insets.bottom, 24) + spacing.xxl + 32 },
+          { paddingBottom: Math.max(insets.bottom, 24) + 80 },
         ]}
         keyboardShouldPersistTaps="handled"
       >
@@ -187,62 +176,36 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
           onChangeText={setAmount}
           placeholder="0"
         />
+
         <TextField
           label="Description (optional)"
           value={description}
           onChangeText={setDescription}
           placeholder="e.g. Lunch at restaurant"
-          accessibilityLabel="Expense Description"
         />
 
-        <View style={styles.dropdownWrapper}>
-          <Text style={styles.label}>Date</Text>
-          <TouchableOpacity
-            style={[styles.dropdownTrigger, styles.dateTrigger]}
-            onPress={() => setShowDatePicker(true)}
-            activeOpacity={0.7}
-            accessibilityLabel="Select Date"
-            accessibilityHint="Opens date picker to select expense date"
-          >
-            <View style={styles.dropdownSelectedRow}>
-              <MaterialCommunityIcons name="calendar" size={24} color={colors.textSecondary} />
-              <Text style={styles.dropdownSelectedText}>{date.toISOString().split('T')[0]}</Text>
-            </View>
-            <MaterialCommunityIcons name="chevron-down" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-
-        {showDatePicker && (
-          <DateTimePicker
-            value={date}
-            mode="date"
-            display="default"
-            onChange={onDateChange}
-          />
-        )}
-
-        {/* Clean Category Dropdown Selector */}
-        <View style={styles.dropdownWrapper}>
+        {/* Category Dropdown */}
+        <View style={styles.fieldWrap}>
           <Text style={styles.label}>Category</Text>
           <TouchableOpacity
-            style={[styles.dropdownTrigger, !selectedCategory && styles.dropdownTriggerEmpty]}
-            onPress={() => {
-              setSearchQuery("");
-              setIsPickerOpen(true);
-            }}
+            style={styles.dropdownTrigger}
+            onPress={() => { setSearchQuery(""); setIsPickerOpen(true); }}
             activeOpacity={0.7}
           >
             {selectedCategory ? (
               <View style={styles.dropdownSelectedRow}>
-                <CategoryPill icon={selectedCategory.icon} color={selectedCategory.color} size={24} />
-                <Text style={styles.dropdownSelectedText}>{selectedCategory.name}</Text>
+                <CategoryPill icon={selectedCategory.icon} color={selectedCategory.color} size={28} />
+                <Text style={styles.dropdownText}>{selectedCategory.name}</Text>
               </View>
             ) : (
-              <Text style={styles.dropdownPlaceholderText}>Select a category</Text>
+              <Text style={styles.dropdownPlaceholder}>Select a category</Text>
             )}
-            <MaterialCommunityIcons name="chevron-down" size={20} color={colors.textSecondary} />
+            <MaterialCommunityIcons name="chevron-down" size={20} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
+
+        {/* Date */}
+        <DatePicker value={date} onChange={setDate} label="Date" />
 
         <SegmentedControl label="Payment Method" options={PAYMENT_METHODS} value={paymentMethod} onChange={setPaymentMethod} />
         <SegmentedControl label="Need or Want" options={NEED_WANT} value={needWant} onChange={setNeedWant} />
@@ -252,38 +215,22 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
         <Button label={editing ? "Save Changes" : "Add Expense"} onPress={handleSave} loading={isSaving} />
 
-        {editing ? (
-          <Button label="Delete Expense" variant="danger" onPress={handleDelete} style={{ marginTop: spacing.md }} />
-        ) : null}
+        {editing && (
+          <Button label="Delete" variant="danger" onPress={handleDelete} style={{ marginTop: spacing.sm }} />
+        )}
       </ScrollView>
 
-      {/* Themed Category Selection Bottom Sheet Modal */}
-      <Modal
-        visible={isPickerOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsPickerOpen(false)}
-      >
-        <TouchableOpacity
-          style={styles.sheetBackdrop}
-          activeOpacity={1}
-          onPress={() => setIsPickerOpen(false)}
-        >
+      {/* Category Sheet */}
+      <Modal visible={isPickerOpen} transparent animationType="slide" onRequestClose={() => setIsPickerOpen(false)}>
+        <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={() => setIsPickerOpen(false)}>
           <TouchableOpacity
             activeOpacity={1}
-            style={[
-              styles.sheetContent,
-              { paddingBottom: Math.max(insets.bottom, 16) + spacing.md },
-            ]}
+            style={[styles.sheetContent, { paddingBottom: Math.max(insets.bottom, 16) + spacing.md }]}
           >
             <View style={styles.sheetDragHandle} />
-
-            <View style={styles.sheetHeaderRow}>
-              <Text style={styles.sheetTitle}>Select Category</Text>
-              <TouchableOpacity
-                onPress={() => setIsPickerOpen(false)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Category</Text>
+              <TouchableOpacity onPress={() => setIsPickerOpen(false)} hitSlop={12}>
                 <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
@@ -294,7 +241,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
                 <TextInput
                   value={searchQuery}
                   onChangeText={setSearchQuery}
-                  placeholder="Search category..."
+                  placeholder="Search..."
                   placeholderTextColor={colors.textMuted}
                   style={styles.searchInput}
                   autoCorrect={false}
@@ -307,44 +254,27 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
               </View>
             )}
 
-            <ScrollView
-              style={styles.categoryList}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
+            <ScrollView style={styles.optionList} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {filteredCategories.map((c) => {
                 const isSelected = c.id === categoryId;
                 return (
                   <TouchableOpacity
                     key={c.id}
-                    style={[styles.categoryOption, isSelected && styles.categoryOptionSelected]}
-                    onPress={() => {
-                      setCategoryId(c.id);
-                      setIsPickerOpen(false);
-                    }}
+                    style={[styles.optionRow, isSelected && styles.optionRowSelected]}
+                    onPress={() => { setCategoryId(c.id); setIsPickerOpen(false); }}
                     activeOpacity={0.7}
                   >
-                    <View style={styles.categoryOptionLeft}>
-                      <CategoryPill icon={c.icon} color={c.color} size={26} />
-                      <Text
-                        style={[
-                          styles.categoryOptionText,
-                          isSelected && styles.categoryOptionTextSelected,
-                        ]}
-                      >
-                        {c.name}
-                      </Text>
-                    </View>
-                    {isSelected && (
-                      <MaterialCommunityIcons name="check" size={20} color={colors.accent} />
-                    )}
+                    <CategoryPill icon={c.icon} color={c.color} size={32} />
+                    <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
+                      {c.name}
+                    </Text>
+                    {isSelected && <MaterialCommunityIcons name="check" size={20} color={colors.textPrimary} />}
                   </TouchableOpacity>
                 );
               })}
-
               {filteredCategories.length === 0 && (
-                <View style={styles.noResultsWrap}>
-                  <Text style={styles.noCategoriesText}>No matching categories found</Text>
+                <View style={{ paddingVertical: spacing.xl, alignItems: "center" }}>
+                  <Text style={{ color: colors.textMuted, fontSize: 15 }}>No matching categories</Text>
                 </View>
               )}
             </ScrollView>
@@ -352,145 +282,62 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         </TouchableOpacity>
       </Modal>
 
-      {/* Prominent Executive Real-Time Budget Alert Modal */}
+      {/* Budget Alert Modal */}
       <Modal
         visible={Boolean(budgetAlert)}
         transparent
         animationType="fade"
-        onRequestClose={() => {
-          setBudgetAlert(null);
-          navigation.goBack();
-        }}
+        onRequestClose={() => { setBudgetAlert(null); navigation.goBack(); }}
       >
-        <View style={styles.alertModalBackdrop}>
-          <View
-            style={[
-              styles.alertModalCard,
-              budgetAlert?.isOver ? styles.alertCardOver : styles.alertCardWarning,
-            ]}
-          >
-            {/* Pulsing Icon Badge */}
-            <View
-              style={[
-                styles.alertIconBadge,
-                budgetAlert?.isOver ? styles.alertIconBadgeOver : styles.alertIconBadgeWarning,
-              ]}
-            >
+        <View style={styles.alertBackdrop}>
+          <View style={styles.alertCard}>
+            <View style={[styles.alertIconBadge, budgetAlert?.isOver ? styles.alertIconOver : styles.alertIconWarn]}>
               <MaterialCommunityIcons
                 name={budgetAlert?.isOver ? "alert-octagon-outline" : "bell-ring-outline"}
-                size={34}
+                size={32}
                 color={budgetAlert?.isOver ? colors.danger : colors.warning}
               />
             </View>
 
-            {/* Alert Title & Descriptive Subtitle */}
-            <Text style={styles.alertHeaderTitle}>
-              {budgetAlert?.isOver ? "Budget Limit Exceeded!" : "Budget Threshold Alert"}
-            </Text>
-            <Text style={styles.alertHeaderDesc}>
-              {budgetAlert?.isOver
-                ? "This expense pushes your spending over your allocated monthly budget."
-                : "You have consumed 80%+ of your planned monthly budget for this category."}
+            <Text style={styles.alertTitle}>
+              {budgetAlert?.isOver ? "Over Budget" : "Almost There"}
             </Text>
 
-            {/* Category & Spending Breakdown Console */}
             {budgetAlert && (
               <View style={styles.alertConsole}>
-                {/* Category Header Row */}
-                <View style={styles.alertConsoleTop}>
-                  <View style={styles.alertCategoryInfo}>
-                    <CategoryPill
-                      icon={budgetAlert.categoryIcon}
-                      color={budgetAlert.categoryColor}
-                      size={32}
-                    />
-                    <Text style={styles.alertCategoryName}>{budgetAlert.categoryName}</Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.alertStatusPill,
-                      budgetAlert.isOver ? styles.alertStatusPillOver : styles.alertStatusPillWarning,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.alertStatusPillText,
-                        budgetAlert.isOver ? styles.alertStatusTextOver : styles.alertStatusTextWarning,
-                      ]}
-                    >
-                      {budgetAlert.isOver ? "OVER BUDGET" : `${budgetAlert.pct.toFixed(0)}% SPENT`}
+                <View style={styles.alertRow}>
+                  <Text style={styles.alertLabel}>Spent</Text>
+                  <Text style={[styles.alertValue, { color: budgetAlert.isOver ? colors.danger : colors.warning }]}>
+                    {formatCurrency(budgetAlert.actualAfter)}
+                  </Text>
+                </View>
+                <View style={styles.alertRow}>
+                  <Text style={styles.alertLabel}>Budget</Text>
+                  <Text style={styles.alertValue}>{formatCurrency(budgetAlert.budget)}</Text>
+                </View>
+                {budgetAlert.isOver && (
+                  <View style={styles.alertRow}>
+                    <Text style={styles.alertLabel}>Over by</Text>
+                    <Text style={[styles.alertValue, { color: colors.danger }]}>
+                      +{formatCurrency(budgetAlert.overAmount)}
                     </Text>
                   </View>
-                </View>
-
-                {/* 6px Live Progress Bar */}
-                <View style={styles.alertProgressTrackBg}>
-                  <View
-                    style={[
-                      styles.alertProgressTrackFill,
-                      {
-                        width: `${Math.min(100, budgetAlert.pct)}%`,
-                        backgroundColor: budgetAlert.isOver ? colors.danger : colors.warning,
-                      },
-                    ]}
-                  />
-                </View>
-
-                {/* Figures Comparison Row */}
-                <View style={styles.alertFiguresRow}>
-                  <View style={styles.alertFigureCol}>
-                    <Text style={styles.alertFigureLabel}>TOTAL SPENT</Text>
-                    <Text
-                      style={[
-                        styles.alertFigureValue,
-                        { color: budgetAlert.isOver ? colors.danger : colors.warning },
-                      ]}
-                    >
-                      {formatCurrency(budgetAlert.actualAfter)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.alertFigureDivider} />
-
-                  <View style={styles.alertFigureCol}>
-                    <Text style={styles.alertFigureLabel}>MONTHLY BUDGET</Text>
-                    <Text style={styles.alertFigureValue}>{formatCurrency(budgetAlert.budget)}</Text>
-                  </View>
-
-                  {budgetAlert.isOver && (
-                    <>
-                      <View style={styles.alertFigureDivider} />
-                      <View style={styles.alertFigureCol}>
-                        <Text style={styles.alertFigureLabel}>OVER BY</Text>
-                        <Text style={[styles.alertFigureValue, { color: colors.danger }]}>
-                          +{formatCurrency(budgetAlert.overAmount)}
-                        </Text>
-                      </View>
-                    </>
-                  )}
-                </View>
+                )}
               </View>
             )}
 
-            {/* Interactive Actions */}
             <View style={styles.alertActions}>
               <Button
-                label="View Budget"
+                label="Budget"
                 variant="secondary"
-                onPress={() => {
-                  setBudgetAlert(null);
-                  navigation.navigate("Tabs", { screen: "Budget" } as any);
-                }}
+                onPress={() => { setBudgetAlert(null); navigation.navigate("Tabs", { screen: "Budget" } as any); }}
                 style={{ flex: 1 }}
               />
               <Button
-                label="Got It, Continue"
+                label="Got it"
                 onPress={() => {
                   setBudgetAlert(null);
-                  showToast({
-                    message: editing ? "Expense updated" : "Expense logged",
-                    type: "success",
-                  });
+                  showToast({ message: editing ? "Expense updated" : "Expense logged", type: "success" });
                   navigation.goBack();
                 }}
                 style={{ flex: 1 }}
@@ -515,7 +362,7 @@ function SegmentedControl<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <View style={{ marginBottom: spacing.lg }}>
+    <View style={styles.fieldWrap}>
       <Text style={styles.label}>{label}</Text>
       <View style={styles.segmentRow}>
         {options.map((opt) => (
@@ -523,6 +370,7 @@ function SegmentedControl<T extends string>({
             key={opt}
             style={[styles.segment, value === opt && styles.segmentActive]}
             onPress={() => onChange(opt)}
+            activeOpacity={0.7}
           >
             <Text style={[styles.segmentText, value === opt && styles.segmentTextActive]}>{opt}</Text>
           </TouchableOpacity>
@@ -534,13 +382,13 @@ function SegmentedControl<T extends string>({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  content: { padding: spacing.lg },
   label: { fontSize: 15, fontWeight: "600", color: colors.textSecondary, marginBottom: spacing.xs },
+  fieldWrap: { marginBottom: spacing.md },
+  error: { color: colors.danger, marginBottom: spacing.md, fontSize: 14 },
 
-  // Dropdown Field Styles
-  dropdownWrapper: { marginBottom: spacing.md },
   dropdownTrigger: {
-    height: 52,
+    height: 56,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
@@ -550,34 +398,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  dropdownTriggerEmpty: {
-    borderColor: colors.border,
-  },
   dropdownSelectedRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm + 2,
+    gap: spacing.sm,
     flex: 1,
   },
-  dropdownSelectedText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: colors.textPrimary,
-  },
-  dropdownPlaceholderText: {
-    fontSize: 16,
-    color: colors.textMuted,
-  },
-  dateTrigger: {
-    paddingHorizontal: spacing.md,
-  },
+  dropdownText: { fontSize: 17, fontWeight: "600", color: colors.textPrimary },
+  dropdownPlaceholder: { fontSize: 17, color: colors.textMuted },
 
-  // Modal Bottom Sheet Styles
-  sheetBackdrop: {
+  segmentRow: { flexDirection: "row", gap: spacing.xs },
+  segment: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    justifyContent: "flex-end",
+    paddingVertical: 14,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
   },
+  segmentActive: { backgroundColor: "rgba(255,255,255,0.12)", borderColor: colors.borderLight },
+  segmentText: { fontSize: 14, fontWeight: "600", color: colors.textSecondary },
+  segmentTextActive: { color: colors.textPrimary, fontWeight: "700" },
+
+  sheetBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" },
   sheetContent: {
     backgroundColor: colors.surfaceRaised,
     borderTopLeftRadius: 24,
@@ -592,23 +436,17 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "rgba(255,255,255,0.2)",
     alignSelf: "center",
     marginBottom: spacing.sm,
   },
-  sheetHeaderRow: {
+  sheetHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: spacing.xs,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
-  sheetTitle: {
-    ...typography.subtitle,
-    fontSize: 18,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
+  sheetTitle: { fontSize: 18, fontWeight: "700", color: colors.textPrimary },
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -618,218 +456,80 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: spacing.md,
-    height: 44,
+    height: 48,
     marginBottom: spacing.sm,
   },
   searchInput: {
     flex: 1,
     color: colors.textPrimary,
-    fontSize: 15,
+    fontSize: 16,
     paddingVertical: 0,
   },
-  categoryList: {
-    maxHeight: 320,
-    marginTop: spacing.xs,
-  },
-  categoryOption: {
+  optionList: { maxHeight: 340 },
+  optionRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: spacing.md,
     paddingVertical: spacing.sm + 4,
     paddingHorizontal: spacing.sm,
     borderRadius: radius.md,
     marginBottom: 4,
   },
-  categoryOptionSelected: {
-    backgroundColor: "rgba(0, 230, 118, 0.1)",
-  },
-  categoryOptionLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    flex: 1,
-  },
-  categoryOptionText: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: colors.textSecondary,
-  },
-  categoryOptionTextSelected: {
-    color: colors.textPrimary,
-    fontWeight: "700",
-  },
-  noResultsWrap: {
-    paddingVertical: spacing.xl,
-    alignItems: "center",
-  },
-  noCategoriesText: {
-    ...typography.caption,
-    color: colors.textMuted,
-    textAlign: "center",
-  },
+  optionRowSelected: { backgroundColor: "rgba(255,255,255,0.08)" },
+  optionText: { flex: 1, fontSize: 17, fontWeight: "500", color: colors.textSecondary },
+  optionTextSelected: { color: colors.textPrimary, fontWeight: "700" },
 
-  // Segmented Control Styles
-  segmentRow: { flexDirection: "row", gap: spacing.sm },
-  segment: {
+  // Budget Alert
+  alertBackdrop: {
     flex: 1,
-    paddingVertical: spacing.sm,
-    borderRadius: 10,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-  },
-  segmentActive: { backgroundColor: colors.accentMuted, borderColor: colors.accent },
-  segmentText: { ...typography.caption },
-  segmentTextActive: { color: colors.accent, fontWeight: "700" },
-  error: { color: colors.danger, marginBottom: spacing.md, fontSize: 13 },
-
-  // Executive Budget Alert Modal Styles
-  alertModalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.78)",
+    backgroundColor: "rgba(0,0,0,0.78)",
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: spacing.lg,
   },
-  alertModalCard: {
+  alertCard: {
     width: "100%",
     backgroundColor: colors.surfaceRaised,
     borderRadius: 24,
-    borderWidth: 1.5,
-    padding: spacing.lg + 2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.xl,
     alignItems: "center",
-    gap: spacing.sm,
-  },
-  alertCardOver: {
-    borderColor: "rgba(255, 82, 82, 0.45)",
-  },
-  alertCardWarning: {
-    borderColor: "rgba(255, 179, 0, 0.45)",
+    gap: spacing.md,
   },
   alertIconBadge: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
   },
-  alertIconBadgeOver: {
-    backgroundColor: "rgba(255, 82, 82, 0.15)",
-  },
-  alertIconBadgeWarning: {
-    backgroundColor: "rgba(255, 179, 0, 0.15)",
-  },
-  alertHeaderTitle: {
-    ...typography.title,
-    fontSize: 20,
+  alertIconOver: { backgroundColor: "rgba(255,82,82,0.15)" },
+  alertIconWarn: { backgroundColor: "rgba(255,179,0,0.15)" },
+  alertTitle: {
+    fontSize: 22,
     fontWeight: "800",
     color: colors.textPrimary,
     textAlign: "center",
   },
-  alertHeaderDesc: {
-    ...typography.caption,
-    fontSize: 13,
-    color: colors.textSecondary,
-    textAlign: "center",
-    lineHeight: 18,
-    paddingHorizontal: spacing.sm,
-  },
-
-  // Alert Console
   alertConsole: {
     width: "100%",
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: radius.md,
     padding: spacing.md,
-    marginTop: spacing.xs,
     gap: spacing.sm,
   },
-  alertConsoleTop: {
+  alertRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  alertCategoryInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    flex: 1,
-  },
-  alertCategoryName: {
-    ...typography.body,
-    fontSize: 15,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  alertStatusPill: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: radius.pill,
-  },
-  alertStatusPillOver: {
-    backgroundColor: "rgba(255, 82, 82, 0.15)",
-  },
-  alertStatusPillWarning: {
-    backgroundColor: "rgba(255, 179, 0, 0.15)",
-  },
-  alertStatusPillText: {
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.5,
-  },
-  alertStatusTextOver: {
-    color: colors.danger,
-  },
-  alertStatusTextWarning: {
-    color: colors.warning,
-  },
-
-  alertProgressTrackBg: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    overflow: "hidden",
-  },
-  alertProgressTrackFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
-
-  alertFiguresRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-    paddingTop: 4,
-  },
-  alertFigureCol: {
-    alignItems: "center",
-  },
-  alertFigureLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: colors.textSecondary,
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  alertFigureValue: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: colors.textPrimary,
-  },
-  alertFigureDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-  },
-
+  alertLabel: { fontSize: 15, fontWeight: "600", color: colors.textSecondary },
+  alertValue: { fontSize: 17, fontWeight: "800", color: colors.textPrimary },
   alertActions: {
     flexDirection: "row",
     gap: spacing.sm,
     width: "100%",
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
 });
