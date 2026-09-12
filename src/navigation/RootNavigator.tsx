@@ -9,6 +9,7 @@ import { RootStackParamList } from "../types/navigation";
 import { AuthNavigator } from "./AuthNavigator";
 import { TabNavigator } from "./TabNavigator";
 import { ExpenseFormScreen } from "../screens/expenses/ExpenseFormScreen";
+import { IncomeFormScreen } from "../screens/income/IncomeFormScreen";
 import { CategoriesScreen } from "../screens/settings/CategoriesScreen";
 import { CategoryFormScreen } from "../screens/settings/CategoryFormScreen";
 import { IncomeScreen } from "../screens/settings/IncomeScreen";
@@ -57,13 +58,14 @@ export function RootNavigator() {
             <Stack.Screen name="Tabs" component={TabNavigator} />
             <Stack.Group screenOptions={{ presentation: "modal", headerShown: true }}>
               <Stack.Screen name="ExpenseForm" component={ExpenseFormScreen} options={{ title: "Expense" }} />
+              <Stack.Screen name="IncomeForm" component={IncomeFormScreen} options={{ title: "Log Income" }} />
               <Stack.Screen name="Categories" component={CategoriesScreen} options={{ title: "Categories" }} />
               <Stack.Screen
                 name="CategoryForm"
                 component={CategoryFormScreen}
                 options={{ title: "Category" }}
               />
-              <Stack.Screen name="Income" component={IncomeScreen} options={{ title: "Income" }} />
+              <Stack.Screen name="Income" component={IncomeScreen} options={{ title: "Legacy Income" }} />
             </Stack.Group>
           </>
         ) : (

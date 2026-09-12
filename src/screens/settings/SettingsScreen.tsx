@@ -71,10 +71,10 @@ export function SettingsScreen() {
         onPress={() => navigation.navigate("Categories")}
       />
       <SettingsRow
-        icon="cash-multiple"
+        icon="wallet-plus"
         label="Income"
-        subtitle="Log salary, bonus and other income"
-        onPress={() => navigation.navigate("Income")}
+        subtitle="Manage income streams & earnings"
+        onPress={() => navigation.navigate("Tabs", { screen: "Income" } as any)}
       />
       <SettingsRow
         icon="piggy-bank-outline"

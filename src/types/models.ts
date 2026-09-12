@@ -18,7 +18,7 @@ export interface Category {
   isDefault: boolean;
 }
 
-export type PaymentMethod = "Cash" | "Bank" | "Card" | "Easypaisa" | "JazzCash";
+export type PaymentMethod = "Card" | "Bank Transfer" | "Cash" | "Cheque";
 export type NeedWant = "Need" | "Want";
 export type ExpenseStatus = "Paid" | "Unpaid";
 
@@ -45,12 +45,40 @@ export interface ExpenseInput {
   status: ExpenseStatus;
 }
 
+export type IncomeStatus = "Received" | "Expected";
+
 export interface Income {
   id: string;
+  userId?: string;
+  date: string; // ISO string
+  month: string; // "YYYY-MM"
+  source: string;
+  sourceIcon: string;
+  sourceColor: string;
+  description: string | null;
+  amount: number;
+  status: IncomeStatus;
+  paymentMethod: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface IncomeInput {
+  date: string; // ISO string
+  source: string;
+  sourceIcon?: string;
+  sourceColor?: string;
+  description?: string;
+  amount: number;
+  status: IncomeStatus;
+  paymentMethod?: string;
+}
+
+export interface IncomeSummary {
   month: string;
-  salary: number;
-  bonus: number;
-  otherIncome: number;
+  totalIncome: number;
+  receivedIncome: number;
+  expectedIncome: number;
 }
 
 export interface Budget {
@@ -87,6 +115,8 @@ export interface TrendPoint {
 export interface DashboardSummary {
   month: string;
   monthlyIncome: number;
+  receivedIncome?: number;
+  expectedIncome?: number;
   totalExpenses: number;
   paidExpenses: number;
   unpaidExpenses: number;

@@ -1,20 +1,28 @@
 import { apiClient } from "./client";
-import { Income } from "../types/models";
+import { Income, IncomeInput, IncomeSummary } from "../types/models";
 
-export interface IncomeInput {
-  month: string;
-  salary: number;
-  bonus: number;
-  otherIncome: number;
-}
-
-export async function fetchIncome(): Promise<Income[]> {
-  const { data } = await apiClient.get<Income[]>("/income");
+export async function fetchIncomes(params?: { month?: string; status?: string }): Promise<Income[]> {
+  const { data } = await apiClient.get<Income[]>("/income", { params });
   return data;
 }
 
-export async function saveIncome(input: IncomeInput): Promise<Income> {
-  const { data } = await apiClient.put<Income>("/income", input);
+export async function fetchIncomeSummary(month: string): Promise<IncomeSummary> {
+  const { data } = await apiClient.get<IncomeSummary>("/income/summary", { params: { month } });
+  return data;
+}
+
+export async function createIncome(input: IncomeInput): Promise<Income> {
+  const { data } = await apiClient.post<Income>("/income", input);
+  return data;
+}
+
+export async function updateIncome(id: string, input: Partial<IncomeInput>): Promise<Income> {
+  const { data } = await apiClient.put<Income>(`/income/${id}`, input);
+  return data;
+}
+
+export async function toggleIncomeStatus(id: string): Promise<Income> {
+  const { data } = await apiClient.patch<Income>(`/income/${id}/status`);
   return data;
 }
 

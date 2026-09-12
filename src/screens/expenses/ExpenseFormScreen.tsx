@@ -7,7 +7,9 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Platform,
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useCategories } from "../../hooks/useCategories";
@@ -40,7 +42,7 @@ interface BudgetAlertInfo {
   pct: number;
 }
 
-const PAYMENT_METHODS: PaymentMethod[] = ["Cash", "Bank", "Card", "Easypaisa", "JazzCash"];
+const PAYMENT_METHODS: PaymentMethod[] = ["Card", "Bank Transfer", "Cash", "Cheque"];
 const NEED_WANT: NeedWant[] = ["Need", "Want"];
 const STATUSES: ExpenseStatus[] = ["Paid", "Unpaid"];
 
@@ -73,7 +75,13 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
     c.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
   );
 
-  const dateIso = editing?.date ?? new Date().toISOString();
+  const [date, setDate] = useState<Date>(editing ? new Date(editing.date) : new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const onDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) setDate(selectedDate);
+  };
 
   const handleSave = async () => {
     const parsedAmount = Number(amount);
@@ -85,7 +93,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
     try {
       const input = {
         categoryId,
-        date: dateIso,
+        date: date.toISOString(),
         description: description.trim() || undefined,
         amount: parsedAmount,
         paymentMethod,
@@ -184,7 +192,34 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
           value={description}
           onChangeText={setDescription}
           placeholder="e.g. Lunch at restaurant"
+          accessibilityLabel="Expense Description"
         />
+
+        <View style={styles.dropdownWrapper}>
+          <Text style={styles.label}>Date</Text>
+          <TouchableOpacity
+            style={[styles.dropdownTrigger, styles.dateTrigger]}
+            onPress={() => setShowDatePicker(true)}
+            activeOpacity={0.7}
+            accessibilityLabel="Select Date"
+            accessibilityHint="Opens date picker to select expense date"
+          >
+            <View style={styles.dropdownSelectedRow}>
+              <MaterialCommunityIcons name="calendar" size={24} color={colors.textSecondary} />
+              <Text style={styles.dropdownSelectedText}>{date.toISOString().split('T')[0]}</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-down" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        {showDatePicker && (
+          <DateTimePicker
+            value={date}
+            mode="date"
+            display="default"
+            onChange={onDateChange}
+          />
+        )}
 
         {/* Clean Category Dropdown Selector */}
         <View style={styles.dropdownWrapper}>
@@ -532,6 +567,9 @@ const styles = StyleSheet.create({
   dropdownPlaceholderText: {
     fontSize: 16,
     color: colors.textMuted,
+  },
+  dateTrigger: {
+    paddingHorizontal: spacing.md,
   },
 
   // Modal Bottom Sheet Styles

@@ -59,21 +59,37 @@ export function HomeScreen() {
           <ActivityIndicator style={styles.loader} color={colors.accent} />
         ) : (
           <>
-            {/* 1. Hero Total Income This Month (Open & Breathable) */}
-            <View style={styles.incomeHero}>
+            {/* 1. Hero Total Income This Month (Interactive & Linked to Income Tab) */}
+            <TouchableOpacity
+              style={styles.incomeHero}
+              onPress={() => navigation.navigate("Tabs", { screen: "Income" } as any)}
+              activeOpacity={0.8}
+            >
               <View style={styles.incomeBadge}>
                 <View style={styles.incomeDot} />
                 <Text style={styles.incomeBadgeText}>TOTAL INCOME THIS MONTH</Text>
+                <MaterialCommunityIcons name="chevron-right" size={13} color={colors.textSecondary} />
               </View>
               <Text style={styles.incomeAmount} numberOfLines={1} adjustsFontSizeToFit>
                 {formatCurrency(data.monthlyIncome)}
               </Text>
-            </View>
+              {data.expectedIncome !== undefined && data.expectedIncome > 0 ? (
+                <View style={styles.incomeBreakdownRow}>
+                  <Text style={styles.incomeBreakdownReceived}>
+                    {formatCurrency(data.receivedIncome ?? 0)} received
+                  </Text>
+                  <Text style={styles.incomeBreakdownDot}>·</Text>
+                  <Text style={styles.incomeBreakdownExpected}>
+                    {formatCurrency(data.expectedIncome)} expected
+                  </Text>
+                </View>
+              ) : null}
+            </TouchableOpacity>
 
             {/* 2. Expenses Section Header */}
             <View style={styles.sectionHeaderRow}>
               <View style={styles.sectionHeaderLeft}>
-                <MaterialCommunityIcons name="arrow-top-right" size={18} color={colors.danger} />
+                <MaterialCommunityIcons name="arrow-top-right" size={18} color={colors.textSecondary} />
                 <Text style={styles.sectionTitle}>Expenses</Text>
               </View>
             </View>
@@ -83,7 +99,7 @@ export function HomeScreen() {
               {/* Total Segment */}
               <View style={styles.expenseSegment}>
                 <View style={styles.segmentHeaderRow}>
-                  <View style={[styles.segmentDot, { backgroundColor: colors.textSecondary }]} />
+                  <View style={[styles.segmentDot, { backgroundColor: colors.textMuted }]} />
                   <Text style={styles.segmentLabel}>TOTAL</Text>
                 </View>
                 <Text style={[styles.segmentValue, { color: colors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
@@ -97,10 +113,10 @@ export function HomeScreen() {
               {/* Paid Segment */}
               <View style={styles.expenseSegment}>
                 <View style={styles.segmentHeaderRow}>
-                  <View style={[styles.segmentDot, { backgroundColor: colors.accent }]} />
+                  <View style={[styles.segmentDot, { backgroundColor: colors.textPrimary }]} />
                   <Text style={styles.segmentLabel}>PAID</Text>
                 </View>
-                <Text style={[styles.segmentValue, { color: colors.accent }]} numberOfLines={1} adjustsFontSizeToFit>
+                <Text style={[styles.segmentValue, { color: colors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
                   {formatCurrency(data.paidExpenses)}
                 </Text>
               </View>
@@ -114,7 +130,7 @@ export function HomeScreen() {
                   <View
                     style={[
                       styles.segmentDot,
-                      { backgroundColor: data.unpaidExpenses > 0 ? colors.warning : colors.accent },
+                      { backgroundColor: data.unpaidExpenses > 0 ? colors.warning : colors.textMuted },
                     ]}
                   />
                   <Text style={styles.segmentLabel}>UNPAID</Text>
@@ -122,7 +138,7 @@ export function HomeScreen() {
                 <Text
                   style={[
                     styles.segmentValue,
-                    { color: data.unpaidExpenses > 0 ? colors.warning : colors.accent },
+                    { color: data.unpaidExpenses > 0 ? colors.warning : colors.textPrimary },
                   ]}
                   numberOfLines={1}
                   adjustsFontSizeToFit
@@ -168,7 +184,7 @@ export function HomeScreen() {
               <Text
                 style={[
                   styles.balanceAmount,
-                  { color: data.remainingBalance >= 0 ? colors.accent : colors.danger },
+                  { color: data.remainingBalance >= 0 ? colors.textPrimary : colors.danger },
                 ]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
@@ -183,26 +199,47 @@ export function HomeScreen() {
                     styles.savingsTrackFill,
                     {
                       width: `${Math.max(0, Math.min(100, (data.savingsPercentage || 0) * 100))}%`,
-                      backgroundColor: data.remainingBalance >= 0 ? colors.accent : colors.danger,
+                      backgroundColor: data.remainingBalance >= 0 ? colors.textPrimary : colors.danger,
                     },
                   ]}
                 />
               </View>
+
+              {data.cashInHand !== undefined && (
+                <View style={styles.cashInHandRow}>
+                  <Text style={styles.cashInHandLabel}>
+                    Cash in Hand:{" "}
+                    <Text
+                      style={[
+                        styles.cashInHandVal,
+                        { color: data.cashInHand >= 0 ? colors.textPrimary : colors.danger },
+                      ]}
+                    >
+                      {formatCurrency(data.cashInHand)}
+                    </Text>
+                  </Text>
+                  {data.expectedIncome !== undefined && data.expectedIncome > 0 && (
+                    <Text style={styles.cashInHandPending}>
+                      · {formatCurrency(data.expectedIncome)} pending
+                    </Text>
+                  )}
+                </View>
+              )}
             </View>
 
             {/* 4. Spending by Category (Centered Donut Ring & Full-Width Legend) */}
             <View style={styles.sectionHeaderRow}>
               <View style={styles.sectionHeaderLeft}>
-                <MaterialCommunityIcons name="chart-donut" size={18} color={colors.accent} />
+                <MaterialCommunityIcons name="chart-donut" size={18} color={colors.textSecondary} />
                 <Text style={styles.sectionTitle}>Spending by Category</Text>
               </View>
             </View>
             <View style={styles.analyticsCard}>
               <PieChart
-                data={data.categoryBreakdown.map((c) => ({
+                data={data.categoryBreakdown.map((c, idx) => ({
                   label: c.name,
                   value: c.amount,
-                  color: c.color,
+                  color: colors.categoryPalette[idx % colors.categoryPalette.length],
                 }))}
               />
             </View>
@@ -210,7 +247,7 @@ export function HomeScreen() {
             {/* 5. Monthly Trend Bar Chart */}
             <View style={styles.sectionHeaderRow}>
               <View style={styles.sectionHeaderLeft}>
-                <MaterialCommunityIcons name="chart-box-outline" size={18} color={colors.accent} />
+                <MaterialCommunityIcons name="chart-box-outline" size={18} color={colors.textSecondary} />
                 <Text style={styles.sectionTitle}>Last 12 Months</Text>
               </View>
             </View>
@@ -225,7 +262,7 @@ export function HomeScreen() {
               <>
                 <View style={styles.sectionHeaderRow}>
                   <View style={styles.sectionHeaderLeft}>
-                    <MaterialCommunityIcons name="bullseye-arrow" size={18} color={colors.accent} />
+                    <MaterialCommunityIcons name="bullseye-arrow" size={18} color={colors.textSecondary} />
                     <Text style={styles.sectionTitle}>Budget vs Actual</Text>
                   </View>
                 </View>
@@ -253,7 +290,7 @@ export function HomeScreen() {
                               styles.budgetProgressFill,
                               {
                                 width: `${progress}%`,
-                                backgroundColor: isOver ? colors.danger : colors.accent,
+                                backgroundColor: isOver ? colors.danger : colors.textPrimary,
                               },
                             ]}
                           />
@@ -344,6 +381,48 @@ const styles = StyleSheet.create({
     marginVertical: 2,
     textAlign: "center",
   },
+  incomeBreakdownRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 2,
+  },
+  incomeBreakdownReceived: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.accent,
+  },
+  incomeBreakdownDot: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  incomeBreakdownExpected: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#FFB300",
+  },
+  cashInHandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    marginTop: spacing.xs + 2,
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.06)",
+  },
+  cashInHandLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.textSecondary,
+  },
+  cashInHandVal: {
+    fontWeight: "700",
+  },
+  cashInHandPending: {
+    fontSize: 11,
+    color: "#FFB300",
+    fontWeight: "500",
+  },
 
   // Section Headers
   sectionHeaderRow: {
@@ -421,14 +500,14 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   balanceCardSurplus: {
-    backgroundColor: "#0D1812",
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "rgba(0, 230, 118, 0.28)",
+    borderColor: colors.borderLight,
   },
   balanceCardDeficit: {
-    backgroundColor: "#1A0E0E",
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "rgba(255, 82, 82, 0.3)",
+    borderColor: "rgba(239, 68, 68, 0.35)",
   },
   balanceHeaderRow: {
     flexDirection: "row",

@@ -73,7 +73,7 @@ export function BudgetScreen() {
                 <View style={styles.metricDivider} />
                 <View style={styles.allocationMetricCol}>
                   <Text style={styles.metricLabel}>MONTHLY INCOME</Text>
-                  <Text style={[styles.metricValue, { color: colors.accent }]}>
+                  <Text style={[styles.metricValue, { color: colors.textPrimary }]}>
                     {formatCurrency(monthlyIncome)}
                   </Text>
                 </View>
@@ -87,7 +87,7 @@ export function BudgetScreen() {
                       styles.allocationTrackFill,
                       {
                         width: `${Math.min(100, (totalBudgeted / monthlyIncome) * 100)}%`,
-                        backgroundColor: unallocated < 0 ? colors.danger : colors.accent,
+                        backgroundColor: unallocated < 0 ? colors.danger : colors.textPrimary,
                       },
                     ]}
                   />
@@ -194,7 +194,7 @@ export function BudgetScreen() {
 
               {item.hasBudget && (
                 <View style={{ marginTop: spacing.sm }}>
-                  <ProgressBar progress={progress} color={isOver ? colors.danger : item.category.color} />
+                  <ProgressBar progress={progress} color={isOver ? colors.danger : colors.textPrimary} />
                   {item.unpaid > 0 && (
                     <Text style={styles.unpaidNote}>{formatCurrency(item.unpaid)} unpaid</Text>
                   )}
@@ -299,23 +299,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   statusPillUnder: {
-    backgroundColor: "rgba(0, 230, 118, 0.08)",
-    borderColor: "rgba(0, 230, 118, 0.25)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.14)",
   },
   statusPillExact: {
-    backgroundColor: "rgba(0, 230, 118, 0.15)",
-    borderColor: colors.accent,
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: colors.borderLight,
   },
   statusPillOver: {
-    backgroundColor: "rgba(255, 82, 82, 0.12)",
-    borderColor: "rgba(255, 82, 82, 0.3)",
+    backgroundColor: colors.dangerMuted,
+    borderColor: "rgba(239, 68, 68, 0.3)",
   },
   statusPillText: {
     fontSize: 11,
     fontWeight: "700",
   },
-  statusTextUnder: { color: colors.accent },
-  statusTextExact: { color: colors.accent },
+  statusTextUnder: { color: colors.textPrimary },
+  statusTextExact: { color: colors.textPrimary },
   statusTextOver: { color: colors.danger },
 
   allocationMetricsRow: {
@@ -390,19 +390,19 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   pacingTagTrack: {
-    backgroundColor: "rgba(0, 230, 118, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   pacingTagFast: {
-    backgroundColor: "rgba(255, 179, 0, 0.12)",
+    backgroundColor: colors.warningMuted,
   },
   pacingTagOver: {
-    backgroundColor: "rgba(255, 82, 82, 0.12)",
+    backgroundColor: colors.dangerMuted,
   },
   pacingTagText: {
     fontSize: 10,
     fontWeight: "700",
   },
-  pacingTextTrack: { color: colors.accent },
+  pacingTextTrack: { color: colors.textPrimary },
   pacingTextFast: { color: colors.warning },
   pacingTextOver: { color: colors.danger },
   pacingPctText: {

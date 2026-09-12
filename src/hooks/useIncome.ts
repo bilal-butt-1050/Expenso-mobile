@@ -1,16 +1,40 @@
 import { useCallback } from "react";
 import * as incomeApi from "../api/income";
+import { IncomeInput, IncomeStatus } from "../types/models";
 import { useAppData } from "../context/AppDataContext";
 import { useAsyncData } from "./useAsyncData";
 
-export function useIncome() {
-  const { dataVersion, notifyDataChanged } = useAppData();
-  const state = useAsyncData(() => incomeApi.fetchIncome(), [dataVersion]);
+export function useIncome(filters: { status?: IncomeStatus } = {}) {
+  const { selectedMonth, dataVersion, notifyDataChanged } = useAppData();
 
-  const saveIncome = useCallback(
-    async (input: incomeApi.IncomeInput) => {
-      await incomeApi.saveIncome(input);
+  const state = useAsyncData(
+    () => incomeApi.fetchIncomes({ month: selectedMonth, ...filters }),
+    [selectedMonth, filters.status, dataVersion]
+  );
+
+  const addIncome = useCallback(
+    async (input: IncomeInput) => {
+      const res = await incomeApi.createIncome(input);
       notifyDataChanged();
+      return res;
+    },
+    [notifyDataChanged]
+  );
+
+  const editIncome = useCallback(
+    async (id: string, input: Partial<IncomeInput>) => {
+      const res = await incomeApi.updateIncome(id, input);
+      notifyDataChanged();
+      return res;
+    },
+    [notifyDataChanged]
+  );
+
+  const toggleStatus = useCallback(
+    async (id: string) => {
+      const res = await incomeApi.toggleIncomeStatus(id);
+      notifyDataChanged();
+      return res;
     },
     [notifyDataChanged]
   );
@@ -23,5 +47,5 @@ export function useIncome() {
     [notifyDataChanged]
   );
 
-  return { ...state, saveIncome, removeIncome };
+  return { ...state, addIncome, editIncome, toggleStatus, removeIncome };
 }

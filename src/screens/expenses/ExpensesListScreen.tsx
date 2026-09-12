@@ -91,8 +91,9 @@ export function ExpensesListScreen() {
             style={styles.row}
             onPress={() => navigation.navigate("ExpenseForm", { expense: item })}
             onLongPress={() => confirmDelete(item)}
+            activeOpacity={0.75}
           >
-            <CategoryPill icon={item.category.icon} color={item.category.color} />
+            <CategoryPill icon={item.category.icon} />
             <View style={styles.rowMiddle}>
               <Text style={styles.rowTitle} numberOfLines={1}>
                 {item.description || item.category.name}
@@ -116,7 +117,7 @@ export function ExpensesListScreen() {
         onPress={() => navigation.navigate("ExpenseForm", undefined)}
         activeOpacity={0.85}
       >
-        <MaterialCommunityIcons name="plus" size={28} color={colors.background} />
+        <MaterialCommunityIcons name="plus" size={26} color={colors.accentForeground} />
       </TouchableOpacity>
     </ScreenContainer>
   );
@@ -140,10 +141,15 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs + 2,
     borderRadius: 999,
     backgroundColor: colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  filterChipActive: { backgroundColor: colors.accentMuted },
-  filterText: { color: colors.textSecondary, fontSize: 14, fontWeight: "600" },
-  filterTextActive: { color: colors.accent },
+  filterChipActive: {
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: colors.borderLight,
+  },
+  filterText: { color: colors.textSecondary, fontSize: 13, fontWeight: "600" },
+  filterTextActive: { color: colors.textPrimary, fontWeight: "700" },
   list: { paddingHorizontal: spacing.lg, paddingBottom: 100, flexGrow: 1 },
   row: {
     flexDirection: "row",
@@ -155,22 +161,22 @@ const styles = StyleSheet.create({
   },
   rowMiddle: { flex: 1 },
   rowTitle: { ...typography.body, fontWeight: "600" },
-  rowSubtitle: { ...typography.small, marginTop: 2 },
+  rowSubtitle: { ...typography.small, color: colors.textMuted, marginTop: 2 },
   rowEnd: { alignItems: "flex-end", gap: spacing.xs },
-  amount: { ...typography.body, fontWeight: "700" },
+  amount: { ...typography.body, fontWeight: "700", color: colors.textPrimary },
   fab: {
     position: "absolute",
     right: spacing.lg,
     bottom: spacing.xl,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: colors.accent,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: colors.accent,
+    shadowColor: "#000000",
     shadowOpacity: 0.4,
-    shadowRadius: 12,
+    shadowRadius: 10,
     elevation: 6,
   },
 });

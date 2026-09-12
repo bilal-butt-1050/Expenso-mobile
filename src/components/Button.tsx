@@ -32,7 +32,7 @@ export function Button({ label, onPress, variant = "primary", loading, disabled,
       style={[styles.base, variantStyles[variant], isDisabled && styles.disabled, style]}
     >
       {loading ? (
-        <ActivityIndicator color={variant === "primary" ? colors.background : colors.textPrimary} />
+        <ActivityIndicator color={variant === "primary" ? colors.accentForeground : colors.textPrimary} />
       ) : (
         <Text style={[styles.label, textVariantStyles[variant]]}>{label}</Text>
       )}
@@ -60,8 +60,8 @@ const variantStyles: Record<Variant, ViewStyle> = {
 };
 
 const textVariantStyles = {
-  primary: { color: colors.background },
+  primary: { color: colors.accentForeground },
   secondary: { color: colors.textPrimary },
   danger: { color: colors.danger },
-  ghost: { color: colors.accent },
+  ghost: { color: colors.textPrimary },
 };

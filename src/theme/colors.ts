@@ -1,34 +1,48 @@
-// Expenso — dark-mode-first palette. One file, one source of truth: every
-// screen imports from here instead of hardcoding hex values, so a re-theme
-// later is a one-file change.
+// Expenso — Platinum Minimalist & Crisp White palette.
+// Unified, high-contrast, distraction-free neutral theme inspired by
+// Apple & Linear design systems.
+
 export const colors = {
-  background: "#0A0A0A",
-  surface: "#161616",
-  surfaceRaised: "#1F1F1F",
-  border: "#2A2A2A",
+  background: "#09090B",
+  surface: "#141417",
+  surfaceRaised: "#1C1C21",
+  border: "#27272A",
+  borderLight: "rgba(255, 255, 255, 0.12)",
 
   textPrimary: "#FFFFFF",
-  textSecondary: "#B5B5B5",
-  textMuted: "#808080",
+  textSecondary: "#A1A1AA",
+  textMuted: "#71717A",
 
-  accent: "#00E676", // neon green — primary actions, positive values
-  accentMuted: "#0A5C33",
-  danger: "#FF5252", // overspending, unpaid, destructive actions
-  dangerMuted: "#4A1F1F",
-  warning: "#FFB300",
+  // Primary High-Contrast Accent (Crisp White / Platinum)
+  accent: "#FFFFFF",
+  accentMuted: "rgba(255, 255, 255, 0.12)",
+  accentForeground: "#09090B",
 
-  // Category color palette offered when creating/editing a category.
+  // Unified Neutral Icon Tokens
+  iconNeutral: "#E4E4E7",
+  iconBg: "rgba(255, 255, 255, 0.06)",
+  iconBorder: "rgba(255, 255, 255, 0.09)",
+
+  // Subdued Functional Semantic Colors (Only for alerts & critical indicators)
+  danger: "#EF4444",
+  dangerMuted: "rgba(239, 68, 68, 0.15)",
+  warning: "#F59E0B",
+  warningMuted: "rgba(245, 158, 11, 0.15)",
+  success: "#10B981",
+  successMuted: "rgba(16, 185, 129, 0.12)",
+
+  // Neutral Monochromatic Palette for Categories & Charts
   categoryPalette: [
-    "#00E676",
-    "#40C4FF",
-    "#FFB300",
-    "#FF4081",
-    "#7C4DFF",
-    "#FF5252",
-    "#69F0AE",
-    "#FFD740",
-    "#B388FF",
-    "#9E9E9E",
+    "#FFFFFF",
+    "#F4F4F5",
+    "#E4E4E7",
+    "#D4D4D8",
+    "#A1A1AA",
+    "#71717A",
+    "#52525B",
+    "#3F3F46",
+    "#E2E8F0",
+    "#94A3B8",
   ],
 } as const;
 
