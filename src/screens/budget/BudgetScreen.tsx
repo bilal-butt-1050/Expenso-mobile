@@ -106,26 +106,41 @@ export function BudgetScreen() {
 
             return (
               <TouchableOpacity
-                style={styles.row}
+                style={styles.capsule}
                 onPress={() => setEditingCategory(item.category)}
                 activeOpacity={0.7}
                 accessibilityRole="button"
                 accessibilityLabel={`${item.category.name}, ${formatCurrency(item.actual)} of ${formatCurrency(item.budget)}`}
               >
-                <CategoryPill icon={item.category.icon} color={item.category.color} size={38} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.rowLabel}>{item.category.name}</Text>
+                <View style={styles.capsuleHeader}>
+                  <View style={styles.capsuleLeft}>
+                    <CategoryPill icon={item.category.icon} color={item.category.color} size={42} />
+                    <Text style={styles.capsuleLabel}>{item.category.name}</Text>
+                  </View>
+                  <View style={styles.capsuleRight}>
+                    <Text style={styles.capsuleAmount}>{formatCurrency(item.actual)}</Text>
+                    <Text style={styles.capsuleBudget}>
+                      {item.hasBudget ? `of ${formatCurrency(item.budget)}` : "no budget"}
+                    </Text>
+                  </View>
                 </View>
-                <View style={{ alignItems: "flex-end" }}>
-                  <Text style={styles.rowAmount}>{formatCurrency(item.actual)}</Text>
-                  <Text style={styles.rowBudget}>
-                    {item.hasBudget ? `of ${formatCurrency(item.budget)}` : "no budget"}
-                  </Text>
-                </View>
+
+                {item.hasBudget && item.budget > 0 && (
+                  <View style={styles.progressBarBg}>
+                    <View
+                      style={[
+                        styles.progressBarFill,
+                        {
+                          width: `${Math.min(100, progress * 100)}%`,
+                          backgroundColor: isOver ? colors.danger : (item.category.color || colors.accent),
+                        },
+                      ]}
+                    />
+                  </View>
+                )}
               </TouchableOpacity>
             );
           }}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
       )}
 
@@ -246,16 +261,54 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
 
-  row: {
+  capsule: {
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  capsuleHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  capsuleLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
-    paddingVertical: spacing.md,
+    gap: spacing.sm + 2,
   },
-  rowLabel: { ...typography.body, fontWeight: "600" },
-  rowAmount: { fontSize: 17, fontWeight: "700", color: colors.textPrimary },
-  rowBudget: { fontSize: 14, color: colors.textMuted, marginTop: 2 },
-  separator: { height: 1, backgroundColor: colors.border },
+  capsuleLabel: {
+    ...typography.body,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  capsuleRight: {
+    alignItems: "flex-end",
+  },
+  capsuleAmount: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: colors.textPrimary,
+  },
+  capsuleBudget: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  progressBarBg: {
+    height: 6,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 3,
+    overflow: "hidden",
+    marginTop: spacing.md,
+  },
+  progressBarFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
 
   sheetBackdrop: { flex: 1, backgroundColor: "#000000AA", justifyContent: "flex-end" },
   sheet: { backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: spacing.lg },
