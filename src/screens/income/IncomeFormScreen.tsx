@@ -141,7 +141,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
           value={description}
           onChangeText={setDescription}
           placeholder="Description (optional)"
-          maxLength={60}
+          maxLength={40}
           numberOfLines={1}
         />
 
