@@ -67,7 +67,21 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
   });
 
   const toastAnim = useRef(new Animated.Value(0)).current;
+  const modalAnim = useRef(new Animated.Value(0)).current;
   const toastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    if (dialogState.type !== "none") {
+      Animated.spring(modalAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 250,
+        friction: 20,
+      }).start();
+    } else {
+      modalAnim.setValue(0);
+    }
+  }, [dialogState.type, modalAnim]);
 
   const confirm = useCallback((options: ConfirmOptions) => {
     setDialogState({ type: "confirm", ...options });
@@ -88,8 +102,8 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
       Animated.spring(toastAnim, {
         toValue: 1,
         useNativeDriver: true,
-        friction: 8,
-        tension: 50,
+        tension: 250,
+        friction: 15,
       }).start();
 
       toastTimeout.current = setTimeout(() => {
@@ -148,16 +162,26 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
       <Modal
         transparent
         visible={isModalOpen}
-        animationType="fade"
+        animationType="none"
         onRequestClose={dialogState.type === "confirm" ? handleCancel : handleDismiss}
         statusBarTranslucent
       >
         <TouchableWithoutFeedback
           onPress={dialogState.type === "confirm" ? handleCancel : handleDismiss}
         >
-          <View style={[styles.backdrop, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+          <Animated.View style={[styles.backdrop, { 
+            paddingBottom: Math.max(insets.bottom, spacing.lg),
+            opacity: modalAnim,
+          }]}>
             <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View style={styles.dialogCard}>
+              <Animated.View style={[styles.dialogCard, {
+                transform: [{
+                  scale: modalAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.9, 1]
+                  })
+                }]
+              }]}>
                 {dialogIcon && (
                   <View
                     style={[
@@ -225,9 +249,9 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
                     )}
                   </>
                 )}
-              </View>
+              </Animated.View>
             </TouchableWithoutFeedback>
-          </View>
+          </Animated.View>
         </TouchableWithoutFeedback>
       </Modal>
 
