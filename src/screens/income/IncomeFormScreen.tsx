@@ -47,7 +47,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const editing = route.params?.income;
   const { addIncome, editIncome, removeIncome } = useIncome();
-  const { confirm, showToast } = useDialog();
+  const { confirm } = useDialog();
 
   const [selectedPreset, setSelectedPreset] = useState<SourcePreset>(
     PRESET_SOURCES.find((p) => p.source === editing?.source) ?? PRESET_SOURCES[0]
@@ -90,10 +90,10 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         await addIncome(input);
       }
 
-      showToast({
-        message: editing ? "Income updated" : "Income logged",
-        type: "success",
-      });
+      // showToast({
+      //   message: editing ? "Income updated" : "Income logged",
+      //   type: "success",
+      // });
       navigation.goBack();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -112,11 +112,11 @@ export function IncomeFormScreen({ route, navigation }: Props) {
       icon: "trash-can-outline",
       onConfirm: async () => {
         await removeIncome(editing.id);
-        showToast({ message: "Income deleted", type: "success" });
+        // showToast({ message: "Income deleted", type: "success" });
         navigation.goBack();
       },
     });
-  }, [editing, confirm, removeIncome, showToast, navigation]);
+  }, [editing, confirm, removeIncome, navigation]);
 
   React.useLayoutEffect(() => {
     if (editing) {

@@ -21,7 +21,7 @@ export function CategoriesScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { data: categories, isLoading, removeCategory } = useCategories();
-  const { confirm, alert, showToast } = useDialog();
+  const { confirm, alert } = useDialog();
 
   const confirmDelete = (id: string, name: string) => {
     confirm({
@@ -33,8 +33,7 @@ export function CategoriesScreen() {
       onConfirm: async () => {
         try {
           await removeCategory(id);
-          showToast({ message: `"${name}" deleted`, type: "success" });
-        } catch (err) {
+        } catch (err: any) {
           alert({
             title: "Couldn't delete category",
             message: getErrorMessage(err),

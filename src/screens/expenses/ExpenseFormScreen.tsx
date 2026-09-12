@@ -51,7 +51,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const { data: categories } = useCategories();
   const { data: dashboardData } = useDashboard();
   const { addExpense, editExpense, removeExpense } = useExpenses();
-  const { confirm, showToast } = useDialog();
+  const { confirm } = useDialog();
 
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? "");
   const [description, setDescription] = useState(editing?.description ?? "");
@@ -144,7 +144,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         await addExpense(input);
       }
 
-      showToast({ message: editing ? "Expense updated" : "Expense logged", type: "success" });
+      // showToast({ message: editing ? "Expense updated" : "Expense logged", type: "success" });
       setBudgetAlert(null);
       navigation.goBack();
     } catch (err) {
@@ -164,11 +164,11 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       icon: "trash-can-outline",
       onConfirm: async () => {
         await removeExpense(editing.id);
-        showToast({ message: "Expense deleted", type: "success" });
+        // showToast({ message: "Expense deleted", type: "success" });
         navigation.goBack();
       },
     });
-  }, [editing, confirm, removeExpense, showToast, navigation]);
+  }, [editing, confirm, removeExpense, navigation]);
 
   React.useLayoutEffect(() => {
     if (editing) {

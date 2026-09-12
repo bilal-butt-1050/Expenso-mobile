@@ -25,7 +25,7 @@ type Filter = IncomeStatus | "All";
 export function IncomeListScreen() {
   const navigation = useNavigation<Nav>();
   const { selectedMonth, setSelectedMonth } = useAppData();
-  const { confirm, showToast } = useDialog();
+  const { confirm } = useDialog();
   const [filter, setFilter] = useState<Filter>("All");
 
   const { data: allIncomes, isLoading, removeIncome, toggleStatus } = useIncome(
@@ -45,17 +45,12 @@ export function IncomeListScreen() {
       icon: "trash-can-outline",
       onConfirm: async () => {
         await removeIncome(income.id);
-        showToast({ message: "Deleted", type: "success" });
       },
     });
   };
 
   const handleToggleStatus = async (income: Income) => {
     await toggleStatus(income.id);
-    showToast({
-      message: income.status === "Received" ? "Marked Expected" : "Marked Received",
-      type: "info",
-    });
   };
 
   return (
@@ -100,42 +95,14 @@ export function IncomeListScreen() {
             <EmptyState icon="wallet-plus-outline" title="No income this month" />
           )
         }
-        renderItem={({ item }) => {
-          const isReceived = item.status === "Received";
-          return (
-            <TouchableOpacity
-              style={styles.row}
-              onPress={() => navigation.navigate("IncomeForm", { income: item })}
-              onLongPress={() => confirmDelete(item)}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={`${item.source}, ${formatCurrency(item.amount)}, ${item.status}`}
-            >
-              <CategoryPill icon={item.sourceIcon || "cash-multiple"} size={42} />
-              <View style={styles.rowMiddle}>
-                <Text style={styles.rowTitle} numberOfLines={1}>
-                  {item.description || item.source}
-                </Text>
-                <Text style={styles.rowSub}>{formatDate(item.date)}</Text>
-              </View>
-              <View style={styles.rowEnd}>
-                <Text style={styles.rowAmount}>+{formatCurrency(item.amount)}</Text>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
-                  <Text style={{ fontSize: 13, fontWeight: "600", color: isReceived ? colors.success : colors.warning }}>
-                    {item.status}
-                  </Text>
-                  <Switch
-                    value={isReceived}
-                    onValueChange={() => handleToggleStatus(item)}
-                    trackColor={{ false: colors.border, true: colors.success }}
-                    thumbColor={colors.textPrimary}
-                    style={{ transform: [{ scale: 0.7 }] }}
-                  />
-                </View>
-              </View>
-            </TouchableOpacity>
-          );
-        }}
+        renderItem={({ item }) => (
+          <IncomeItem
+            item={item}
+            onPress={() => navigation.navigate("IncomeForm", { income: item })}
+            onLongPress={() => confirmDelete(item)}
+            onToggleStatus={() => handleToggleStatus(item)}
+          />
+        )}
       />
 
       <TouchableOpacity
@@ -148,6 +115,63 @@ export function IncomeListScreen() {
         <MaterialCommunityIcons name="plus" size={28} color={colors.accentForeground} />
       </TouchableOpacity>
     </ScreenContainer>
+  );
+}
+
+function IncomeItem({
+  item,
+  onPress,
+  onLongPress,
+  onToggleStatus,
+}: {
+  item: Income;
+  onPress: () => void;
+  onLongPress: () => void;
+  onToggleStatus: () => void;
+}) {
+  const [isReceived, setIsReceived] = React.useState(item.status === "Received");
+
+  React.useEffect(() => {
+    setIsReceived(item.status === "Received");
+  }, [item.status]);
+
+  const handleToggle = () => {
+    setIsReceived(!isReceived);
+    onToggleStatus();
+  };
+
+  return (
+    <TouchableOpacity
+      style={styles.row}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={`${item.source}, ${formatCurrency(item.amount)}, ${isReceived ? "Received" : "Expected"}`}
+    >
+      <CategoryPill icon={item.sourceIcon || "cash-multiple"} size={42} />
+      <View style={styles.rowMiddle}>
+        <Text style={styles.rowTitle} numberOfLines={1}>
+          {item.description || item.source}
+        </Text>
+        <Text style={styles.rowSub}>{formatDate(item.date)}</Text>
+      </View>
+      <View style={styles.rowEnd}>
+        <Text style={styles.rowAmount}>+{formatCurrency(item.amount)}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
+          <Text style={{ fontSize: 13, fontWeight: "600", color: isReceived ? colors.success : colors.warning }}>
+            {isReceived ? "Received" : "Expected"}
+          </Text>
+          <Switch
+            value={isReceived}
+            onValueChange={handleToggle}
+            trackColor={{ false: colors.border, true: colors.success }}
+            thumbColor={colors.textPrimary}
+            style={{ transform: [{ scale: 0.7 }] }}
+          />
+        </View>
+      </View>
+    </TouchableOpacity>
   );
 }
 

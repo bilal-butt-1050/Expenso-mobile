@@ -32,16 +32,9 @@ export interface AlertOptions {
   onDismiss?: () => void;
 }
 
-export interface ToastOptions {
-  message: string;
-  type?: "success" | "error" | "info";
-  duration?: number;
-}
-
 interface DialogContextValue {
   confirm: (options: ConfirmOptions) => void;
   alert: (options: AlertOptions) => void;
-  showToast: (options: ToastOptions) => void;
 }
 
 const DialogContext = createContext<DialogContextValue | null>(null);
@@ -51,24 +44,11 @@ type DialogState =
   | ({ type: "confirm" } & ConfirmOptions)
   | ({ type: "alert" } & AlertOptions);
 
-interface ToastState {
-  visible: boolean;
-  message: string;
-  type: "success" | "error" | "info";
-}
-
 export function DialogProvider({ children }: { children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
   const [dialogState, setDialogState] = useState<DialogState>({ type: "none" });
-  const [toastState, setToastState] = useState<ToastState>({
-    visible: false,
-    message: "",
-    type: "info",
-  });
 
-  const toastAnim = useRef(new Animated.Value(0)).current;
   const modalAnim = useRef(new Animated.Value(0)).current;
-  const toastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
     if (dialogState.type !== "none") {
@@ -90,34 +70,6 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
   const alert = useCallback((options: AlertOptions) => {
     setDialogState({ type: "alert", ...options });
   }, []);
-
-  const showToast = useCallback(
-    ({ message, type = "info", duration = 2400 }: ToastOptions) => {
-      if (toastTimeout.current) {
-        clearTimeout(toastTimeout.current);
-      }
-
-      setToastState({ visible: true, message, type });
-
-      Animated.spring(toastAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 250,
-        friction: 15,
-      }).start();
-
-      toastTimeout.current = setTimeout(() => {
-        Animated.timing(toastAnim, {
-          toValue: 0,
-          duration: 250,
-          useNativeDriver: true,
-        }).start(() => {
-          setToastState((prev) => ({ ...prev, visible: false }));
-        });
-      }, duration);
-    },
-    [toastAnim]
-  );
 
   const handleCancel = () => {
     if (dialogState.type === "confirm" && dialogState.onCancel) {
@@ -155,7 +107,7 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
       : undefined;
 
   return (
-    <DialogContext.Provider value={{ confirm, alert, showToast }}>
+    <DialogContext.Provider value={{ confirm, alert }}>
       {children}
 
       {/* Themed Custom Modal Dialog */}
@@ -254,57 +206,6 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
           </Animated.View>
         </TouchableWithoutFeedback>
       </Modal>
-
-      {/* Themed Custom Floating Toast Notification */}
-      {toastState.visible && (
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.toastWrapper,
-            {
-              top: Math.max(insets.top + spacing.sm, spacing.lg),
-              opacity: toastAnim,
-              transform: [
-                {
-                  translateY: toastAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-16, 0],
-                  }),
-                },
-                {
-                  scale: toastAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.94, 1],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <View style={styles.toastPill}>
-            <MaterialCommunityIcons
-              name={
-                toastState.type === "success"
-                  ? "check-circle"
-                  : toastState.type === "error"
-                  ? "alert-circle"
-                  : "information"
-              }
-              size={18}
-              color={
-                toastState.type === "success"
-                  ? colors.accent
-                  : toastState.type === "error"
-                  ? colors.danger
-                  : colors.textPrimary
-              }
-            />
-            <Text style={styles.toastText} numberOfLines={2}>
-              {toastState.message}
-            </Text>
-          </View>
-        </Animated.View>
-      )}
     </DialogContext.Provider>
   );
 }

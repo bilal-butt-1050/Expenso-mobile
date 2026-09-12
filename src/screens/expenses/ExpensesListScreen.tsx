@@ -25,7 +25,7 @@ type Filter = ExpenseStatus | "All";
 export function ExpensesListScreen() {
   const navigation = useNavigation<Nav>();
   const { selectedMonth, setSelectedMonth } = useAppData();
-  const { confirm, showToast } = useDialog();
+  const { confirm } = useDialog();
   const [filter, setFilter] = useState<Filter>("All");
   const { data, isLoading, removeExpense, toggleStatus } = useExpenses(
     filter === "All" ? {} : { status: filter }
@@ -40,17 +40,12 @@ export function ExpensesListScreen() {
       icon: "trash-can-outline",
       onConfirm: async () => {
         await removeExpense(expense.id);
-        showToast({ message: "Deleted", type: "success" });
       },
     });
   };
 
   const handleToggleStatus = async (expense: Expense) => {
     await toggleStatus(expense.id);
-    showToast({
-      message: expense.status === "Paid" ? "Marked Unpaid" : "Marked Paid",
-      type: "info",
-    });
   };
 
   return (
@@ -86,37 +81,12 @@ export function ExpensesListScreen() {
           )
         }
         renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.row}
+          <ExpenseItem
+            item={item}
             onPress={() => navigation.navigate("ExpenseForm", { expense: item })}
             onLongPress={() => confirmDelete(item)}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel={`${item.category.name}, ${formatCurrency(item.amount)}, ${item.status}`}
-          >
-            <CategoryPill icon={item.category.icon} size={42} />
-            <View style={styles.rowMiddle}>
-              <Text style={styles.rowTitle} numberOfLines={1}>
-                {item.description || item.category.name}
-              </Text>
-              <Text style={styles.rowSub}>{formatDate(item.date)}</Text>
-            </View>
-            <View style={styles.rowEnd}>
-              <Text style={styles.rowAmount}>{formatCurrency(item.amount)}</Text>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
-                <Text style={{ fontSize: 13, fontWeight: "600", color: item.status === "Paid" ? colors.success : colors.warning }}>
-                  {item.status}
-                </Text>
-                <Switch
-                  value={item.status === "Paid"}
-                  onValueChange={() => handleToggleStatus(item)}
-                  trackColor={{ false: colors.border, true: colors.success }}
-                  thumbColor={colors.textPrimary}
-                  style={{ transform: [{ scale: 0.7 }] }}
-                />
-              </View>
-            </View>
-          </TouchableOpacity>
+            onToggleStatus={() => handleToggleStatus(item)}
+          />
         )}
       />
 
@@ -130,6 +100,63 @@ export function ExpensesListScreen() {
         <MaterialCommunityIcons name="plus" size={28} color={colors.accentForeground} />
       </TouchableOpacity>
     </ScreenContainer>
+  );
+}
+
+function ExpenseItem({
+  item,
+  onPress,
+  onLongPress,
+  onToggleStatus,
+}: {
+  item: Expense;
+  onPress: () => void;
+  onLongPress: () => void;
+  onToggleStatus: () => void;
+}) {
+  const [isPaid, setIsPaid] = React.useState(item.status === "Paid");
+
+  React.useEffect(() => {
+    setIsPaid(item.status === "Paid");
+  }, [item.status]);
+
+  const handleToggle = () => {
+    setIsPaid(!isPaid);
+    onToggleStatus();
+  };
+
+  return (
+    <TouchableOpacity
+      style={styles.row}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={`${item.category.name}, ${formatCurrency(item.amount)}, ${isPaid ? "Paid" : "Unpaid"}`}
+    >
+      <CategoryPill icon={item.category.icon} size={42} />
+      <View style={styles.rowMiddle}>
+        <Text style={styles.rowTitle} numberOfLines={1}>
+          {item.description || item.category.name}
+        </Text>
+        <Text style={styles.rowSub}>{formatDate(item.date)}</Text>
+      </View>
+      <View style={styles.rowEnd}>
+        <Text style={styles.rowAmount}>{formatCurrency(item.amount)}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
+          <Text style={{ fontSize: 13, fontWeight: "600", color: isPaid ? colors.success : colors.warning }}>
+            {isPaid ? "Paid" : "Unpaid"}
+          </Text>
+          <Switch
+            value={isPaid}
+            onValueChange={handleToggle}
+            trackColor={{ false: colors.border, true: colors.success }}
+            thumbColor={colors.textPrimary}
+            style={{ transform: [{ scale: 0.7 }] }}
+          />
+        </View>
+      </View>
+    </TouchableOpacity>
   );
 }
 

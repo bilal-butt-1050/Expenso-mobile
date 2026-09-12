@@ -18,7 +18,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 export function SettingsScreen() {
   const navigation = useNavigation<Nav>();
   const { user, logout, updateProfile } = useAuth();
-  const { confirm, showToast } = useDialog();
+  const { confirm } = useDialog();
 
   const [isSavingsModalOpen, setIsSavingsModalOpen] = useState(false);
   const [savingsInput, setSavingsInput] = useState(String(user?.savingsGoal ?? 20));
@@ -39,10 +39,8 @@ export function SettingsScreen() {
     setIsSaving(true);
     try {
       await updateProfile({ savingsGoal: val });
-      showToast({ message: `Savings target set to ${val}%`, type: "success" });
       setIsSavingsModalOpen(false);
     } catch {
-      showToast({ message: "Failed to update savings target", type: "error" });
     } finally {
       setIsSaving(false);
     }

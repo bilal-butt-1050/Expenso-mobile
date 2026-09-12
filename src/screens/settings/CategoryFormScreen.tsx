@@ -20,7 +20,7 @@ export function CategoryFormScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const editing = route.params?.category;
   const { addCategory, editCategory } = useCategories();
-  const { showToast } = useDialog();
+  const { alert } = useDialog();
 
   const [name, setName] = useState(editing?.name ?? "");
   const [icon, setIcon] = useState(editing?.icon ?? "shape-outline");
@@ -36,10 +36,8 @@ export function CategoryFormScreen({ route, navigation }: Props) {
     try {
       if (editing) {
         await editCategory(editing.id, { name: name.trim(), icon, color });
-        showToast({ message: "Category updated", type: "success" });
       } else {
         await addCategory({ name: name.trim(), icon, color });
-        showToast({ message: "Category created", type: "success" });
       }
       navigation.goBack();
     } catch (err) {

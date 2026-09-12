@@ -26,7 +26,7 @@ export function BudgetScreen() {
   const { data: summary, isLoading } = useDashboard();
   const { data: categories } = useCategories();
   const { setBudget } = useBudgets();
-  const { showToast } = useDialog();
+  const { alert } = useDialog();
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
   const rows = (categories ?? []).map((category) => {
@@ -137,7 +137,6 @@ export function BudgetScreen() {
           onSave={async (amount) => {
             if (editingCategory) {
               await setBudget(editingCategory.id, amount);
-              showToast({ message: `${editingCategory.name} budget updated`, type: "success" });
             }
             setEditingCategory(null);
           }}
