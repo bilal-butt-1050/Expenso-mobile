@@ -31,11 +31,7 @@ export function HomeScreen() {
         refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.accent} />}
       >
         {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Hi{user?.name ? `, ${user.name}` : ""} 👋</Text>
-            <Text style={styles.subGreeting}>Here's your financial overview</Text>
-          </View>
+        <View style={[styles.header, { justifyContent: "flex-end" }]}>
           <TouchableOpacity
             style={styles.headerAvatar}
             onPress={() => navigation.navigate("Settings" as any)}
