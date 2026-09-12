@@ -37,6 +37,13 @@ export function BudgetScreen() {
       actual: match?.actual ?? 0,
       hasBudget: Boolean(match),
     };
+  }).sort((a, b) => {
+    // 1. Sort by actual spent (highest first)
+    if (b.actual !== a.actual) return b.actual - a.actual;
+    // 2. Sort by allocated budget (highest first)
+    if (b.budget !== a.budget) return b.budget - a.budget;
+    // 3. Fallback to alphabetical sorting by category name
+    return a.category.name.localeCompare(b.category.name);
   });
 
   const totalBudgeted = rows.reduce((sum, r) => sum + r.budget, 0);
