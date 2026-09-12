@@ -154,7 +154,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = React.useCallback(() => {
     if (!editing) return;
     confirm({
       title: "Delete this expense?",
@@ -168,7 +168,19 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         navigation.goBack();
       },
     });
-  };
+  }, [editing, confirm, removeExpense, showToast, navigation]);
+
+  React.useLayoutEffect(() => {
+    if (editing) {
+      navigation.setOptions({
+        headerRight: () => (
+          <TouchableOpacity onPress={handleDelete} hitSlop={12} accessibilityRole="button" style={{ marginRight: spacing.sm }}>
+            <MaterialCommunityIcons name="trash-can-outline" size={24} color={colors.danger} />
+          </TouchableOpacity>
+        ),
+      });
+    }
+  }, [navigation, editing, handleDelete]);
 
   return (
     <>
@@ -226,10 +238,6 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <Button label={editing ? "Save Changes" : "Add Expense"} onPress={() => handleSave(false)} loading={isSaving} />
-
-        {editing && (
-          <Button label="Delete" variant="danger" onPress={handleDelete} style={{ marginTop: spacing.sm }} />
-        )}
       </ScrollView>
 
       {/* Category Sheet */}

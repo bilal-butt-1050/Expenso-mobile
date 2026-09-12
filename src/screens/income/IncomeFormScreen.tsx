@@ -102,7 +102,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = React.useCallback(() => {
     if (!editing) return;
     confirm({
       title: "Delete this income?",
@@ -116,7 +116,19 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         navigation.goBack();
       },
     });
-  };
+  }, [editing, confirm, removeIncome, showToast, navigation]);
+
+  React.useLayoutEffect(() => {
+    if (editing) {
+      navigation.setOptions({
+        headerRight: () => (
+          <TouchableOpacity onPress={handleDelete} hitSlop={12} accessibilityRole="button" style={{ marginRight: spacing.sm }}>
+            <MaterialCommunityIcons name="trash-can-outline" size={24} color={colors.danger} />
+          </TouchableOpacity>
+        ),
+      });
+    }
+  }, [navigation, editing, handleDelete]);
 
   return (
     <>
@@ -214,15 +226,6 @@ export function IncomeFormScreen({ route, navigation }: Props) {
           loading={isSaving}
           style={{ marginTop: spacing.sm }}
         />
-
-        {editing && (
-          <Button
-            label="Delete"
-            variant="danger"
-            onPress={handleDelete}
-            style={{ marginTop: spacing.sm }}
-          />
-        )}
       </ScrollView>
 
       {/* Source Selection Sheet */}
