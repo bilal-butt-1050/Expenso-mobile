@@ -7,17 +7,14 @@ import { useDashboard } from "../../hooks/useDashboard";
 import { useAppData } from "../../context/AppDataContext";
 import { useAuth } from "../../context/AuthContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
-import { Card } from "../../components/Card";
 import { MonthPicker } from "../../components/MonthPicker";
-import { PieChart } from "../../components/PieChart";
-import { BarChart } from "../../components/BarChart";
-import { Button } from "../../components/Button";
 import { HomeSkeleton } from "../../components/Skeleton";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { formatCurrency } from "../../utils/currency";
 import { RootStackParamList } from "../../types/navigation";
+import { BarChart } from "../../components/BarChart";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -25,7 +22,7 @@ export function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const { user } = useAuth();
   const { selectedMonth, setSelectedMonth } = useAppData();
-  const { data, isLoading, error, refetch } = useDashboard();
+  const { data, isLoading, refetch } = useDashboard();
 
   return (
     <ScreenContainer style={styles.noPad}>
@@ -35,13 +32,15 @@ export function HomeScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>Hi{user?.name ? `, ${user.name}` : ""} 👋</Text>
+          <View>
+            <Text style={styles.greeting}>Hi{user?.name ? `, ${user.name}` : ""} 👋</Text>
+            <Text style={styles.subGreeting}>Here's your financial overview</Text>
+          </View>
           <TouchableOpacity
             style={styles.headerAvatar}
             onPress={() => navigation.navigate("Settings" as any)}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel="Settings"
           >
             <Text style={styles.headerAvatarText}>
               {(user?.name || user?.email || "E")[0].toUpperCase()}
@@ -51,125 +50,135 @@ export function HomeScreen() {
 
         <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
 
-        {error ? (
-          <Card style={styles.errorCard}>
-            <Text style={styles.errorText}>{error}</Text>
-            <Button label="Retry" variant="secondary" onPress={refetch} />
-          </Card>
-        ) : !data ? (
+        {!data ? (
           <HomeSkeleton />
         ) : (
           <>
-            {/* Income Hero */}
-            <TouchableOpacity
-              style={styles.incomeHero}
-              onPress={() => navigation.navigate("Tabs", { screen: "Income" } as any)}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel={`Income: ${formatCurrency(data.monthlyIncome)}`}
-            >
-              <Text style={styles.heroLabel}>INCOME</Text>
+            {/* Main Balance Hero */}
+            <View style={styles.heroSection}>
+              <Text style={styles.heroLabel}>AVAILABLE BALANCE</Text>
               <Text style={styles.heroAmount} numberOfLines={1} adjustsFontSizeToFit>
-                {formatCurrency(data.monthlyIncome)}
+                {formatCurrency(data.remainingBalance)}
               </Text>
-              {data.expectedIncome !== undefined && data.expectedIncome > 0 && (
-                <Text style={styles.heroSub}>
-                  {formatCurrency(data.receivedIncome ?? 0)} received · {formatCurrency(data.expectedIncome)} expected
-                </Text>
+              
+              {data.pacingStatus && (
+                <View style={[
+                  styles.statusPill, 
+                  data.pacingStatus === "On Track" ? styles.statusPillGood : 
+                  data.pacingStatus === "Over Budget" ? styles.statusPillBad : styles.statusPillWarn
+                ]}>
+                  <MaterialCommunityIcons 
+                    name={data.pacingStatus === "On Track" ? "check-circle" : "alert-circle"} 
+                    size={14} 
+                    color={
+                      data.pacingStatus === "On Track" ? colors.success : 
+                      data.pacingStatus === "Over Budget" ? colors.danger : colors.warning
+                    } 
+                  />
+                  <Text style={[
+                    styles.statusText, 
+                    { color: data.pacingStatus === "On Track" ? colors.success : 
+                             data.pacingStatus === "Over Budget" ? colors.danger : colors.warning }
+                  ]}>
+                    {data.pacingStatus}
+                  </Text>
+                </View>
               )}
-            </TouchableOpacity>
+            </View>
 
-            {/* Expenses Panel */}
-            <View style={styles.expensesPanel}>
-              <ExpenseMetric label="Total" value={formatCurrency(data.totalExpenses)} />
-              <View style={styles.divider} />
-              <ExpenseMetric label="Paid" value={formatCurrency(data.paidExpenses)} />
-              <View style={styles.divider} />
-              <ExpenseMetric
-                label="Unpaid"
-                value={formatCurrency(data.unpaidExpenses)}
-                color={data.unpaidExpenses > 0 ? colors.warning : undefined}
+            {/* Quick Actions Row */}
+            <View style={styles.quickActions}>
+              <QuickAction 
+                icon="arrow-down" 
+                label="Income" 
+                color={colors.success} 
+                onPress={() => navigation.navigate("IncomeForm" as any)} 
+              />
+              <QuickAction 
+                icon="arrow-up" 
+                label="Expense" 
+                color={colors.danger} 
+                onPress={() => navigation.navigate("ExpenseForm" as any)} 
+              />
+              <QuickAction 
+                icon="chart-donut" 
+                label="Budgets" 
+                color={colors.accent} 
+                onPress={() => navigation.navigate("Tabs", { screen: "Budget" } as any)} 
               />
             </View>
 
-            {/* Balance Card */}
-            <View style={[styles.balanceCard, data.remainingBalance < 0 && styles.balanceCardDeficit]}>
-              <Text style={styles.balanceLabel}>Remaining Balance</Text>
-              <Text
-                style={[styles.balanceAmount, { color: data.remainingBalance >= 0 ? colors.textPrimary : colors.danger }]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {formatCurrency(data.remainingBalance)}
-              </Text>
-              <View style={styles.trackBg}>
-                <View
-                  style={[styles.trackFill, {
-                    width: `${Math.max(0, Math.min(100, (data.savingsPercentage || 0) * 100))}%`,
-                    backgroundColor: data.remainingBalance >= 0 ? colors.textPrimary : colors.danger,
-                  }]}
-                />
+            {/* Income & Spent Summary */}
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryIconBoxRow}>
+                  <View style={[styles.summaryIconBox, { backgroundColor: colors.successMuted }]}>
+                    <MaterialCommunityIcons name="arrow-down-bold" size={16} color={colors.success} />
+                  </View>
+                  <Text style={styles.summaryLabel}>Income</Text>
+                </View>
+                <Text style={styles.summaryAmount} numberOfLines={1} adjustsFontSizeToFit>
+                  {formatCurrency(data.monthlyIncome)}
+                </Text>
+              </View>
+              
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryIconBoxRow}>
+                  <View style={[styles.summaryIconBox, { backgroundColor: colors.dangerMuted }]}>
+                    <MaterialCommunityIcons name="arrow-up-bold" size={16} color={colors.danger} />
+                  </View>
+                  <Text style={styles.summaryLabel}>Spent</Text>
+                </View>
+                <Text style={styles.summaryAmount} numberOfLines={1} adjustsFontSizeToFit>
+                  {formatCurrency(data.totalExpenses)}
+                </Text>
               </View>
             </View>
 
-            {/* Spending by Category */}
-            {data.categoryBreakdown.length > 0 && (
-              <>
-                <Text style={styles.sectionTitle}>By Category</Text>
-                <View style={styles.card}>
-                  <PieChart
-                    data={data.categoryBreakdown.map((c, idx) => ({
-                      label: c.name,
-                      value: c.amount,
-                      color: colors.categoryPalette[idx % colors.categoryPalette.length],
-                    }))}
-                  />
+            {/* Daily Allowance (If pacing helps) */}
+            {data.dailyAllowance !== undefined && data.dailyAllowance > 0 && (
+              <View style={styles.card}>
+                <View style={styles.rowBetween}>
+                  <View>
+                    <Text style={styles.cardTitle}>Daily Allowance</Text>
+                    <Text style={styles.cardSub}>Safe to spend per day</Text>
+                  </View>
+                  <Text style={styles.cardHighlight}>{formatCurrency(data.dailyAllowance)}</Text>
                 </View>
-              </>
+              </View>
             )}
 
-            {/* Monthly Trend */}
-            {data.trend.length > 1 && (
-              <>
-                <Text style={styles.sectionTitle}>Trend</Text>
-                <View style={styles.card}>
-                  <View style={{ alignItems: "center", paddingTop: spacing.xs }}>
-                    <BarChart data={data.trend.map((t) => ({ month: t.month, value: t.totalExpenses }))} />
+            {/* Needs vs Wants Breakdown */}
+            {(data.needsPercentage !== undefined && data.wantsPercentage !== undefined && data.totalExpenses > 0) && (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Spending Split</Text>
+                <View style={styles.splitTrack}>
+                  <View style={[styles.splitFill, { width: `${data.needsPercentage}%`, backgroundColor: colors.accent }]} />
+                  <View style={[styles.splitFill, { width: `${data.wantsPercentage}%`, backgroundColor: colors.warning }]} />
+                </View>
+                <View style={styles.rowBetween}>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: colors.accent }]} />
+                    <Text style={styles.legendText}>Needs ({Math.round(data.needsPercentage)}%)</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: colors.warning }]} />
+                    <Text style={styles.legendText}>Wants ({Math.round(data.wantsPercentage)}%)</Text>
                   </View>
                 </View>
-              </>
+              </View>
             )}
 
-            {/* Budget vs Actual */}
-            {data.budgetVsActual.length > 0 && (
-              <>
-                <Text style={styles.sectionTitle}>Budget vs Actual</Text>
-                <View style={styles.card}>
-                  {data.budgetVsActual.slice(0, 4).map((b, idx) => {
-                    const progress = Math.min(100, (b.actual / Math.max(1, b.budget)) * 100);
-                    const isOver = b.actual > b.budget;
-                    return (
-                      <View key={b.categoryId} style={[styles.budgetRow, idx === 0 && { borderTopWidth: 0, paddingTop: 0 }]}>
-                        <View style={styles.rowBetween}>
-                          <Text style={styles.budgetName}>{b.name}</Text>
-                          <Text style={[styles.budgetFigure, isOver && { color: colors.danger }]}>
-                            {formatCurrency(b.actual)} / {formatCurrency(b.budget)}
-                          </Text>
-                        </View>
-                        <View style={styles.trackBg}>
-                          <View
-                            style={[styles.trackFill, {
-                              width: `${progress}%`,
-                              backgroundColor: isOver ? colors.danger : colors.textPrimary,
-                            }]}
-                          />
-                        </View>
-                      </View>
-                    );
-                  })}
+            {/* Spending Trend */}
+            {data.trend.length > 1 && (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>6-Month Trend</Text>
+                <View style={{ alignItems: "center", paddingTop: spacing.md, paddingBottom: spacing.sm }}>
+                  <BarChart data={data.trend.map((t) => ({ month: t.month, value: t.totalExpenses }))} />
                 </View>
-              </>
+              </View>
             )}
+
           </>
         )}
       </ScrollView>
@@ -177,14 +186,14 @@ export function HomeScreen() {
   );
 }
 
-function ExpenseMetric({ label, value, color }: { label: string; value: string; color?: string }) {
+function QuickAction({ icon, label, color, onPress }: { icon: any, label: string, color: string, onPress: () => void }) {
   return (
-    <View style={styles.metricCol}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={[styles.metricValue, color ? { color } : undefined]} numberOfLines={1} adjustsFontSizeToFit>
-        {value}
-      </Text>
-    </View>
+    <TouchableOpacity style={styles.quickActionBtn} onPress={onPress} activeOpacity={0.7} accessibilityRole="button">
+      <View style={[styles.quickActionIcon, { backgroundColor: `${color}1A` }]}>
+        <MaterialCommunityIcons name={icon} size={24} color={color} />
+      </View>
+      <Text style={styles.quickActionLabel}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -193,16 +202,16 @@ const styles = StyleSheet.create({
   scroll: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.xxl + 32,
-    gap: spacing.md,
+    paddingBottom: spacing.xxl + 40,
+    gap: spacing.lg,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.xs,
   },
   greeting: { ...typography.title },
+  subGreeting: { ...typography.caption, color: colors.textMuted },
   headerAvatar: {
     width: 44,
     height: 44,
@@ -214,139 +223,150 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerAvatarText: { fontSize: 18, fontWeight: "700", color: colors.accent },
-  loader: { marginTop: spacing.xxl },
-
-  // Income Hero
-  incomeHero: {
+  
+  heroSection: {
     alignItems: "center",
     paddingVertical: spacing.lg,
-    gap: spacing.xs,
   },
   heroLabel: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.textSecondary,
-    letterSpacing: 1,
-  },
-  heroAmount: {
-    fontSize: 42,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    letterSpacing: -0.5,
-    textAlign: "center",
-  },
-  heroSub: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-
-  // Expenses Panel
-  expensesPanel: {
-    flexDirection: "row",
-    alignItems: "stretch",
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.sm,
-  },
-  metricCol: {
-    flex: 1,
-    alignItems: "center",
-    gap: 4,
-  },
-  metricLabel: {
     fontSize: 12,
     fontWeight: "700",
     color: colors.textMuted,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: spacing.xs,
   },
-  metricValue: {
-    fontSize: 18,
+  heroAmount: {
+    fontSize: 48,
     fontWeight: "800",
     color: colors.textPrimary,
+    letterSpacing: -1,
   },
-  divider: {
-    width: 1,
-    alignSelf: "center",
-    height: "60%",
-    backgroundColor: "rgba(255,255,255,0.08)",
+  statusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginTop: spacing.sm,
+    borderWidth: 1,
+  },
+  statusPillGood: { backgroundColor: colors.successMuted, borderColor: `${colors.success}33` },
+  statusPillWarn: { backgroundColor: colors.warningMuted, borderColor: `${colors.warning}33` },
+  statusPillBad: { backgroundColor: colors.dangerMuted, borderColor: `${colors.danger}33` },
+  statusText: { fontSize: 12, fontWeight: "700" },
+
+  quickActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.sm,
+  },
+  quickActionBtn: {
+    alignItems: "center",
+    gap: 8,
+  },
+  quickActionIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quickActionLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.textSecondary,
   },
 
-  // Balance Card
-  balanceCard: {
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+  summaryRow: {
+    flexDirection: "row",
+    gap: spacing.md,
+  },
+  summaryCard: {
+    flex: 1,
     backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: colors.border,
     gap: spacing.sm,
   },
-  balanceCardDeficit: { borderColor: "rgba(239,68,68,0.35)" },
-  balanceLabel: {
+  summaryIconBoxRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  summaryIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  summaryLabel: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "600",
     color: colors.textSecondary,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
   },
-  balanceAmount: {
-    fontSize: 36,
+  summaryAmount: {
+    fontSize: 22,
     fontWeight: "800",
-    letterSpacing: -0.5,
-  },
-
-  // Shared track
-  trackBg: {
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    overflow: "hidden",
-  },
-  trackFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
-
-  // Section Headers
-  sectionTitle: {
-    ...typography.subtitle,
-    fontSize: 18,
-    fontWeight: "700",
     color: colors.textPrimary,
-    marginTop: spacing.sm,
   },
 
-  // Analytics Cards
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
+    padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.lg,
   },
-
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  cardSub: {
+    fontSize: 13,
+    color: colors.textMuted,
+  },
   rowBetween: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-
-  // Budget rows
-  budgetRow: {
-    paddingVertical: spacing.sm + 2,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.06)",
-    marginTop: spacing.xs,
-    gap: 8,
+  cardHighlight: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: colors.accent,
   },
-  budgetName: { ...typography.body, fontWeight: "600" },
-  budgetFigure: { fontSize: 14, fontWeight: "700", color: colors.textSecondary },
 
-  errorCard: { marginTop: spacing.lg, gap: spacing.md },
-  errorText: { color: colors.danger },
+  splitTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.surfaceRaised,
+    flexDirection: "row",
+    overflow: "hidden",
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+  },
+  splitFill: {
+    height: "100%",
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: colors.textSecondary,
+  },
 });
