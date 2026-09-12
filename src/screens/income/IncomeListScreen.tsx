@@ -9,6 +9,7 @@ import { useDialog } from "../../context/DialogContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { MonthPicker } from "../../components/MonthPicker";
 import { EmptyState } from "../../components/EmptyState";
+import { ListScreenSkeleton } from "../../components/Skeleton";
 import { CategoryPill } from "../../components/CategoryPill";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
@@ -93,9 +94,11 @@ export function IncomeListScreen() {
         contentContainerStyle={styles.list}
         refreshing={isLoading}
         ListEmptyComponent={
-          !isLoading ? (
+          isLoading ? (
+            <ListScreenSkeleton />
+          ) : (
             <EmptyState icon="wallet-plus-outline" title="No income this month" />
-          ) : null
+          )
         }
         renderItem={({ item }) => {
           const isReceived = item.status === "Received";

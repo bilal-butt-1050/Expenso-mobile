@@ -11,6 +11,7 @@ import { CategoryPill } from "../../components/CategoryPill";
 import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
 import { EmptyState } from "../../components/EmptyState";
+import { BudgetSkeleton } from "../../components/Skeleton";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
@@ -46,83 +47,87 @@ export function BudgetScreen() {
     <ScreenContainer>
       <Text style={styles.title}>Budget</Text>
 
-      <FlatList
-        data={rows}
-        keyExtractor={(item) => item.category.id}
-        refreshing={isLoading}
-        contentContainerStyle={{ paddingBottom: spacing.xxl + 32 }}
-        ListHeaderComponent={
-          <>
-            <View style={{ marginBottom: spacing.md }}>
-              <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
-            </View>
-
-            {/* Summary */}
-            <View style={styles.summaryCard}>
-              <View style={styles.summaryRow}>
-                <View style={styles.summaryCol}>
-                  <Text style={styles.summaryLabel}>BUDGETED</Text>
-                  <Text style={styles.summaryValue}>{formatCurrency(totalBudgeted)}</Text>
-                </View>
-                <View style={styles.summaryDivider} />
-                <View style={styles.summaryCol}>
-                  <Text style={styles.summaryLabel}>INCOME</Text>
-                  <Text style={styles.summaryValue}>{formatCurrency(monthlyIncome)}</Text>
-                </View>
+      {isLoading && !summary ? (
+        <BudgetSkeleton />
+      ) : (
+        <FlatList
+          data={rows}
+          keyExtractor={(item) => item.category.id}
+          refreshing={isLoading}
+          contentContainerStyle={{ paddingBottom: spacing.xxl + 32 }}
+          ListHeaderComponent={
+            <>
+              <View style={{ marginBottom: spacing.md }}>
+                <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
               </View>
 
-              {monthlyIncome > 0 && (
-                <>
-                  <View style={styles.trackBg}>
-                    <View
-                      style={[styles.trackFill, {
-                        width: `${Math.min(100, (totalBudgeted / monthlyIncome) * 100)}%`,
-                        backgroundColor: unallocated < 0 ? colors.danger : colors.textPrimary,
-                      }]}
-                    />
+              {/* Summary */}
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryRow}>
+                  <View style={styles.summaryCol}>
+                    <Text style={styles.summaryLabel}>BUDGETED</Text>
+                    <Text style={styles.summaryValue}>{formatCurrency(totalBudgeted)}</Text>
                   </View>
-                  <Text style={styles.unallocatedText}>
-                    {unallocated < 0
-                      ? `Over by ${formatCurrency(Math.abs(unallocated))}`
-                      : `${formatCurrency(unallocated)} unallocated`}
+                  <View style={styles.summaryDivider} />
+                  <View style={styles.summaryCol}>
+                    <Text style={styles.summaryLabel}>INCOME</Text>
+                    <Text style={styles.summaryValue}>{formatCurrency(monthlyIncome)}</Text>
+                  </View>
+                </View>
+
+                {monthlyIncome > 0 && (
+                  <>
+                    <View style={styles.trackBg}>
+                      <View
+                        style={[styles.trackFill, {
+                          width: `${Math.min(100, (totalBudgeted / monthlyIncome) * 100)}%`,
+                          backgroundColor: unallocated < 0 ? colors.danger : colors.textPrimary,
+                        }]}
+                      />
+                    </View>
+                    <Text style={styles.unallocatedText}>
+                      {unallocated < 0
+                        ? `Over by ${formatCurrency(Math.abs(unallocated))}`
+                        : `${formatCurrency(unallocated)} unallocated`}
+                    </Text>
+                  </>
+                )}
+              </View>
+
+              <Text style={styles.sectionTitle}>Categories</Text>
+            </>
+          }
+          ListEmptyComponent={
+            <EmptyState icon="chart-donut" title="No categories yet" />
+          }
+          renderItem={({ item }) => {
+            const progress = item.budget > 0 ? item.actual / item.budget : 0;
+            const isOver = item.actual > item.budget;
+
+            return (
+              <TouchableOpacity
+                style={styles.row}
+                onPress={() => setEditingCategory(item.category)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.category.name}, ${formatCurrency(item.actual)} of ${formatCurrency(item.budget)}`}
+              >
+                <CategoryPill icon={item.category.icon} color={item.category.color} size={38} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rowLabel}>{item.category.name}</Text>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={styles.rowAmount}>{formatCurrency(item.actual)}</Text>
+                  <Text style={styles.rowBudget}>
+                    {item.hasBudget ? `of ${formatCurrency(item.budget)}` : "no budget"}
                   </Text>
-                </>
-              )}
-            </View>
-
-            <Text style={styles.sectionTitle}>Categories</Text>
-          </>
-        }
-        ListEmptyComponent={
-          <EmptyState icon="chart-donut" title="No categories yet" />
-        }
-        renderItem={({ item }) => {
-          const progress = item.budget > 0 ? item.actual / item.budget : 0;
-          const isOver = item.actual > item.budget;
-
-          return (
-            <TouchableOpacity
-              style={styles.row}
-              onPress={() => setEditingCategory(item.category)}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={`${item.category.name}, ${formatCurrency(item.actual)} of ${formatCurrency(item.budget)}`}
-            >
-              <CategoryPill icon={item.category.icon} color={item.category.color} size={38} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.rowLabel}>{item.category.name}</Text>
-              </View>
-              <View style={{ alignItems: "flex-end" }}>
-                <Text style={styles.rowAmount}>{formatCurrency(item.actual)}</Text>
-                <Text style={styles.rowBudget}>
-                  {item.hasBudget ? `of ${formatCurrency(item.budget)}` : "no budget"}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        }}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-      />
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+        />
+      )}
 
       <Modal visible={!!editingCategory} animationType="slide" transparent onRequestClose={() => setEditingCategory(null)}>
         <BudgetEditSheet

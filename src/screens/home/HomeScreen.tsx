@@ -1,5 +1,5 @@
 import React from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -12,6 +12,7 @@ import { MonthPicker } from "../../components/MonthPicker";
 import { PieChart } from "../../components/PieChart";
 import { BarChart } from "../../components/BarChart";
 import { Button } from "../../components/Button";
+import { HomeSkeleton } from "../../components/Skeleton";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
@@ -56,7 +57,7 @@ export function HomeScreen() {
             <Button label="Retry" variant="secondary" onPress={refetch} />
           </Card>
         ) : !data ? (
-          <ActivityIndicator style={styles.loader} color={colors.accent} />
+          <HomeSkeleton />
         ) : (
           <>
             {/* Income Hero */}

@@ -9,6 +9,7 @@ import { useDialog } from "../../context/DialogContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { MonthPicker } from "../../components/MonthPicker";
 import { EmptyState } from "../../components/EmptyState";
+import { ListScreenSkeleton } from "../../components/Skeleton";
 import { CategoryPill, StatusBadge } from "../../components/CategoryPill";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
@@ -78,9 +79,11 @@ export function ExpensesListScreen() {
         contentContainerStyle={styles.list}
         refreshing={isLoading}
         ListEmptyComponent={
-          !isLoading ? (
+          isLoading ? (
+            <ListScreenSkeleton />
+          ) : (
             <EmptyState icon="receipt-text-outline" title="No expenses yet" />
-          ) : null
+          )
         }
         renderItem={({ item }) => (
           <TouchableOpacity

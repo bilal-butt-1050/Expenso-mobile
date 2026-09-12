@@ -7,6 +7,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useCategories } from "../../hooks/useCategories";
 import { useDialog } from "../../context/DialogContext";
 import { EmptyState } from "../../components/EmptyState";
+import { SkeletonList } from "../../components/Skeleton";
 import { CategoryPill } from "../../components/CategoryPill";
 import { colors } from "../../theme/colors";
 import { spacing } from "../../theme/spacing";
@@ -53,7 +54,13 @@ export function CategoriesScreen() {
         keyExtractor={(item) => item.id}
         refreshing={isLoading}
         contentContainerStyle={[styles.list, { paddingBottom: 80 + bottomOffset }]}
-        ListEmptyComponent={<EmptyState icon="shape-outline" title="No categories" />}
+        ListEmptyComponent={
+          isLoading ? (
+            <SkeletonList />
+          ) : (
+            <EmptyState icon="shape-outline" title="No categories" />
+          )
+        }
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.row} onPress={() => navigation.navigate("CategoryForm", { category: item })}>
             <CategoryPill icon={item.icon} color={item.color} />
