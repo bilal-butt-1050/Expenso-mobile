@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FlatList, StyleSheet, Text, TouchableOpacity, View, Switch } from "react-native";
+import { FlatList, StyleSheet, Text, TouchableOpacity, View, Switch, Modal } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -18,15 +18,18 @@ import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
 import { Income, IncomeStatus } from "../../types/models";
 import { RootStackParamList } from "../../types/navigation";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Filter = IncomeStatus | "All";
 
 export function IncomeListScreen() {
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const { selectedMonth, setSelectedMonth } = useAppData();
   const { confirm } = useDialog();
   const [filter, setFilter] = useState<Filter>("All");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const { data: allIncomes, isLoading, removeIncome, toggleStatus } = useIncome(
     filter === "All" ? {} : { status: filter }
@@ -56,7 +59,12 @@ export function IncomeListScreen() {
   return (
     <ScreenContainer style={styles.noPad}>
       <View style={styles.top}>
-        <Text style={styles.title}>Income</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Income</Text>
+          <TouchableOpacity onPress={() => setIsFilterOpen(true)} hitSlop={10}>
+            <MaterialCommunityIcons name="filter-variant" size={24} color={filter !== "All" ? colors.accent : colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
         <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
 
         {/* Hero */}
@@ -65,21 +73,6 @@ export function IncomeListScreen() {
           <Text style={styles.heroAmount} numberOfLines={1} adjustsFontSizeToFit>
             {formatCurrency(totalIncome)}
           </Text>
-        </View>
-
-        {/* Filters */}
-        <View style={styles.filterRow}>
-          {(["All", "Received", "Expected"] as Filter[]).map((f) => (
-            <TouchableOpacity
-              key={f}
-              onPress={() => setFilter(f)}
-              style={[styles.filterChip, filter === f && styles.filterChipActive]}
-              accessibilityRole="button"
-              accessibilityLabel={`Filter: ${f}`}
-            >
-              <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
-            </TouchableOpacity>
-          ))}
         </View>
       </View>
 
@@ -114,6 +107,34 @@ export function IncomeListScreen() {
       >
         <MaterialCommunityIcons name="plus" size={28} color={colors.accentForeground} />
       </TouchableOpacity>
+
+      <Modal visible={isFilterOpen} transparent animationType="slide" onRequestClose={() => setIsFilterOpen(false)}>
+        <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={() => setIsFilterOpen(false)}>
+          <TouchableOpacity activeOpacity={1} style={[styles.sheetContent, { paddingBottom: Math.max(insets.bottom, 16) + spacing.md }]}>
+            <View style={styles.sheetDragHandle} />
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Filter Income</Text>
+              <TouchableOpacity onPress={() => setIsFilterOpen(false)} hitSlop={12}>
+                <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            {(["All", "Received", "Expected"] as Filter[]).map((f) => {
+              const isSelected = filter === f;
+              return (
+                <TouchableOpacity
+                  key={f}
+                  style={[styles.optionRow, isSelected && styles.optionRowSelected]}
+                  onPress={() => { setFilter(f); setIsFilterOpen(false); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>{f}</Text>
+                  {isSelected && <MaterialCommunityIcons name="check" size={20} color={colors.textPrimary} />}
+                </TouchableOpacity>
+              );
+            })}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </ScreenContainer>
   );
 }
@@ -183,6 +204,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingBottom: spacing.sm,
   },
+  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: { ...typography.title },
 
   hero: {
@@ -202,22 +224,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     letterSpacing: -0.5,
   },
-
-  filterRow: { flexDirection: "row", gap: spacing.sm, justifyContent: "center" },
-  filterChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceRaised,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterChipActive: {
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderColor: colors.borderLight,
-  },
-  filterText: { color: colors.textSecondary, fontSize: 14, fontWeight: "600" },
-  filterTextActive: { color: colors.textPrimary, fontWeight: "700" },
 
   list: { paddingHorizontal: spacing.lg, paddingBottom: 100, flexGrow: 1 },
   row: {
@@ -265,4 +271,42 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 6,
   },
+
+  sheetBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "flex-end",
+  },
+  sheetContent: {
+    backgroundColor: colors.surfaceRaised,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  sheetDragHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    alignSelf: "center",
+    marginBottom: spacing.md,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.md,
+  },
+  sheetTitle: { fontSize: 18, fontWeight: "700", color: colors.textPrimary },
+  optionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  optionRowSelected: { backgroundColor: "rgba(255,255,255,0.03)" },
+  optionText: { flex: 1, fontSize: 16, color: colors.textSecondary, fontWeight: "500" },
+  optionTextSelected: { color: colors.textPrimary, fontWeight: "700" },
 });
