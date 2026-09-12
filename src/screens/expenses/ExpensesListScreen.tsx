@@ -1,5 +1,9 @@
-import React, { useState } from "react";
-import { FlatList, StyleSheet, Text, TouchableOpacity, View, Switch, Modal } from "react-native";
+import React, { useState, useRef, useEffect } from "react";
+import { FlatList, StyleSheet, Text, TouchableOpacity, View, Switch, Animated, LayoutAnimation, Platform, UIManager } from "react-native";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -94,34 +98,19 @@ export function ExpensesListScreen() {
       >
         <MaterialCommunityIcons name="plus" size={28} color={colors.accentForeground} />
       </TouchableOpacity>
-
-      <Modal visible={isFilterOpen} transparent animationType="slide" onRequestClose={() => setIsFilterOpen(false)}>
-        <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={() => setIsFilterOpen(false)}>
-          <TouchableOpacity activeOpacity={1} style={[styles.sheetContent, { paddingBottom: Math.max(insets.bottom, 16) + spacing.md }]}>
-            <View style={styles.sheetDragHandle} />
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Filter Expenses</Text>
-              <TouchableOpacity onPress={() => setIsFilterOpen(false)} hitSlop={12}>
-                <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-            {(["All", "Unpaid", "Paid"] as Filter[]).map((f) => {
-              const isSelected = filter === f;
-              return (
-                <TouchableOpacity
-                  key={f}
-                  style={[styles.optionRow, isSelected && styles.optionRowSelected]}
-                  onPress={() => { setFilter(f); setIsFilterOpen(false); }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>{f}</Text>
-                  {isSelected && <MaterialCommunityIcons name="check" size={20} color={colors.textPrimary} />}
-                </TouchableOpacity>
-              );
-            })}
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+      {isFilterOpen && (
+        <FilterSheet
+          options={["All", "Unpaid", "Paid"]}
+          selected={filter}
+          title="Filter Expenses"
+          insets={insets}
+          onClose={() => setIsFilterOpen(false)}
+          onSelect={(f: any) => {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            setFilter(f as Filter);
+          }}
+        />
+      )}
     </ScreenContainer>
   );
 }
@@ -183,6 +172,70 @@ function ExpenseItem({
   );
 }
 
+function FilterSheet({ options, selected, title, insets, onClose, onSelect }: any) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(anim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 250,
+      friction: 20,
+    }).start();
+  }, [anim]);
+
+  const handleClose = (option?: string) => {
+    Animated.timing(anim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      onClose();
+      if (option !== undefined) onSelect(option);
+    });
+  };
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { zIndex: 999 }]}>
+      <Animated.View style={[styles.sheetBackdrop, { opacity: anim, position: "absolute", top: 0, bottom: 0, left: 0, right: 0 }]}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => handleClose()} />
+      </Animated.View>
+      <Animated.View
+        style={[
+          styles.sheetContent,
+          {
+            position: "absolute", bottom: 0, left: 0, right: 0,
+            paddingBottom: Math.max(insets.bottom, 16) + spacing.md,
+            transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [400, 0] }) }]
+          }
+        ]}
+      >
+        <View style={styles.sheetDragHandle} />
+        <View style={styles.sheetHeader}>
+          <Text style={styles.sheetTitle}>{title}</Text>
+          <TouchableOpacity onPress={() => handleClose()} hitSlop={12}>
+            <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+        {options.map((f: string) => {
+          const isSelected = selected === f;
+          return (
+            <TouchableOpacity
+              key={f}
+              style={[styles.optionRow, isSelected && styles.optionRowSelected]}
+              onPress={() => handleClose(f)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>{f}</Text>
+              {isSelected && <MaterialCommunityIcons name="check" size={20} color={colors.textPrimary} />}
+            </TouchableOpacity>
+          );
+        })}
+      </Animated.View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   noPad: { paddingHorizontal: 0 },
   top: {
@@ -226,9 +279,7 @@ const styles = StyleSheet.create({
   },
 
   sheetBackdrop: {
-    flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.6)",
-    justifyContent: "flex-end",
   },
   sheetContent: {
     backgroundColor: colors.surfaceRaised,
