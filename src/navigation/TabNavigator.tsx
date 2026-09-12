@@ -9,7 +9,7 @@ import { ExpensesListScreen } from "../screens/expenses/ExpensesListScreen";
 import { IncomeListScreen } from "../screens/income/IncomeListScreen";
 import { BudgetScreen } from "../screens/budget/BudgetScreen";
 import { SettingsScreen } from "../screens/settings/SettingsScreen";
-import { Platform } from "react-native";
+import { Platform, View, StyleSheet } from "react-native";
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
@@ -42,21 +42,46 @@ export function TabNavigator() {
           paddingTop: 8,
           elevation: 0, // Remove android shadow for flat look
         },
+        tabBarShowLabel: route.name !== "Home",
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: "600",
           marginTop: 2,
         },
-        tabBarIcon: ({ color, size }) => (
-          <MaterialCommunityIcons name={ICONS[route.name] as any} color={color} size={26} />
-        ),
+        tabBarIcon: ({ color, size, focused }) => {
+          if (route.name === "Home") {
+            return (
+              <View style={[styles.homeTabButton, focused && styles.homeTabActive]}>
+                <MaterialCommunityIcons name={ICONS[route.name] as any} color={colors.surface} size={32} />
+              </View>
+            );
+          }
+          return <MaterialCommunityIcons name={ICONS[route.name] as any} color={color} size={26} />;
+        },
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Expenses" component={ExpensesListScreen} />
       <Tab.Screen name="Income" component={IncomeListScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Budget" component={BudgetScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  homeTabButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.accent,
+    alignItems: "center",
+    justifyContent: "center",
+    top: -15,
+    borderWidth: 4,
+    borderColor: colors.surface,
+  },
+  homeTabActive: {
+    backgroundColor: "#818cf8", // Slightly lighter indigo when active
+  }
+});

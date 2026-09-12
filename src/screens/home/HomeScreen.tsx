@@ -90,13 +90,13 @@ export function HomeScreen() {
             <View style={styles.quickActions}>
               <QuickAction 
                 icon="arrow-down" 
-                label="Income" 
+                label="Add Income" 
                 color={colors.success} 
                 onPress={() => navigation.navigate("IncomeForm" as any)} 
               />
               <QuickAction 
                 icon="arrow-up" 
-                label="Expense" 
+                label="Add Expense" 
                 color={colors.danger} 
                 onPress={() => navigation.navigate("ExpenseForm" as any)} 
               />
