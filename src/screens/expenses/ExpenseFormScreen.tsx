@@ -75,10 +75,12 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const peekHeight = 360;
   const defaultOffset = sheetHeight - peekHeight;
   const panY = React.useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const sheetOffset = React.useRef(defaultOffset);
 
   React.useEffect(() => {
     if (isPickerOpen) {
       setIsSheetExpanded(false);
+      sheetOffset.current = defaultOffset;
       panY.setValue(SCREEN_HEIGHT);
       Animated.spring(panY, {
         toValue: defaultOffset,
@@ -93,14 +95,12 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onPanResponderMove: (e, gestureState) => {
-        const base = isSheetExpanded ? 0 : defaultOffset;
-        let newY = base + gestureState.dy;
+        let newY = sheetOffset.current + gestureState.dy;
         if (newY < 0) newY = 0;
         panY.setValue(newY);
       },
       onPanResponderRelease: (e, gestureState) => {
-        const base = isSheetExpanded ? 0 : defaultOffset;
-        const currentY = base + gestureState.dy;
+        const currentY = sheetOffset.current + gestureState.dy;
         const velocityY = gestureState.vy;
 
         let snapTo = defaultOffset;
@@ -117,6 +117,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
           nextExpanded = false;
         }
 
+        sheetOffset.current = snapTo;
         setIsSheetExpanded(nextExpanded);
         Animated.spring(panY, {
           toValue: snapTo,
