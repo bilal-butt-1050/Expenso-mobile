@@ -4,15 +4,15 @@
     "slug": "expenso",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo.jpg",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0A0A0A",
     "splash": {
-      "image": "./assets/icon.png",
+      "image": "./assets/logo.jpg",
       "resizeMode": "contain",
       "backgroundColor": "#0A0A0A",
       "dark": {
-        "image": "./assets/icon.png",
+        "image": "./assets/logo.jpg",
         "backgroundColor": "#0A0A0A",
         "resizeMode": "contain"
       }
@@ -37,11 +37,11 @@
       "package": "com.expenso.app",
       "userInterfaceStyle": "dark",
       "splash": {
-        "image": "./assets/icon.png",
+        "image": "./assets/logo.jpg",
         "resizeMode": "contain",
         "backgroundColor": "#0A0A0A",
         "dark": {
-          "image": "./assets/icon.png",
+          "image": "./assets/logo.jpg",
           "backgroundColor": "#0A0A0A",
           "resizeMode": "contain"
         }
@@ -60,9 +60,9 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#0A0A0A",
-          "image": "./assets/icon.png",
+          "image": "./assets/logo.jpg",
           "dark": {
-            "image": "./assets/icon.png",
+            "image": "./assets/logo.jpg",
             "backgroundColor": "#0A0A0A"
           },
           "imageWidth": 200
