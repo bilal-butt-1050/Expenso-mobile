@@ -132,9 +132,14 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const [budgetAlert, setBudgetAlert] = useState<BudgetAlertInfo | null>(null);
 
   const selectedCategory = (categories ?? []).find((c) => c.id === categoryId);
-  const filteredCategories = (categories ?? []).filter((c) =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
-  );
+  const filteredCategories = (categories ?? [])
+    .filter((c) => c.name.toLowerCase().includes(searchQuery.toLowerCase().trim()))
+    .sort((a, b) => {
+      const aSpent = dashboardData?.budgetVsActual.find((x) => x.categoryId === a.id)?.actual ?? 0;
+      const bSpent = dashboardData?.budgetVsActual.find((x) => x.categoryId === b.id)?.actual ?? 0;
+      if (bSpent !== aSpent) return bSpent - aSpent;
+      return a.name.localeCompare(b.name);
+    });
 
   const handleSave = async (forceSave = false) => {
     setError(null);
