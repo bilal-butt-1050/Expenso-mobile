@@ -8,7 +8,8 @@ import {
   TouchableOpacity,
   View,
   PanResponder,
-  LayoutAnimation,
+  Animated,
+  Dimensions
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -66,18 +67,60 @@ export function IncomeFormScreen({ route, navigation }: Props) {
   const [isSheetExpanded, setIsSheetExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const SCREEN_HEIGHT = Dimensions.get("window").height;
+  const sheetHeight = SCREEN_HEIGHT * 0.92;
+  const peekHeight = 360;
+  const defaultOffset = sheetHeight - peekHeight;
+  const panY = React.useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+
+  React.useEffect(() => {
+    if (isPickerOpen) {
+      setIsSheetExpanded(false);
+      panY.setValue(SCREEN_HEIGHT);
+      Animated.spring(panY, {
+        toValue: defaultOffset,
+        useNativeDriver: true,
+        tension: 250,
+        friction: 25,
+      }).start();
+    }
+  }, [isPickerOpen]);
+
   const panResponder = React.useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
+      onPanResponderMove: (e, gestureState) => {
+        const base = isSheetExpanded ? 0 : defaultOffset;
+        let newY = base + gestureState.dy;
+        if (newY < 0) newY = 0;
+        panY.setValue(newY);
+      },
       onPanResponderRelease: (e, gestureState) => {
-        if (gestureState.dy < -20) {
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-          setIsSheetExpanded(true);
-        } else if (gestureState.dy > 20) {
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-          if (isSheetExpanded) setIsSheetExpanded(false);
-          else setIsPickerOpen(false);
+        const base = isSheetExpanded ? 0 : defaultOffset;
+        const currentY = base + gestureState.dy;
+        const velocityY = gestureState.vy;
+
+        let snapTo = defaultOffset;
+        let nextExpanded = false;
+
+        if (velocityY < -1 || currentY < defaultOffset / 2) {
+          snapTo = 0;
+          nextExpanded = true;
+        } else if (velocityY > 1.5 || currentY > defaultOffset + 100) {
+          setIsPickerOpen(false);
+          return;
+        } else {
+          snapTo = defaultOffset;
+          nextExpanded = false;
         }
+
+        setIsSheetExpanded(nextExpanded);
+        Animated.spring(panY, {
+          toValue: snapTo,
+          useNativeDriver: true,
+          tension: 250,
+          friction: 25,
+        }).start();
       }
     })
   ).current;
@@ -252,13 +295,13 @@ export function IncomeFormScreen({ route, navigation }: Props) {
       {/* Source Selection Sheet */}
       <Modal visible={isPickerOpen} transparent animationType="slide" onRequestClose={() => setIsPickerOpen(false)}>
         <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={() => setIsPickerOpen(false)}>
-          <TouchableOpacity
-            activeOpacity={1}
+          <Animated.View
             style={[
               styles.sheetContent,
               {
                 paddingBottom: Math.max(insets.bottom, 16) + spacing.md,
-                height: isSheetExpanded ? '92%' : undefined
+                height: sheetHeight,
+                transform: [{ translateY: panY }]
               }
             ]}
           >
@@ -272,7 +315,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
               </View>
             </View>
 
-            <ScrollView style={[styles.optionList, { maxHeight: isSheetExpanded ? undefined : 275 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <ScrollView style={styles.optionList} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {PRESET_SOURCES.map((p) => {
                 const isSelected = p.source === selectedPreset.source;
                 return (
@@ -291,7 +334,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
                 );
               })}
             </ScrollView>
-          </TouchableOpacity>
+          </Animated.View>
         </TouchableOpacity>
       </Modal>
     </>
