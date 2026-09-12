@@ -4,8 +4,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
+  PanResponder,
+  LayoutAnimation,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -60,6 +63,24 @@ export function IncomeFormScreen({ route, navigation }: Props) {
   );
   const [date, setDate] = useState<Date>(editing ? new Date(editing.date) : new Date());
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [isSheetExpanded, setIsSheetExpanded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const panResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderRelease: (e, gestureState) => {
+        if (gestureState.dy < -20) {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          setIsSheetExpanded(true);
+        } else if (gestureState.dy > 20) {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          if (isSheetExpanded) setIsSheetExpanded(false);
+          else setIsPickerOpen(false);
+        }
+      }
+    })
+  ).current;
 
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -161,7 +182,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         <View style={styles.fieldWrap}>
           <TouchableOpacity
             style={styles.dropdownTrigger}
-            onPress={() => setIsPickerOpen(true)}
+            onPress={() => { setSearchQuery(""); setIsSheetExpanded(false); setIsPickerOpen(true); }}
             activeOpacity={0.7}
             accessibilityLabel="Select Income Source"
           >
@@ -233,17 +254,25 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={() => setIsPickerOpen(false)}>
           <TouchableOpacity
             activeOpacity={1}
-            style={[styles.sheetContent, { paddingBottom: Math.max(insets.bottom, 16) + spacing.md }]}
+            style={[
+              styles.sheetContent,
+              {
+                paddingBottom: Math.max(insets.bottom, 16) + spacing.md,
+                height: isSheetExpanded ? '92%' : undefined
+              }
+            ]}
           >
-            <View style={styles.sheetDragHandle} />
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Income Source</Text>
-              <TouchableOpacity onPress={() => setIsPickerOpen(false)} hitSlop={12}>
-                <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
-              </TouchableOpacity>
+            <View {...panResponder.panHandlers} style={{ backgroundColor: 'transparent', paddingVertical: spacing.sm }}>
+              <View style={styles.sheetDragHandle} />
+              <View style={styles.sheetHeader}>
+                <Text style={styles.sheetTitle}>Income Source</Text>
+                <TouchableOpacity onPress={() => setIsPickerOpen(false)} hitSlop={12}>
+                  <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
             </View>
 
-            <ScrollView style={styles.optionList} showsVerticalScrollIndicator={false}>
+            <ScrollView style={[styles.optionList, { maxHeight: isSheetExpanded ? undefined : 275 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {PRESET_SOURCES.map((p) => {
                 const isSelected = p.source === selectedPreset.source;
                 return (
@@ -318,8 +347,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     borderWidth: 1,
     borderColor: colors.border,
-    maxHeight: "65%",
-    paddingTop: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
   sheetDragHandle: {
@@ -338,7 +365,7 @@ const styles = StyleSheet.create({
   },
   sheetTitle: { fontSize: 18, fontWeight: "700", color: colors.textPrimary },
 
-  optionList: { maxHeight: 340 },
+  optionList: {},
   optionRow: {
     flexDirection: "row",
     alignItems: "center",
