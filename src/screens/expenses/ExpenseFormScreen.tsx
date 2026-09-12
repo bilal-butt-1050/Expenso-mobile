@@ -181,23 +181,20 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         keyboardShouldPersistTaps="handled"
       >
         <TextField
-          label="Amount (PKR)"
           keyboardType="decimal-pad"
           value={amount}
           onChangeText={setAmount}
-          placeholder="0"
+          placeholder="Amount (PKR)"
         />
 
         <TextField
-          label="Description (optional)"
           value={description}
           onChangeText={setDescription}
-          placeholder="e.g. Lunch at restaurant"
+          placeholder="Description (optional)"
         />
 
         {/* Category Dropdown */}
         <View style={styles.fieldWrap}>
-          <Text style={styles.label}>Category</Text>
           <TouchableOpacity
             style={styles.dropdownTrigger}
             onPress={() => { setSearchQuery(""); setIsPickerOpen(true); }}
@@ -209,7 +206,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
                 <Text style={styles.dropdownText}>{selectedCategory.name}</Text>
               </View>
             ) : (
-              <Text style={styles.dropdownPlaceholder}>Select a category</Text>
+              <Text style={styles.dropdownPlaceholder}>Category</Text>
             )}
             <MaterialCommunityIcons name="chevron-down" size={20} color={colors.textMuted} />
           </TouchableOpacity>

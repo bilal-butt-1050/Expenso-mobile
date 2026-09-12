@@ -129,23 +129,20 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         keyboardShouldPersistTaps="handled"
       >
         <TextField
-          label="Amount (PKR)"
           keyboardType="decimal-pad"
           value={amount}
           onChangeText={setAmount}
-          placeholder="0"
+          placeholder="Amount (PKR)"
         />
 
         <TextField
-          label="Description (optional)"
           value={description}
           onChangeText={setDescription}
-          placeholder="e.g. Monthly paycheck"
+          placeholder="Description (optional)"
         />
 
         {/* Source Dropdown */}
         <View style={styles.fieldWrap}>
-          <Text style={styles.label}>Source</Text>
           <TouchableOpacity
             style={styles.dropdownTrigger}
             onPress={() => setIsPickerOpen(true)}
