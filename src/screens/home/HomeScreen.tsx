@@ -30,8 +30,11 @@ export function HomeScreen() {
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.accent} />}
       >
-        {/* Header */}
-        <View style={[styles.header, { justifyContent: "flex-end" }]}>
+        {/* Top Control Row */}
+        <View style={styles.topRow}>
+          <View style={{ flex: 1, marginRight: spacing.md }}>
+            <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
+          </View>
           <TouchableOpacity
             style={styles.headerAvatar}
             onPress={() => navigation.navigate("Settings" as any)}
@@ -43,8 +46,6 @@ export function HomeScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-
-        <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
 
         {!data ? (
           <HomeSkeleton />
@@ -197,17 +198,15 @@ const styles = StyleSheet.create({
   noPad: { paddingHorizontal: 0 },
   scroll: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.sm, // reduced padding since we combined rows
     paddingBottom: spacing.xxl + 40,
     gap: spacing.lg,
   },
-  header: {
+  topRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
   },
-  greeting: { ...typography.title },
-  subGreeting: { ...typography.caption, color: colors.textMuted },
   headerAvatar: {
     width: 44,
     height: 44,
