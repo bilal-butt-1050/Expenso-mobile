@@ -42,7 +42,6 @@ export function TabNavigator() {
           paddingTop: 8,
           elevation: 0, // Remove android shadow for flat look
         },
-        tabBarShowLabel: route.name !== "Home",
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: "600",
@@ -77,7 +76,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     alignItems: "center",
     justifyContent: "center",
-    top: -15,
+    top: -24,
     borderWidth: 4,
     borderColor: colors.surface,
   },
