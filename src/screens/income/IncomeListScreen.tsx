@@ -1,9 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { FlatList, StyleSheet, Text, TouchableOpacity, View, Switch, Animated, LayoutAnimation, Platform, UIManager } from "react-native";
-
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+import { FlatList, StyleSheet, Text, TouchableOpacity, View, Switch, Animated, LayoutAnimation } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
