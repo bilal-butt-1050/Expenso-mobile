@@ -73,18 +73,24 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
     c.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
   );
 
-  const handleSave = async () => {
-    const parsedAmount = Number(amount);
-    if (!categoryId) return setError("Choose a category");
-    if (!parsedAmount || parsedAmount <= 0) return setError("Enter a valid amount");
-
+  const handleSave = async (forceSave = false) => {
     setError(null);
-    setIsSaving(true);
+    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+      setError("Please enter a valid amount");
+      return;
+    }
+    if (!categoryId) {
+      setError("Please select a category");
+      return;
+    }
+
     try {
+      setIsSaving(true);
+      const parsedAmount = Number(amount);
       const input = {
         categoryId,
         date: date.toISOString(),
-        description: description.trim() || undefined,
+        description: description || undefined,
         amount: parsedAmount,
         paymentMethod,
         needWant,
@@ -95,46 +101,51 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       const diff = editing ? parsedAmount - editing.amount : parsedAmount;
       const newActual = (budgetItem?.actual ?? 0) + diff;
 
+      // Warn BEFORE saving
+      if (!forceSave && budgetItem && budgetItem.budget > 0) {
+        if (newActual > budgetItem.budget) {
+          setBudgetAlert({
+            categoryName: budgetItem.name,
+            categoryIcon: budgetItem.icon,
+            categoryColor: budgetItem.color,
+            budget: budgetItem.budget,
+            actualBefore: budgetItem.actual,
+            actualAfter: newActual,
+            isOver: true,
+            overAmount: newActual - budgetItem.budget,
+            pct: (newActual / budgetItem.budget) * 100,
+          });
+          setIsSaving(false);
+          return;
+        } else if (
+          newActual >= budgetItem.budget * 0.8 &&
+          (budgetItem.actual ?? 0) < budgetItem.budget * 0.8
+        ) {
+          setBudgetAlert({
+            categoryName: budgetItem.name,
+            categoryIcon: budgetItem.icon,
+            categoryColor: budgetItem.color,
+            budget: budgetItem.budget,
+            actualBefore: budgetItem.actual,
+            actualAfter: newActual,
+            isOver: false,
+            overAmount: 0,
+            pct: (newActual / budgetItem.budget) * 100,
+          });
+          setIsSaving(false);
+          return;
+        }
+      }
+
+      // Actually save the expense
       if (editing) {
         await editExpense(editing.id, input);
       } else {
         await addExpense(input);
       }
 
-      if (budgetItem && budgetItem.budget > 0 && newActual > budgetItem.budget) {
-        setBudgetAlert({
-          categoryName: budgetItem.name,
-          categoryIcon: budgetItem.icon,
-          categoryColor: budgetItem.color,
-          budget: budgetItem.budget,
-          actualBefore: budgetItem.actual,
-          actualAfter: newActual,
-          isOver: true,
-          overAmount: newActual - budgetItem.budget,
-          pct: (newActual / budgetItem.budget) * 100,
-        });
-        return;
-      } else if (
-        budgetItem &&
-        budgetItem.budget > 0 &&
-        newActual >= budgetItem.budget * 0.8 &&
-        (budgetItem.actual ?? 0) < budgetItem.budget * 0.8
-      ) {
-        setBudgetAlert({
-          categoryName: budgetItem.name,
-          categoryIcon: budgetItem.icon,
-          categoryColor: budgetItem.color,
-          budget: budgetItem.budget,
-          actualBefore: budgetItem.actual,
-          actualAfter: newActual,
-          isOver: false,
-          overAmount: 0,
-          pct: (newActual / budgetItem.budget) * 100,
-        });
-        return;
-      }
-
       showToast({ message: editing ? "Expense updated" : "Expense logged", type: "success" });
+      setBudgetAlert(null);
       navigation.goBack();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -213,7 +224,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Button label={editing ? "Save Changes" : "Add Expense"} onPress={handleSave} loading={isSaving} />
+        <Button label={editing ? "Save Changes" : "Add Expense"} onPress={() => handleSave(false)} loading={isSaving} />
 
         {editing && (
           <Button label="Delete" variant="danger" onPress={handleDelete} style={{ marginTop: spacing.sm }} />
@@ -327,20 +338,23 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
             )}
 
             <View style={styles.alertActions}>
+              <View style={{ flexDirection: "row", gap: spacing.sm, marginBottom: spacing.sm }}>
+                <Button
+                  label="Cancel"
+                  variant="secondary"
+                  onPress={() => setBudgetAlert(null)}
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  label="Add Anyway"
+                  onPress={() => handleSave(true)}
+                  style={{ flex: 1 }}
+                />
+              </View>
               <Button
-                label="Budget"
+                label="Adjust Budget"
                 variant="secondary"
                 onPress={() => { setBudgetAlert(null); navigation.navigate("Tabs", { screen: "Budget" } as any); }}
-                style={{ flex: 1 }}
-              />
-              <Button
-                label="Got it"
-                onPress={() => {
-                  setBudgetAlert(null);
-                  showToast({ message: editing ? "Expense updated" : "Expense logged", type: "success" });
-                  navigation.goBack();
-                }}
-                style={{ flex: 1 }}
               />
             </View>
           </View>
