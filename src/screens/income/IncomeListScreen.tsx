@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
-import { FlatList, StyleSheet, Text, TouchableOpacity, View, Switch, Animated, LayoutAnimation, Modal } from "react-native";
+import React, { useState, useRef, useEffect, useMemo } from "react";
+import { SectionList, StyleSheet, Text, TouchableOpacity, View, Switch, Animated, LayoutAnimation, Modal } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -35,9 +35,22 @@ export function IncomeListScreen() {
     filter === "All" ? {} : { status: filter }
   );
 
-  const { data: monthIncomes } = useIncome();
-  const items = monthIncomes ?? [];
-  const totalIncome = items.reduce((sum, i) => sum + i.amount, 0);
+  const groupedData = useMemo(() => {
+    if (!allIncomes) return [];
+    const sections: { title: string; data: Income[] }[] = [];
+    allIncomes.forEach((item) => {
+      const dateStr = formatDate(item.date);
+      let section = sections.find((s) => s.title === dateStr);
+      if (!section) {
+        section = { title: dateStr, data: [] };
+        sections.push(section);
+      }
+      section.data.push(item);
+    });
+    return sections;
+  }, [allIncomes]);
+
+  const totalIncome = allIncomes?.reduce((sum, item) => sum + item.amount, 0) ?? 0;
 
   const confirmDelete = (income: Income) => {
     confirm({
@@ -76,11 +89,12 @@ export function IncomeListScreen() {
         </View>
       </View>
 
-      <FlatList
-        data={allIncomes ?? []}
+      <SectionList
+        sections={groupedData}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshing={isLoading}
+        stickySectionHeadersEnabled={false}
         ListEmptyComponent={
           isLoading ? (
             <ListScreenSkeleton />
@@ -88,6 +102,11 @@ export function IncomeListScreen() {
             <EmptyState icon="wallet-plus-outline" title="No income this month" />
           )
         }
+        renderSectionHeader={({ section: { title } }) => (
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>{title}</Text>
+          </View>
+        )}
         renderItem={({ item }) => (
           <IncomeItem
             item={item}
@@ -160,7 +179,9 @@ function IncomeItem({
         <Text style={styles.rowTitle} numberOfLines={1}>
           {item.description || item.source}
         </Text>
-        <Text style={styles.rowSub}>{formatDate(item.date)}</Text>
+        {!!item.description && (
+          <Text style={styles.rowSub}>{item.source}</Text>
+        )}
       </View>
       <View style={styles.rowEnd}>
         <Text style={styles.rowAmount}>+{formatCurrency(item.amount)}</Text>
@@ -277,6 +298,18 @@ const styles = StyleSheet.create({
   },
 
   list: { paddingHorizontal: spacing.lg, paddingBottom: 100, flexGrow: 1 },
+  sectionHeader: {
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xs,
+    backgroundColor: colors.background,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.textMuted,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",

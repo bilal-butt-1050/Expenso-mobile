@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
-import { FlatList, StyleSheet, Text, TouchableOpacity, View, Switch, Animated, LayoutAnimation, Modal } from "react-native";
+import React, { useState, useRef, useEffect, useMemo } from "react";
+import { SectionList, StyleSheet, Text, TouchableOpacity, View, Switch, Animated, LayoutAnimation, Modal } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -34,6 +34,21 @@ export function ExpensesListScreen() {
     filter === "All" ? {} : { status: filter }
   );
 
+  const groupedData = useMemo(() => {
+    if (!data) return [];
+    const sections: { title: string; data: Expense[] }[] = [];
+    data.forEach((item) => {
+      const dateStr = formatDate(item.date);
+      let section = sections.find((s) => s.title === dateStr);
+      if (!section) {
+        section = { title: dateStr, data: [] };
+        sections.push(section);
+      }
+      section.data.push(item);
+    });
+    return sections;
+  }, [data]);
+
   const confirmDelete = (expense: Expense) => {
     confirm({
       title: "Delete expense?",
@@ -63,11 +78,12 @@ export function ExpensesListScreen() {
         <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
       </View>
 
-      <FlatList
-        data={data ?? []}
+      <SectionList
+        sections={groupedData}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshing={isLoading}
+        stickySectionHeadersEnabled={false}
         ListEmptyComponent={
           isLoading ? (
             <ListScreenSkeleton />
@@ -75,6 +91,11 @@ export function ExpensesListScreen() {
             <EmptyState icon="receipt-text-outline" title="No expenses yet" />
           )
         }
+        renderSectionHeader={({ section: { title } }) => (
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>{title}</Text>
+          </View>
+        )}
         renderItem={({ item }) => (
           <ExpenseItem
             item={item}
@@ -147,7 +168,9 @@ function ExpenseItem({
         <Text style={styles.rowTitle} numberOfLines={1}>
           {item.description || item.category.name}
         </Text>
-        <Text style={styles.rowSub}>{formatDate(item.date)}</Text>
+        {!!item.description && (
+          <Text style={styles.rowSub}>{item.category.name}</Text>
+        )}
       </View>
       <View style={styles.rowEnd}>
         <Text style={styles.rowAmount}>{formatCurrency(item.amount)}</Text>
@@ -246,6 +269,18 @@ const styles = StyleSheet.create({
   title: { ...typography.title },
 
   list: { paddingHorizontal: spacing.lg, paddingBottom: 100, flexGrow: 1 },
+  sectionHeader: {
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xs,
+    backgroundColor: colors.background,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.textMuted,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
