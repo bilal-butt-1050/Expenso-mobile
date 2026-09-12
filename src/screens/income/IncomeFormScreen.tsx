@@ -124,9 +124,11 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         style={styles.container}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: Math.max(insets.bottom, 24) + 80 },
+          { paddingBottom: Math.max(insets.bottom, 24) },
         ]}
         keyboardShouldPersistTaps="handled"
+        bounces={false}
+        showsVerticalScrollIndicator={false}
       >
         <TextField
           keyboardType="decimal-pad"
@@ -139,6 +141,8 @@ export function IncomeFormScreen({ route, navigation }: Props) {
           value={description}
           onChangeText={setDescription}
           placeholder="Description (optional)"
+          maxLength={60}
+          numberOfLines={1}
         />
 
         {/* Source Dropdown */}
