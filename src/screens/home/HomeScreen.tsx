@@ -174,7 +174,7 @@ export function HomeScreen() {
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>6-Month Trend</Text>
                 <View style={{ alignItems: "center", paddingTop: spacing.md, paddingBottom: spacing.sm }}>
-                  <BarChart data={data.trend.map((t) => ({ month: t.month, value: t.totalExpenses }))} />
+                  <BarChart data={data.trend.slice(-6).map((t) => ({ month: t.month, value: t.totalExpenses }))} />
                 </View>
               </View>
             )}

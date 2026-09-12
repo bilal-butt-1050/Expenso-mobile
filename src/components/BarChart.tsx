@@ -28,7 +28,8 @@ export function BarChart({ data, height = 140 }: Props) {
         {data.map((point, i) => {
           const isLatest = i === data.length - 1;
           const barHeight = Math.max((point.value / max) * chartHeight, point.value > 0 ? 4 : 0);
-          const x = i * (barWidth + gap);
+          // To center the 18px bar inside the 28px column, offset it by (gap/2)
+          const x = i * (barWidth + gap) + gap / 2;
           const y = chartHeight - barHeight;
           return (
             <React.Fragment key={point.month}>

@@ -41,7 +41,7 @@ const PRESET_SOURCES: SourcePreset[] = [
 ];
 
 const STATUS_OPTIONS: IncomeStatus[] = ["Received", "Expected"];
-const PAYMENT_METHODS: PaymentMethod[] = ["Card", "Bank Transfer", "Cash", "Cheque"];
+const PAYMENT_METHODS: PaymentMethod[] = ["Cash", "Bank Transfer", "Card", "Cheque"];
 
 export function IncomeFormScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
@@ -304,8 +304,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.12)",
     borderColor: colors.borderLight,
   },
-  segmentText: { fontSize: 14, fontWeight: "600", color: colors.textSecondary },
-  segmentTextActive: { color: colors.textPrimary, fontWeight: "700" },
+  segmentText: { fontSize: 14, fontWeight: "600", color: colors.textSecondary, textAlign: "center" },
+  segmentTextActive: { color: colors.textPrimary, fontWeight: "700", textAlign: "center" },
 
   sheetBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" },
   sheetContent: {
