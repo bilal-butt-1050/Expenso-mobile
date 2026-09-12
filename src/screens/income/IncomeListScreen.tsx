@@ -184,7 +184,7 @@ function IncomeItem({
       <View style={styles.rowEnd}>
         <Text style={styles.rowAmount}>+{formatCurrency(item.amount)}</Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
-          <Text style={{ fontSize: 15, fontWeight: "600", color: isReceived ? colors.success : colors.warning }}>
+          <Text style={{ fontSize: 15, fontWeight: "600", color: isReceived ? colors.textPrimary : colors.textSecondary }}>
             {isReceived ? "Received" : "Expected"}
           </Text>
           <Switch

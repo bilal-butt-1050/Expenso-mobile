@@ -183,7 +183,7 @@ function ExpenseItem({
       <View style={styles.rowEnd}>
         <Text style={styles.rowAmount}>{formatCurrency(item.amount)}</Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
-          <Text style={{ fontSize: 15, fontWeight: "600", color: isPaid ? colors.success : colors.warning }}>
+          <Text style={{ fontSize: 15, fontWeight: "600", color: isPaid ? colors.textPrimary : colors.textSecondary }}>
             {isPaid ? "Paid" : "Unpaid"}
           </Text>
           <Switch
