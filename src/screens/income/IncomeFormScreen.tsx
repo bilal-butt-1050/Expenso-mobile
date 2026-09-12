@@ -294,7 +294,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
       </ScrollView>
 
       {/* Source Selection Sheet */}
-      <Modal visible={isPickerOpen} transparent animationType="slide" onRequestClose={() => setIsPickerOpen(false)}>
+      <Modal visible={isPickerOpen} transparent animationType="fade" onRequestClose={() => setIsPickerOpen(false)}>
         <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={() => setIsPickerOpen(false)}>
           <Animated.View
             style={[

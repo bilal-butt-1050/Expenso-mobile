@@ -8,11 +8,11 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0A0A0A",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#0A0A0A",
       "dark": {
-        "image": "./assets/splash.png",
+        "image": "./assets/icon.png",
         "backgroundColor": "#0A0A0A",
         "resizeMode": "contain"
       }
@@ -37,11 +37,11 @@
       "package": "com.expenso.app",
       "userInterfaceStyle": "dark",
       "splash": {
-        "image": "./assets/splash.png",
+        "image": "./assets/icon.png",
         "resizeMode": "contain",
         "backgroundColor": "#0A0A0A",
         "dark": {
-          "image": "./assets/splash.png",
+          "image": "./assets/icon.png",
           "backgroundColor": "#0A0A0A",
           "resizeMode": "contain"
         }
@@ -60,9 +60,9 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#0A0A0A",
-          "image": "./assets/splash.png",
+          "image": "./assets/icon.png",
           "dark": {
-            "image": "./assets/splash.png",
+            "image": "./assets/icon.png",
             "backgroundColor": "#0A0A0A"
           },
           "imageWidth": 200
