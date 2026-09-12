@@ -168,9 +168,6 @@ function ExpenseItem({
         <Text style={styles.rowTitle} numberOfLines={1}>
           {item.description || item.category.name}
         </Text>
-        {!!item.description && (
-          <Text style={styles.rowSub}>{item.category.name}</Text>
-        )}
       </View>
       <View style={styles.rowEnd}>
         <Text style={styles.rowAmount}>{formatCurrency(item.amount)}</Text>
@@ -285,9 +282,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingVertical: 12,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: 16,
+    marginBottom: 8,
   },
   rowMiddle: { flex: 1 },
   rowTitle: { ...typography.body, fontWeight: "600" },
