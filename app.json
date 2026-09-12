@@ -6,23 +6,23 @@
     "orientation": "portrait",
     "icon": "./assets/logo.jpg",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#0A0A0A",
+    "backgroundColor": "#0B0F19",
     "splash": {
       "image": "./assets/logo.jpg",
       "resizeMode": "contain",
-      "backgroundColor": "#0A0A0A",
+      "backgroundColor": "#0B0F19",
       "dark": {
         "image": "./assets/logo.jpg",
-        "backgroundColor": "#0A0A0A",
+        "backgroundColor": "#0B0F19",
         "resizeMode": "contain"
       }
     },
     "androidStatusBar": {
-      "backgroundColor": "#0A0A0A",
+      "backgroundColor": "#0B0F19",
       "barStyle": "light-content"
     },
     "androidNavigationBar": {
-      "backgroundColor": "#0A0A0A",
+      "backgroundColor": "#0B0F19",
       "barStyle": "light-content"
     },
     "assetBundlePatterns": [
@@ -39,16 +39,16 @@
       "splash": {
         "image": "./assets/logo.jpg",
         "resizeMode": "contain",
-        "backgroundColor": "#0A0A0A",
+        "backgroundColor": "#0B0F19",
         "dark": {
           "image": "./assets/logo.jpg",
-          "backgroundColor": "#0A0A0A",
+          "backgroundColor": "#0B0F19",
           "resizeMode": "contain"
         }
       },
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0A0A0A"
+        "backgroundColor": "#0B0F19"
       }
     },
     "extra": {
@@ -59,11 +59,11 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0A0A0A",
+          "backgroundColor": "#0B0F19",
           "image": "./assets/logo.jpg",
           "dark": {
             "image": "./assets/logo.jpg",
-            "backgroundColor": "#0A0A0A"
+            "backgroundColor": "#0B0F19"
           },
           "imageWidth": 200
         }
