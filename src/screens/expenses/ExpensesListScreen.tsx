@@ -70,30 +70,29 @@ export function ExpensesListScreen() {
 
   return (
     <ScreenContainer style={styles.noPad}>
-      <View style={styles.top}>
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>Expenses</Text>
-          <TouchableOpacity onPress={() => setIsFilterOpen(true)} hitSlop={10}>
-            <MaterialCommunityIcons name="filter-variant" size={24} color={filter !== "All" ? colors.accent : colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
-        <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
-
-        {/* Hero */}
-        <View style={styles.hero}>
-          <Text style={styles.heroLabel}>TOTAL</Text>
-          <Text style={styles.heroAmount} numberOfLines={1} adjustsFontSizeToFit>
-            {formatCurrency(totalExpenses)}
-          </Text>
-        </View>
-      </View>
-
       <SectionList
         sections={groupedData}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshing={isLoading}
         stickySectionHeadersEnabled={false}
+        ListHeaderComponent={
+          <View style={styles.top}>
+            <View style={styles.headerRow}>
+              <Text style={styles.title}>Expenses</Text>
+              <TouchableOpacity onPress={() => setIsFilterOpen(true)} hitSlop={10}>
+                <MaterialCommunityIcons name="filter-variant" size={24} color={filter !== "All" ? colors.accent : colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
+            <View style={styles.hero}>
+              <Text style={styles.heroLabel}>TOTAL</Text>
+              <Text style={styles.heroAmount} numberOfLines={1} adjustsFontSizeToFit>
+                {formatCurrency(totalExpenses)}
+              </Text>
+            </View>
+          </View>
+        }
         ListEmptyComponent={
           isLoading ? (
             <ListScreenSkeleton />
@@ -269,7 +268,6 @@ function FilterSheet({ options, selected, title, insets, onClose, onSelect }: an
 const styles = StyleSheet.create({
   noPad: { paddingHorizontal: 0 },
   top: {
-    paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     gap: spacing.md,
     paddingBottom: spacing.sm,
