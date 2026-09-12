@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { FlatList, StyleSheet, Text, TouchableOpacity, View, Switch } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -103,9 +103,18 @@ export function ExpensesListScreen() {
             </View>
             <View style={styles.rowEnd}>
               <Text style={styles.rowAmount}>{formatCurrency(item.amount)}</Text>
-              <TouchableOpacity onPress={() => handleToggleStatus(item)} hitSlop={10}>
-                <StatusBadge status={item.status} />
-              </TouchableOpacity>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
+                <Text style={{ fontSize: 13, fontWeight: "600", color: item.status === "Paid" ? colors.success : colors.warning }}>
+                  {item.status}
+                </Text>
+                <Switch
+                  value={item.status === "Paid"}
+                  onValueChange={() => handleToggleStatus(item)}
+                  trackColor={{ false: colors.border, true: colors.success }}
+                  thumbColor={colors.textPrimary}
+                  style={{ transform: [{ scale: 0.7 }] }}
+                />
+              </View>
             </View>
           </TouchableOpacity>
         )}
