@@ -1,6 +1,7 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TabParamList } from "../types/navigation";
 import { colors } from "../theme/colors";
 import { HomeScreen } from "../screens/home/HomeScreen";
@@ -8,6 +9,7 @@ import { ExpensesListScreen } from "../screens/expenses/ExpensesListScreen";
 import { IncomeListScreen } from "../screens/income/IncomeListScreen";
 import { BudgetScreen } from "../screens/budget/BudgetScreen";
 import { SettingsScreen } from "../screens/settings/SettingsScreen";
+import { Platform } from "react-native";
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
@@ -20,6 +22,12 @@ const ICONS: Record<keyof TabParamList, string> = {
 };
 
 export function TabNavigator() {
+  const insets = useSafeAreaInsets();
+  
+  // Calculate dynamic height and padding to avoid gesture area
+  const paddingBottom = Math.max(insets.bottom, Platform.OS === 'ios' ? 20 : 12);
+  const height = 64 + paddingBottom;
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -29,16 +37,18 @@ export function TabNavigator() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
-          height: 88,
-          paddingBottom: 24,
+          height,
+          paddingBottom,
           paddingTop: 8,
+          elevation: 0, // Remove android shadow for flat look
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: "600",
+          marginTop: 2,
         },
         tabBarIcon: ({ color, size }) => (
-          <MaterialCommunityIcons name={ICONS[route.name] as any} color={color} size={24} />
+          <MaterialCommunityIcons name={ICONS[route.name] as any} color={color} size={26} />
         ),
       })}
     >

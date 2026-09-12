@@ -1,48 +1,47 @@
-// Expenso — Platinum Minimalist & Crisp White palette.
-// Unified, high-contrast, distraction-free neutral theme inspired by
-// Apple & Linear design systems.
+// Expenso — Premium Indigo FinTech Theme
+// A vibrant, modern, high-end theme with deep navy/slate backgrounds and electric indigo accents.
 
 export const colors = {
-  background: "#09090B",
-  surface: "#141417",
-  surfaceRaised: "#1C1C21",
-  border: "#27272A",
-  borderLight: "rgba(255, 255, 255, 0.12)",
+  background: "#0B0F19",
+  surface: "#111827",
+  surfaceRaised: "#1F2937",
+  border: "#374151",
+  borderLight: "rgba(255, 255, 255, 0.08)",
 
-  textPrimary: "#FFFFFF",
-  textSecondary: "#A1A1AA",
-  textMuted: "#71717A",
+  textPrimary: "#F9FAFB",
+  textSecondary: "#9CA3AF",
+  textMuted: "#6B7280",
 
-  // Primary High-Contrast Accent (Crisp White / Platinum)
-  accent: "#FFFFFF",
-  accentMuted: "rgba(255, 255, 255, 0.12)",
-  accentForeground: "#09090B",
+  // Primary High-Contrast Accent (Electric Indigo)
+  accent: "#6366F1",
+  accentMuted: "rgba(99, 102, 241, 0.15)",
+  accentForeground: "#FFFFFF",
 
   // Unified Neutral Icon Tokens
-  iconNeutral: "#E4E4E7",
-  iconBg: "rgba(255, 255, 255, 0.06)",
-  iconBorder: "rgba(255, 255, 255, 0.09)",
+  iconNeutral: "#E5E7EB",
+  iconBg: "rgba(255, 255, 255, 0.05)",
+  iconBorder: "rgba(255, 255, 255, 0.1)",
 
-  // Subdued Functional Semantic Colors (Only for alerts & critical indicators)
+  // Subdued Functional Semantic Colors
   danger: "#EF4444",
   dangerMuted: "rgba(239, 68, 68, 0.15)",
   warning: "#F59E0B",
   warningMuted: "rgba(245, 158, 11, 0.15)",
   success: "#10B981",
-  successMuted: "rgba(16, 185, 129, 0.12)",
+  successMuted: "rgba(16, 185, 129, 0.15)",
 
-  // Neutral Monochromatic Palette for Categories & Charts
+  // Vibrant Monochromatic Palette for Categories & Charts
   categoryPalette: [
-    "#FFFFFF",
-    "#F4F4F5",
-    "#E4E4E7",
-    "#D4D4D8",
-    "#A1A1AA",
-    "#71717A",
-    "#52525B",
-    "#3F3F46",
-    "#E2E8F0",
-    "#94A3B8",
+    "#6366F1", // Indigo
+    "#8B5CF6", // Violet
+    "#EC4899", // Pink
+    "#F43F5E", // Rose
+    "#F59E0B", // Amber
+    "#10B981", // Emerald
+    "#0EA5E9", // Sky
+    "#3B82F6", // Blue
+    "#14B8A6", // Teal
+    "#84CC16", // Lime
   ],
 } as const;
 
