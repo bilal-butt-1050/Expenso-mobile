@@ -162,6 +162,8 @@ export function IncomeListScreen() {
               onPress={() => navigation.navigate("IncomeForm", { income: item })}
               onLongPress={() => confirmDelete(item)}
               activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel={`Income: ${item.description || item.source}, Amount: ${formatCurrency(item.amount)}, Status: ${item.status}`}
             >
               <CategoryPill
                 icon={item.sourceIcon || "cash-multiple"}
@@ -213,6 +215,8 @@ export function IncomeListScreen() {
         style={styles.fab}
         onPress={() => navigation.navigate("IncomeForm", undefined)}
         activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="Add New Income"
       >
         <MaterialCommunityIcons name="plus" size={26} color={colors.accentForeground} />
       </TouchableOpacity>

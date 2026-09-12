@@ -41,6 +41,9 @@ export function HomeScreen() {
             style={styles.headerAvatar}
             onPress={() => navigation.navigate("Settings" as any)}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Settings"
+            accessibilityHint="Navigate to settings screen"
           >
             <Text style={styles.headerAvatarText}>
               {(user?.name || user?.email || "E")[0].toUpperCase()}
@@ -64,6 +67,8 @@ export function HomeScreen() {
               style={styles.incomeHero}
               onPress={() => navigation.navigate("Tabs", { screen: "Income" } as any)}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={`Total Income This Month: ${formatCurrency(data.monthlyIncome)}. Navigate to Income tab.`}
             >
               <View style={styles.incomeBadge}>
                 <View style={styles.incomeDot} />

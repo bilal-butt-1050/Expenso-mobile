@@ -92,6 +92,8 @@ export function ExpensesListScreen() {
             onPress={() => navigation.navigate("ExpenseForm", { expense: item })}
             onLongPress={() => confirmDelete(item)}
             activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel={`Expense: ${item.description || item.category.name}, Amount: ${formatCurrency(item.amount)}, Status: ${item.status}`}
           >
             <CategoryPill icon={item.category.icon} />
             <View style={styles.rowMiddle}>
@@ -116,6 +118,8 @@ export function ExpensesListScreen() {
         style={styles.fab}
         onPress={() => navigation.navigate("ExpenseForm", undefined)}
         activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="Add New Expense"
       >
         <MaterialCommunityIcons name="plus" size={26} color={colors.accentForeground} />
       </TouchableOpacity>
