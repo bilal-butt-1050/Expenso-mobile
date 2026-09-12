@@ -163,7 +163,7 @@ function ExpenseItem({
       accessibilityRole="button"
       accessibilityLabel={`${item.category.name}, ${formatCurrency(item.amount)}, ${isPaid ? "Paid" : "Unpaid"}`}
     >
-      <CategoryPill icon={item.category.icon} size={42} />
+      <CategoryPill icon={item.category.icon} size={48} />
       <View style={styles.rowMiddle}>
         <Text style={styles.rowTitle} numberOfLines={1}>
           {item.description || item.category.name}
@@ -172,7 +172,7 @@ function ExpenseItem({
       <View style={styles.rowEnd}>
         <Text style={styles.rowAmount}>{formatCurrency(item.amount)}</Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
-          <Text style={{ fontSize: 13, fontWeight: "600", color: isPaid ? colors.success : colors.warning }}>
+          <Text style={{ fontSize: 15, fontWeight: "600", color: isPaid ? colors.success : colors.warning }}>
             {isPaid ? "Paid" : "Unpaid"}
           </Text>
           <Switch
@@ -180,7 +180,7 @@ function ExpenseItem({
             onValueChange={handleToggle}
             trackColor={{ false: colors.border, true: colors.success }}
             thumbColor={colors.textPrimary}
-            style={{ transform: [{ scale: 0.7 }] }}
+            style={{ transform: [{ scale: 0.85 }] }}
           />
         </View>
       </View>
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: "700",
     color: colors.textMuted,
     letterSpacing: 0.5,
@@ -289,10 +289,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   rowMiddle: { flex: 1 },
-  rowTitle: { ...typography.body, fontWeight: "600" },
+  rowTitle: { ...typography.body, fontWeight: "600", fontSize: 18 },
   rowSub: { ...typography.caption, color: colors.textMuted, marginTop: 2, fontSize: 14 },
   rowEnd: { alignItems: "flex-end", gap: spacing.xs },
-  rowAmount: { fontSize: 17, fontWeight: "700", color: colors.textPrimary },
+  rowAmount: { fontSize: 19, fontWeight: "700", color: colors.textPrimary },
 
   fab: {
     position: "absolute",
