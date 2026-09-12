@@ -24,8 +24,8 @@ const ICONS: Record<keyof TabParamList, string> = {
 export function TabNavigator() {
   const insets = useSafeAreaInsets();
   
-  // Calculate dynamic height and padding to avoid gesture area
-  const paddingBottom = Math.max(insets.bottom, Platform.OS === 'ios' ? 20 : 12);
+  // Calculate dynamic height and padding to ensure it fully clears the gesture area
+  const paddingBottom = Math.max(insets.bottom + 10, Platform.OS === 'ios' ? 28 : 20);
   const height = 64 + paddingBottom;
 
   return (
