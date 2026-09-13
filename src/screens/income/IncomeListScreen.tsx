@@ -187,7 +187,7 @@ function IncomeItem({
       { 
         backgroundColor: highlightAnim.interpolate({
           inputRange: [0, 1],
-          outputRange: ['transparent', 'rgba(129, 140, 248, 0.2)'] // accent with low opacity
+          outputRange: [colors.surfaceRaised, 'rgba(129, 140, 248, 0.2)'] // accent with low opacity
         }) 
       }
     ]}>
