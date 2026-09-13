@@ -105,56 +105,68 @@ export function HomeScreen() {
               />
             </View>
 
-            {/* This Month's Insights */}
+            {/* Reminders — only shown when there's something actionable */}
+            {(data.unpaidExpenses > 0 || (data.expectedIncome ?? 0) > 0 || (data.dailyAllowance ?? 0) > 0 || (data.daysRemaining ?? 0) > 0) && (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Reminders</Text>
+
+                {data.unpaidExpenses > 0 && (
+                  <DashRow icon="clock-outline" label="Unpaid expenses this month" value={formatCurrency(data.unpaidExpenses)} />
+                )}
+                {(data.expectedIncome ?? 0) > 0 && (
+                  <DashRow icon="cash-clock" label="Income still expected" value={formatCurrency(data.expectedIncome!)} />
+                )}
+                {(data.dailyAllowance ?? 0) > 0 && (
+                  <DashRow icon="calendar-check-outline" label="Safe to spend per day" value={formatCurrency(data.dailyAllowance!)} />
+                )}
+                {(data.daysRemaining ?? 0) > 0 && (
+                  <DashRow icon="timer-sand" label="Days left in this month" value={`${data.daysRemaining} days`} />
+                )}
+              </View>
+            )}
+
+            {/* Monthly Snapshot */}
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>This Month's Insights</Text>
-              
-              <InsightRow 
-                icon="arrow-down-bold" 
-                color={colors.success} 
-                title="Income" 
-                subtitle="Total funds received" 
-                value={formatCurrency(data.monthlyIncome)} 
+              <Text style={styles.cardTitle}>Monthly Snapshot</Text>
+
+              <DashRow
+                icon="cash-multiple"
+                label="Total income received"
+                value={formatCurrency(data.receivedIncome ?? data.monthlyIncome)}
               />
-              
-              <InsightRow 
-                icon="arrow-up-bold" 
-                color={colors.danger} 
-                title="Spent" 
-                subtitle="Total outflows" 
-                value={formatCurrency(data.totalExpenses)} 
+              <DashRow
+                icon="cart-outline"
+                label="Spent this month (paid)"
+                value={formatCurrency(data.paidExpenses)}
+              />
+              <DashRow
+                icon="wallet-outline"
+                label="Remaining balance"
+                value={formatCurrency(data.remainingBalance)}
+              />
+              <DashRow
+                icon="piggy-bank-outline"
+                label="Savings rate"
+                value={`${Math.round(data.savingsPercentage * 100)}%`}
               />
 
-              <InsightRow 
-                icon="piggy-bank" 
-                color={colors.accent} 
-                title="Savings Rate" 
-                subtitle="Portion of income saved" 
-                value={`${Math.round(data.savingsPercentage * 100)}%`} 
-              />
+              {data.needsPercentage !== undefined && data.wantsPercentage !== undefined && data.totalExpenses > 0 && (
+                <DashRow
+                  icon="scale-balance"
+                  label="Needs vs Wants"
+                  value={`${Math.round(data.needsPercentage)}% / ${Math.round(data.wantsPercentage)}%`}
+                />
+              )}
 
-              <InsightRow 
-                icon="speedometer" 
-                color={
-                  data.pacingStatus === "On Track" ? colors.success :
-                  data.pacingStatus === "Pacing Fast" ? colors.warning : colors.danger
-                } 
-                title="Pacing" 
-                subtitle="Spending speed" 
-                value={data.pacingStatus || "N/A"}
-                valueColor={
-                  data.pacingStatus === "On Track" ? colors.success :
-                  data.pacingStatus === "Pacing Fast" ? colors.warning : colors.danger
-                }
-              />
-
-              {data.dailyAllowance !== undefined && data.dailyAllowance > 0 && (
-                <InsightRow 
-                  icon="calendar-today" 
-                  color={colors.accent} 
-                  title="Daily Allowance" 
-                  subtitle="Safe to spend per day" 
-                  value={formatCurrency(data.dailyAllowance)} 
+              {data.pacingStatus && (
+                <DashRow
+                  icon="speedometer"
+                  label="Spending pace"
+                  value={data.pacingStatus}
+                  valueColor={
+                    data.pacingStatus === "On Track" ? colors.success :
+                    data.pacingStatus === "Pacing Fast" ? colors.warning : colors.danger
+                  }
                 />
               )}
             </View>
@@ -197,24 +209,19 @@ export function HomeScreen() {
   );
 }
 
-function InsightRow({ icon, color, title, subtitle, value, valueColor }: { 
-  icon: any; 
-  color: string; 
-  title: string; 
-  subtitle: string; 
-  value: string; 
+function DashRow({ icon, label, value, valueColor }: {
+  icon: any;
+  label: string;
+  value: string;
   valueColor?: string;
 }) {
   return (
-    <View style={styles.insightRow}>
-      <View style={[styles.insightIconBox, { backgroundColor: color + "20" }]}> 
-        <MaterialCommunityIcons name={icon} size={20} color={color} />
+    <View style={styles.dashRow}>
+      <View style={styles.dashIconBox}>
+        <MaterialCommunityIcons name={icon} size={18} color={colors.iconNeutral} />
       </View>
-      <View style={styles.insightTextWrap}>
-        <Text style={styles.insightTitle}>{title}</Text>
-        <Text style={styles.insightSub}>{subtitle}</Text>
-      </View>
-      <Text style={[styles.insightValue, valueColor ? { color: valueColor } : null]}>
+      <Text style={styles.dashLabel} numberOfLines={1}>{label}</Text>
+      <Text style={[styles.dashValue, valueColor ? { color: valueColor } : null]}>
         {value}
       </Text>
     </View>
@@ -311,34 +318,30 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 
-  insightRow: {
+  dashRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+    paddingVertical: 10,
   },
-  insightIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+  dashIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: colors.iconBg,
+    borderWidth: 1,
+    borderColor: colors.iconBorder,
     alignItems: "center",
     justifyContent: "center",
   },
-  insightTextWrap: {
+  dashLabel: {
     flex: 1,
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.textSecondary,
   },
-  insightTitle: {
+  dashValue: {
     fontSize: 15,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  insightSub: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  insightValue: {
-    fontSize: 16,
     fontWeight: "700",
     color: colors.textPrimary,
   },
