@@ -68,12 +68,7 @@ export function SettingsScreen() {
         subtitle="Add, edit or remove spending categories"
         onPress={() => navigation.navigate("Categories")}
       />
-      <SettingsRow
-        icon="wallet-plus"
-        label="Income"
-        subtitle="Manage income streams & earnings"
-        onPress={() => navigation.navigate("Tabs", { screen: "Income" } as any)}
-      />
+
       <SettingsRow
         icon="piggy-bank-outline"
         label="Savings Target Goal"

@@ -24,6 +24,15 @@ export function CategoriesScreen() {
   const { confirm, alert } = useDialog();
 
   const confirmDelete = (id: string, name: string) => {
+    if ((categories?.length || 0) <= 5) {
+      alert({
+        title: "Minimum categories reached",
+        message: "You must have at least 5 categories. Add a new one before deleting this one.",
+        icon: "alert-circle-outline",
+      });
+      return;
+    }
+
     confirm({
       title: `Delete "${name}"?`,
       message: 'Any expenses in this category will move to "Other" — nothing gets lost.',
@@ -60,28 +69,66 @@ export function CategoriesScreen() {
             <EmptyState icon="shape-outline" title="No categories" />
           )
         }
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.row} onPress={() => navigation.navigate("CategoryForm", { category: item })}>
-            <CategoryPill icon={item.icon} color={item.color} />
-            <Text style={styles.label}>{item.name}</Text>
-            {item.isDefault && <Text style={styles.defaultTag}>Default</Text>}
-            <TouchableOpacity
-              onPress={() => confirmDelete(item.id, item.name)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        renderItem={({ item }) => {
+          const isImmutable = item.name === "Other" || item.name === "Savings";
+          return (
+            <TouchableOpacity 
+              style={styles.row} 
+              onPress={() => {
+                if (!isImmutable) navigation.navigate("CategoryForm", { category: item });
+              }}
+              activeOpacity={isImmutable ? 1 : 0.7}
             >
-              <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.textMuted} />
+              <CategoryPill icon={item.icon} color={item.color} />
+              <Text style={styles.label}>{item.name}</Text>
+              {item.isDefault && <Text style={styles.defaultTag}>Default</Text>}
+              
+              {!isImmutable && (
+                <TouchableOpacity
+                  onPress={() => confirmDelete(item.id, item.name)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.textMuted} />
+                </TouchableOpacity>
+              )}
+              {isImmutable && (
+                <MaterialCommunityIcons name="lock-outline" size={18} color={colors.textMuted} style={{ opacity: 0.5 }} />
+              )}
             </TouchableOpacity>
-          </TouchableOpacity>
-        )}
+          );
+        }}
       />
 
       <TouchableOpacity
-        style={[styles.addButton, { bottom: bottomOffset }]}
-        onPress={() => navigation.navigate("CategoryForm", undefined)}
+        style={[
+          styles.addButton,
+          { bottom: bottomOffset },
+          (categories?.length || 0) >= 20 && { backgroundColor: colors.surfaceRaised, borderColor: colors.border, borderWidth: 1 }
+        ]}
+        onPress={() => {
+          if ((categories?.length || 0) >= 20) {
+            alert({
+              title: "Category limit reached",
+              message: "You can only have up to 20 categories to keep your budget manageable.",
+              icon: "alert-circle-outline",
+            });
+            return;
+          }
+          navigation.navigate("CategoryForm", undefined);
+        }}
         activeOpacity={0.85}
       >
-        <MaterialCommunityIcons name="plus" size={20} color={colors.background} />
-        <Text style={styles.addButtonText}>Add custom category</Text>
+        <MaterialCommunityIcons 
+          name="plus" 
+          size={20} 
+          color={(categories?.length || 0) >= 20 ? colors.textMuted : colors.background} 
+        />
+        <Text style={[
+          styles.addButtonText,
+          (categories?.length || 0) >= 20 && { color: colors.textMuted }
+        ]}>
+          Add custom category
+        </Text>
       </TouchableOpacity>
     </View>
   );
