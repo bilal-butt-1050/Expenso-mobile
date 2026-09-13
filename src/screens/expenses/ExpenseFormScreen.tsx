@@ -20,11 +20,13 @@ import { useExpenses } from "../../hooks/useExpenses";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
+import { useBudgets } from "../../hooks/useBudgets";
 import { getErrorMessage } from "../../api/client";
 import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
 import { DatePicker } from "../../components/DatePicker";
 import { CategoryPill } from "../../components/CategoryPill";
+import { BottomSheet } from "../../components/BottomSheet";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
@@ -57,8 +59,9 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const { data: categories } = useCategories();
   const { data: dashboardData } = useDashboard();
   const { addExpense, editExpense, removeExpense } = useExpenses();
+  const { setBudget } = useBudgets();
   const { setSelectedMonth } = useAppData();
-  const { confirm } = useDialog();
+  const { confirm, alert } = useDialog();
 
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? "");
   const [description, setDescription] = useState(editing?.description ?? "");
@@ -69,6 +72,10 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const [date, setDate] = useState<Date>(editing ? new Date(editing.date) : new Date());
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  const [isBudgetSheetOpen, setIsBudgetSheetOpen] = useState(false);
+  const [budgetInputValue, setBudgetInputValue] = useState("");
+  const [isSavingBudget, setIsSavingBudget] = useState(false);
 
   const hasChanges = React.useMemo(() => {
     if (!editing) return true;
@@ -230,9 +237,18 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
       const budgetItem = dashboardData?.budgetVsActual.find((b) => b.categoryId === categoryId);
 
-      if (!budgetItem || budgetItem.budget <= 0) {
+      if (!forceSave && (!budgetItem || budgetItem.budget <= 0)) {
         setIsSaving(false);
-        navigation.navigate("Tabs", { screen: "Budget", params: { openCategoryId: categoryId } } as any);
+        confirm({
+          title: "No Budget Set",
+          message: "You haven't set a budget for this category yet. Would you like to set one now to keep your expenses organized?",
+          confirmText: "Set Budget",
+          icon: "wallet-outline",
+          onConfirm: () => {
+            setBudgetInputValue("");
+            setIsBudgetSheetOpen(true);
+          },
+        });
         return;
       }
 
@@ -522,6 +538,48 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
           </View>
         </View>
       </Modal>
+
+      {/* Inline Budget Edit Sheet */}
+      <BottomSheet visible={isBudgetSheetOpen} onClose={() => setIsBudgetSheetOpen(false)}>
+        <View style={{ paddingBottom: spacing.md }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.lg }}>
+            <CategoryPill icon={selectedCategory?.icon || "help"} color={selectedCategory?.color} size={38} />
+            <Text style={{ ...typography.subtitle, color: colors.textPrimary, fontSize: 20 }}>
+              {selectedCategory?.name}
+            </Text>
+          </View>
+          <TextField
+            label="Monthly budget (PKR)"
+            keyboardType="decimal-pad"
+            value={budgetInputValue}
+            onChangeText={setBudgetInputValue}
+            autoFocus
+            placeholder="0"
+          />
+          <View style={{ flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm }}>
+            <Button label="Cancel" variant="secondary" onPress={() => setIsBudgetSheetOpen(false)} style={{ flex: 1 }} />
+            <Button
+              label="Save & Continue"
+              loading={isSavingBudget}
+              onPress={async () => {
+                if (!categoryId) return;
+                try {
+                  setIsSavingBudget(true);
+                  await setBudget(categoryId, Number(budgetInputValue) || 0);
+                  setIsBudgetSheetOpen(false);
+                  // Auto-resume expense saving logic bypass budget constraint check
+                  handleSave(true);
+                } catch (err: any) {
+                  alert({ title: "Error", message: err.message || "Failed to save budget" });
+                } finally {
+                  setIsSavingBudget(false);
+                }
+              }}
+              style={{ flex: 1 }}
+            />
+          </View>
+        </View>
+      </BottomSheet>
     </>
   );
 }
