@@ -10,8 +10,7 @@ import {
   PanResponder,
   Animated,
   Dimensions,
-  Keyboard,
-  LayoutAnimation
+  Keyboard
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -267,9 +266,8 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       confirmText: "Delete",
       destructive: true,
       icon: "trash-can-outline",
-      onConfirm: async () => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        await removeExpense(editing.id);
+      onConfirm: () => {
+        navigation.dispatch(TabActions.jumpTo("Expenses", { deleteId: editing.id }));
         navigation.goBack();
       },
     });

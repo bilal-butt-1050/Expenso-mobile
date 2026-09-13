@@ -8,8 +8,8 @@ export type AuthStackParamList = {
 
 export type TabParamList = {
   Home: undefined;
-  Expenses: { highlightId?: string } | undefined;
-  Income: { highlightId?: string } | undefined;
+  Expenses: { highlightId?: string; deleteId?: string } | undefined;
+  Income: { highlightId?: string; deleteId?: string } | undefined;
   Budget: undefined;
   Settings: undefined;
 };

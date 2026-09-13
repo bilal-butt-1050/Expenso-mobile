@@ -29,8 +29,8 @@ type Filter = ExpenseStatus | "All";
 export function ExpensesListScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteProp<RootStackParamList, "Tabs">>();
-  // The highlightId might be nested in the Tabs params if passed that way
   const highlightId = (route.params as any)?.highlightId;
+  const deleteId = (route.params as any)?.deleteId;
   
   const insets = useSafeAreaInsets();
   const { selectedMonth, setSelectedMonth } = useAppData();
@@ -41,6 +41,13 @@ export function ExpensesListScreen() {
   const { data, isLoading, removeExpense, toggleStatus } = useExpenses(
     filter === "All" ? {} : { status: filter }
   );
+
+  React.useEffect(() => {
+    if (deleteId && deleteId !== deletingId) {
+      setDeletingId(deleteId);
+      navigation.setParams({ deleteId: undefined } as any);
+    }
+  }, [deleteId, deletingId, navigation]);
 
   const groupedData = useMemo(() => {
     if (!data) return [];

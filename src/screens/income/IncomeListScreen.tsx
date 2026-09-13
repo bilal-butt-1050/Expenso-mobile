@@ -30,6 +30,7 @@ export function IncomeListScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteProp<RootStackParamList, "Tabs">>();
   const highlightId = (route.params as any)?.highlightId;
+  const deleteId = (route.params as any)?.deleteId;
 
   const insets = useSafeAreaInsets();
   const { selectedMonth, setSelectedMonth } = useAppData();
@@ -41,6 +42,13 @@ export function IncomeListScreen() {
   const { data: allIncomes, isLoading, removeIncome, toggleStatus } = useIncome(
     filter === "All" ? {} : { status: filter }
   );
+
+  React.useEffect(() => {
+    if (deleteId && deleteId !== deletingId) {
+      setDeletingId(deleteId);
+      navigation.setParams({ deleteId: undefined } as any);
+    }
+  }, [deleteId, deletingId, navigation]);
 
   const groupedData = useMemo(() => {
     if (!allIncomes) return [];
