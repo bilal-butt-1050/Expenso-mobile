@@ -33,7 +33,7 @@ export function BudgetScreen() {
   const { selectedMonth, setSelectedMonth } = useAppData();
   const { data: summary, isLoading } = useDashboard();
   const { data: categories } = useCategories();
-  const { setBudget } = useBudgets();
+  const { setBudget } = useBudgets(selectedMonth);
   const { alert } = useDialog();
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 

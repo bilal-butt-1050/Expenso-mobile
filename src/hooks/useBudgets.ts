@@ -3,24 +3,24 @@ import * as budgetsApi from "../api/budgets";
 import { useAppData } from "../context/AppDataContext";
 import { useAsyncData } from "./useAsyncData";
 
-export function useBudgets() {
+export function useBudgets(month: string) {
   const { dataVersion, notifyDataChanged } = useAppData();
-  const state = useAsyncData(() => budgetsApi.fetchBudgets(), [dataVersion]);
+  const state = useAsyncData(() => budgetsApi.fetchBudgets(month), [dataVersion, month]);
 
   const setBudget = useCallback(
     async (categoryId: string, amount: number) => {
-      await budgetsApi.saveBudget(categoryId, amount);
+      await budgetsApi.saveBudget(categoryId, amount, month);
       notifyDataChanged();
     },
-    [notifyDataChanged]
+    [month, notifyDataChanged]
   );
 
   const clearBudget = useCallback(
     async (categoryId: string) => {
-      await budgetsApi.deleteBudget(categoryId);
+      await budgetsApi.deleteBudget(categoryId, month);
       notifyDataChanged();
     },
-    [notifyDataChanged]
+    [month, notifyDataChanged]
   );
 
   return { ...state, setBudget, clearBudget };

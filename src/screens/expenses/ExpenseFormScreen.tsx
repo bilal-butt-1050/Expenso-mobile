@@ -59,9 +59,12 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const { data: categories } = useCategories();
   const { data: dashboardData } = useDashboard();
   const { addExpense, editExpense, removeExpense } = useExpenses();
-  const { setBudget } = useBudgets();
   const { setSelectedMonth } = useAppData();
   const { confirm, alert } = useDialog();
+
+  const [date, setDate] = useState<Date>(editing ? new Date(editing.date) : new Date());
+  const expenseMonth = date.toISOString().slice(0, 7);
+  const { setBudget } = useBudgets(expenseMonth);
 
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? "");
   const [description, setDescription] = useState(editing?.description ?? "");
@@ -69,7 +72,6 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(editing?.paymentMethod ?? "Cash");
   const [needWant, setNeedWant] = useState<NeedWant>(editing?.needWant ?? "Need");
   const [status, setStatus] = useState<ExpenseStatus>(editing?.status ?? "Paid");
-  const [date, setDate] = useState<Date>(editing ? new Date(editing.date) : new Date());
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
