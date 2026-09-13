@@ -119,6 +119,7 @@ export function IncomeListScreen() {
             isNewlyAdded={item.id === highlightId}
             isDeleting={item.id === deletingId}
             onDeleteAnimFinish={async () => {
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
               await removeIncome(item.id);
               setDeletingId(null);
             }}
@@ -225,20 +226,7 @@ function IncomeItem({
         opacity: deleteAnim.interpolate({
           inputRange: [0, 1],
           outputRange: [1, 0]
-        }),
-        height: deleteAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [72, 0]
-        }),
-        marginBottom: deleteAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [8, 0]
-        }),
-        paddingVertical: deleteAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [12, 0]
-        }),
-        overflow: "hidden",
+        })
       }
     ]}>
       <TouchableOpacity
