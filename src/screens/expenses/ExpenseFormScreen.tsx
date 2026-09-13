@@ -341,7 +341,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         </View>
 
         {/* Date */}
-        <DatePicker value={date} onChange={setDate} label="Date" />
+        <DatePicker value={date} onChange={setDate} label="Date" maxDate={new Date()} />
 
         <SegmentedControl label="Payment Method" options={PAYMENT_METHODS} value={paymentMethod} onChange={setPaymentMethod} />
         <SegmentedControl label="Need or Want" options={NEED_WANT} value={needWant} onChange={setNeedWant} />

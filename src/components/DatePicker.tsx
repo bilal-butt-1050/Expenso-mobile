@@ -22,6 +22,7 @@ interface Props {
   value: Date;
   onChange: (date: Date) => void;
   label?: string;
+  maxDate?: Date;
 }
 
 /**
@@ -29,7 +30,7 @@ interface Props {
  * Replaces the deprecated @react-native-community/datetimepicker.
  * Matches the dark Platinum Minimalist theme perfectly.
  */
-export function DatePicker({ value, onChange, label }: Props) {
+export function DatePicker({ value, onChange, label, maxDate }: Props) {
   const [open, setOpen] = useState(false);
   const [viewYear, setViewYear] = useState(value.getFullYear());
   const [viewMonth, setViewMonth] = useState(value.getMonth());
@@ -67,6 +68,13 @@ export function DatePicker({ value, onChange, label }: Props) {
   const isToday = (day: number) => {
     const now = new Date();
     return day === now.getDate() && viewMonth === now.getMonth() && viewYear === now.getFullYear();
+  };
+
+  const isDisabled = (day: number) => {
+    if (!maxDate) return false;
+    const current = new Date(viewYear, viewMonth, day).getTime();
+    const max = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate()).getTime();
+    return current > max;
   };
 
   return (
@@ -118,19 +126,22 @@ export function DatePicker({ value, onChange, label }: Props) {
                 <View key={idx} style={styles.cellWrap}>
                   {day !== null ? (
                     <TouchableOpacity
-                      onPress={() => selectDay(day)}
+                      onPress={() => {
+                        if (!isDisabled(day)) selectDay(day);
+                      }}
                       style={[
                         styles.cell,
                         isSelected(day) && styles.cellSelected,
                         isToday(day) && !isSelected(day) && styles.cellToday,
                       ]}
-                      activeOpacity={0.6}
+                      activeOpacity={isDisabled(day) ? 1 : 0.6}
                     >
                       <Text
                         style={[
                           styles.cellText,
                           isSelected(day) && styles.cellTextSelected,
                           isToday(day) && !isSelected(day) && styles.cellTextToday,
+                          isDisabled(day) && styles.cellTextDisabled,
                         ]}
                       >
                         {day}
@@ -256,8 +267,11 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   cellTextSelected: {
-    color: colors.background,
-    fontWeight: "700",
+    color: colors.accentForeground,
+    fontWeight: "800",
+  },
+  cellTextDisabled: {
+    color: colors.border,
   },
   cellTextToday: {
     color: colors.textPrimary,
