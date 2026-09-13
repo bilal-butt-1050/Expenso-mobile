@@ -24,6 +24,7 @@ import { getErrorMessage } from "../../api/client";
 import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
 import { DatePicker } from "../../components/DatePicker";
+import { MonthPicker } from "../../components/MonthPicker";
 import { CategoryPill } from "../../components/CategoryPill";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
@@ -42,9 +43,6 @@ const PRESET_SOURCES: SourcePreset[] = [
   { source: "Salary", icon: "briefcase-outline" },
   { source: "Freelance", icon: "laptop" },
   { source: "Business", icon: "storefront-outline" },
-  { source: "Investment", icon: "chart-line" },
-  { source: "Bonus", icon: "gift-outline" },
-  { source: "Rental", icon: "home-city-outline" },
   { source: "Other", icon: "cash-multiple" },
 ];
 
@@ -302,7 +300,20 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         </View>
 
         {/* Date */}
-        <DatePicker value={date} onChange={setDate} label="Date" />
+        {selectedPreset.source === "Salary" ? (
+          <View style={styles.fieldWrap}>
+            <Text style={styles.label}>Month</Text>
+            <MonthPicker 
+              month={`${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`}
+              onChange={(m) => {
+                const [year, month] = m.split("-");
+                setDate(new Date(Number(year), Number(month) - 1, 1, 12));
+              }}
+            />
+          </View>
+        ) : (
+          <DatePicker value={date} onChange={setDate} label="Date" maxDate={new Date()} />
+        )}
 
         {/* Status */}
         <View style={styles.fieldWrap}>
