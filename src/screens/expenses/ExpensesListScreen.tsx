@@ -38,6 +38,7 @@ export function ExpensesListScreen() {
   const [filter, setFilter] = useState<Filter>("All");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [highlightingId, setHighlightingId] = useState<string | null>(null);
   const { data, isLoading, removeExpense, toggleStatus } = useExpenses(
     filter === "All" ? {} : { status: filter }
   );
@@ -48,6 +49,16 @@ export function ExpensesListScreen() {
       navigation.setParams({ deleteId: undefined } as any);
     }
   }, [deleteId, deletingId, navigation]);
+
+  React.useEffect(() => {
+    if (highlightId) {
+      setHighlightingId(highlightId);
+      navigation.setParams({ highlightId: undefined } as any);
+      setTimeout(() => {
+        setHighlightingId(null);
+      }, 3000);
+    }
+  }, [highlightId, navigation]);
 
   const groupedData = useMemo(() => {
     if (!data) return [];

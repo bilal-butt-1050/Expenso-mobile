@@ -199,12 +199,8 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         newIncomeId = result.id;
       }
 
-      if (editing) {
-        navigation.goBack();
-      } else {
-        navigation.dispatch(TabActions.jumpTo("Income", { highlightId: newIncomeId }));
-        navigation.goBack();
-      }
+      navigation.dispatch(TabActions.jumpTo("Income", { highlightId: editing ? editing.id : newIncomeId }));
+      navigation.goBack();
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {

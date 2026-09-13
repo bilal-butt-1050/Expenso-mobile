@@ -38,6 +38,7 @@ export function IncomeListScreen() {
   const [filter, setFilter] = useState<Filter>("All");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [highlightingId, setHighlightingId] = useState<string | null>(null);
 
   const { data: allIncomes, isLoading, removeIncome, toggleStatus } = useIncome(
     filter === "All" ? {} : { status: filter }
@@ -49,6 +50,16 @@ export function IncomeListScreen() {
       navigation.setParams({ deleteId: undefined } as any);
     }
   }, [deleteId, deletingId, navigation]);
+
+  React.useEffect(() => {
+    if (highlightId) {
+      setHighlightingId(highlightId);
+      navigation.setParams({ highlightId: undefined } as any);
+      setTimeout(() => {
+        setHighlightingId(null);
+      }, 3000);
+    }
+  }, [highlightId, navigation]);
 
   const groupedData = useMemo(() => {
     if (!allIncomes) return [];
@@ -125,7 +136,7 @@ export function IncomeListScreen() {
         renderItem={({ item }) => (
           <IncomeItem
             item={item}
-            isNewlyAdded={item.id === highlightId}
+            isNewlyAdded={item.id === highlightingId}
             isDeleting={item.id === deletingId}
             onDeleteAnimFinish={async () => {
               LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);

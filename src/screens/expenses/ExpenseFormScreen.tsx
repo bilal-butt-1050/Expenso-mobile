@@ -258,12 +258,8 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
       setBudgetAlert(null);
       
-      if (editing) {
-        navigation.goBack();
-      } else {
-        navigation.dispatch(TabActions.jumpTo("Expenses", { highlightId: newExpenseId }));
-        navigation.goBack();
-      }
+      navigation.dispatch(TabActions.jumpTo("Expenses", { highlightId: editing ? editing.id : newExpenseId }));
+      navigation.goBack();
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
