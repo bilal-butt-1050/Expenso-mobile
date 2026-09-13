@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   Modal,
   ScrollView,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
   Keyboard,
+  Animated,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
@@ -32,8 +33,48 @@ interface Props {
  */
 export function DatePicker({ value, onChange, label, maxDate }: Props) {
   const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [viewYear, setViewYear] = useState(value.getFullYear());
   const [viewMonth, setViewMonth] = useState(value.getMonth());
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+
+  useEffect(() => {
+    if (open) {
+      setInternalOpen(true);
+      fadeAnim.setValue(0);
+      scaleAnim.setValue(0.9);
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 250,
+          friction: 25,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else if (internalOpen) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 0.9,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setInternalOpen(false);
+      });
+    }
+  }, [open, internalOpen]);
 
   const formatted = `${value.getDate()} ${MONTHS[value.getMonth()].slice(0, 3)} ${value.getFullYear()}`;
 
@@ -97,8 +138,16 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
         </TouchableOpacity>
       </View>
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setOpen(false)}>
+      <Modal visible={internalOpen} transparent animationType="none" onRequestClose={() => setOpen(false)}>
+        <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setOpen(false)} />
+        </Animated.View>
+        <Animated.View
+          style={[
+            styles.cardWrap,
+            { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
+          ]}
+        >
           <TouchableOpacity activeOpacity={1} style={styles.card}>
             {/* Header with month/year nav */}
             <View style={styles.calHeader}>
@@ -152,7 +201,7 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
               ))}
             </View>
           </TouchableOpacity>
-        </TouchableOpacity>
+        </Animated.View>
       </Modal>
     </>
   );
@@ -187,15 +236,22 @@ const styles = StyleSheet.create({
   },
 
   backdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.7)",
+  },
+  cardWrap: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: spacing.lg,
+    padding: spacing.xl,
   },
   card: {
     width: "100%",
-    maxWidth: 360,
+    maxWidth: 340,
     backgroundColor: colors.surfaceRaised,
     borderRadius: 20,
     borderWidth: 1,
