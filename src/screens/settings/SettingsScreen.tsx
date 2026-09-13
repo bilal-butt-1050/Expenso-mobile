@@ -91,7 +91,7 @@ export function SettingsScreen() {
       <Modal
         visible={isSavingsModalOpen}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setIsSavingsModalOpen(false)}
       >
         <TouchableOpacity

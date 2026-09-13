@@ -151,7 +151,7 @@ export function BudgetScreen() {
         />
       )}
 
-      <Modal visible={!!editingCategory} animationType="slide" transparent onRequestClose={() => setEditingCategory(null)}>
+      <Modal visible={!!editingCategory} animationType="fade" transparent onRequestClose={() => setEditingCategory(null)}>
         <BudgetEditSheet
           category={editingCategory}
           currentAmount={rows.find((r) => r.category.id === editingCategory?.id)?.budget ?? 0}
