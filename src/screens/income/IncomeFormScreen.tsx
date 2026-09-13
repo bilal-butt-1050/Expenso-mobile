@@ -9,7 +9,8 @@ import {
   View,
   PanResponder,
   Animated,
-  Dimensions
+  Dimensions,
+  Keyboard
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -231,7 +232,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         <View style={styles.fieldWrap}>
           <TouchableOpacity
             style={styles.dropdownTrigger}
-            onPress={() => { setSearchQuery(""); setIsSheetExpanded(false); setIsPickerOpen(true); }}
+            onPress={() => { Keyboard.dismiss(); setSearchQuery(""); setIsSheetExpanded(false); setIsPickerOpen(true); }}
             activeOpacity={0.7}
             accessibilityLabel="Select Income Source"
           >
