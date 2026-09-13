@@ -28,7 +28,7 @@ import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { NeedWant, PaymentMethod, ExpenseStatus } from "../../types/models";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { formatCurrency } from "../../utils/currency";
+import { formatCurrency, formatAmountInput } from "../../utils/currency";
 import { RootStackParamList } from "../../types/navigation";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ExpenseForm">;
@@ -59,7 +59,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? "");
   const [description, setDescription] = useState(editing?.description ?? "");
-  const [amount, setAmount] = useState(editing ? String(editing.amount) : "");
+  const [amount, setAmount] = useState(editing ? formatAmountInput(String(editing.amount)) : "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(editing?.paymentMethod ?? "Cash");
   const [needWant, setNeedWant] = useState<NeedWant>(editing?.needWant ?? "Need");
   const [status, setStatus] = useState<ExpenseStatus>(editing?.status ?? "Paid");
@@ -170,7 +170,8 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
   const handleSave = async (forceSave = false) => {
     setError(null);
-    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+    const parsedAmount = Number(amount.replace(/,/g, ""));
+    if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
       setError("Please enter a valid amount");
       return;
     }
@@ -181,7 +182,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
     try {
       setIsSaving(true);
-      const parsedAmount = Number(amount);
+      const parsedAmount = Number(amount.replace(/,/g, ""));
       const input = {
         categoryId,
         date: date.toISOString(),
@@ -301,7 +302,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         <TextField
           keyboardType="decimal-pad"
           value={amount}
-          onChangeText={setAmount}
+          onChangeText={(val) => setAmount(formatAmountInput(val))}
           placeholder="Amount (PKR)"
         />
 

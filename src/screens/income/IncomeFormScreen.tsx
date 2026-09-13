@@ -17,6 +17,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useIncome } from "../../hooks/useIncome";
 import { useDialog } from "../../context/DialogContext";
+import { formatCurrency, formatAmountInput } from "../../utils/currency";
 import { getErrorMessage } from "../../api/client";
 import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
@@ -57,7 +58,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
   const [selectedPreset, setSelectedPreset] = useState<SourcePreset>(
     PRESET_SOURCES.find((p) => p.source === editing?.source) ?? PRESET_SOURCES[0]
   );
-  const [amount, setAmount] = useState(editing ? String(editing.amount) : "");
+  const [amount, setAmount] = useState(editing ? formatAmountInput(String(editing.amount)) : "");
   const [description, setDescription] = useState(editing?.description ?? "");
   const [status, setStatus] = useState<IncomeStatus>(editing?.status ?? "Received");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
@@ -157,8 +158,8 @@ export function IncomeFormScreen({ route, navigation }: Props) {
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
-    const parsedAmount = Number(amount);
-    if (!parsedAmount || parsedAmount <= 0) {
+    const parsedAmount = Number(amount.replace(/,/g, ""));
+    if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
       return setError("Enter a valid amount");
     }
 
@@ -242,7 +243,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         <TextField
           keyboardType="decimal-pad"
           value={amount}
-          onChangeText={setAmount}
+          onChangeText={(val) => setAmount(formatAmountInput(val))}
           placeholder="Amount (PKR)"
         />
 
