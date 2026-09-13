@@ -552,7 +552,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
             label="Monthly budget (PKR)"
             keyboardType="decimal-pad"
             value={budgetInputValue}
-            onChangeText={setBudgetInputValue}
+            onChangeText={(val) => setBudgetInputValue(formatAmountInput(val))}
             autoFocus
             placeholder="0"
           />
@@ -565,7 +565,8 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
                 if (!categoryId) return;
                 try {
                   setIsSavingBudget(true);
-                  await setBudget(categoryId, Number(budgetInputValue) || 0);
+                  const numValue = Number(budgetInputValue.replace(/,/g, "")) || 0;
+                  await setBudget(categoryId, numValue);
                   setIsBudgetSheetOpen(false);
                   // Auto-resume expense saving logic bypass budget constraint check
                   handleSave(true);

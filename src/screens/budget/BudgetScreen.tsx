@@ -17,7 +17,7 @@ import { BudgetSkeleton } from "../../components/Skeleton";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
-import { formatCurrency } from "../../utils/currency";
+import { formatCurrency, formatAmountInput } from "../../utils/currency";
 import { Category } from "../../types/models";
 import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
@@ -310,7 +310,7 @@ function BudgetEditSheet({
   onSave: (amount: number) => void;
 }) {
   const insets = useSafeAreaInsets();
-  const [value, setValue] = useState(currentAmount ? String(currentAmount) : "");
+  const [value, setValue] = useState(currentAmount ? formatAmountInput(String(currentAmount)) : "");
 
   if (!category) return null;
 
@@ -324,13 +324,13 @@ function BudgetEditSheet({
         label="Monthly budget (PKR)"
         keyboardType="decimal-pad"
         value={value}
-        onChangeText={setValue}
+        onChangeText={(val) => setValue(formatAmountInput(val))}
         autoFocus
         placeholder="0"
       />
       <View style={styles.sheetActions}>
         <Button label="Cancel" variant="secondary" onPress={onClose} style={{ flex: 1 }} />
-        <Button label="Save" onPress={() => onSave(Number(value) || 0)} style={{ flex: 1 }} />
+        <Button label="Save" onPress={() => onSave(Number(value.replace(/,/g, "")) || 0)} style={{ flex: 1 }} />
       </View>
     </View>
   );
