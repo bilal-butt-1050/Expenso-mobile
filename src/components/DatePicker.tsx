@@ -108,6 +108,19 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
     return current > max;
   }, [viewYear, viewMonth, maxDate]);
 
+  const isNextMonthDisabled = useMemo(() => {
+    if (!maxDate) return false;
+    let nextM = viewMonth + 1;
+    let nextY = viewYear;
+    if (nextM > 11) {
+      nextM = 0;
+      nextY += 1;
+    }
+    const firstOfNextMonth = new Date(nextY, nextM, 1).getTime();
+    const max = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate()).getTime();
+    return firstOfNextMonth > max;
+  }, [viewMonth, viewYear, maxDate]);
+
   const handleOpen = useCallback(() => {
     Keyboard.dismiss();
     setViewYear(value.getFullYear());
@@ -168,8 +181,17 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
               <Text style={styles.calTitle}>
                 {MONTHS[viewMonth]} {viewYear}
               </Text>
-              <TouchableOpacity onPress={nextMonth} hitSlop={12} style={styles.navBtn}>
-                <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textPrimary} />
+              <TouchableOpacity 
+                onPress={() => { if (!isNextMonthDisabled) nextMonth() }} 
+                hitSlop={12} 
+                style={styles.navBtn}
+                activeOpacity={isNextMonthDisabled ? 1 : 0.2}
+              >
+                <MaterialCommunityIcons 
+                  name="chevron-right" 
+                  size={24} 
+                  color={isNextMonthDisabled ? colors.textMuted : colors.textPrimary} 
+                />
               </TouchableOpacity>
             </View>
 
