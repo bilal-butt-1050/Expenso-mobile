@@ -117,8 +117,15 @@ export function HomeScreen() {
                 {/* Row 2: Full Width Savings Rate */}
                 <View style={[styles.meshBlock, { backgroundColor: colors.surface, flexDirection: "row", alignItems: "center" }]}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.meshLabel}>Savings Rate</Text>
-                    <Text style={styles.meshValue}>{Math.round(data.savingsPercentage * 100)}%</Text>
+                    <Text style={styles.meshLabel}>Saved This Month</Text>
+                    <View style={{ flexDirection: "row", alignItems: "baseline", gap: spacing.sm }}>
+                      <Text style={styles.meshValue}>
+                        {formatCurrency(Math.max(0, (data.receivedIncome ?? data.monthlyIncome) - data.paidExpenses))}
+                      </Text>
+                      <Text style={{ fontSize: 18, color: colors.success, fontWeight: "700" }}>
+                        ({Math.round(data.savingsPercentage * 100)}%)
+                      </Text>
+                    </View>
                   </View>
                   <MaterialCommunityIcons name="piggy-bank-outline" size={32} color={colors.accent} />
                 </View>
