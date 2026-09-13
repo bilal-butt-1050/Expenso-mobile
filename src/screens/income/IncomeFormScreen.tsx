@@ -167,10 +167,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
     Keyboard.dismiss();
     setSearchQuery("");
     setIsSheetExpanded(false);
-    // Add a slight delay to allow keyboard to dismiss smoothly before the sheet opens
-    setTimeout(() => {
-      setIsPickerOpen(true);
-    }, 150);
+    setIsPickerOpen(true);
   }, []);
 
   const closeSheet = React.useCallback(() => {

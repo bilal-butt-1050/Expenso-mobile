@@ -126,7 +126,7 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
           style={styles.trigger}
           onPress={() => {
             Keyboard.dismiss();
-            setTimeout(() => setOpen(true), 150);
+            setOpen(true);
           }}
           activeOpacity={0.7}
           accessibilityLabel={`Select date, currently ${formatted}`}
