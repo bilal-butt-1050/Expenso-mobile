@@ -1,7 +1,6 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import {
   Modal,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -26,55 +25,45 @@ interface Props {
   maxDate?: Date;
 }
 
+const CELL_SIZE = 42;
+
 /**
  * Custom in-theme calendar date picker.
- * Replaces the deprecated @react-native-community/datetimepicker.
- * Matches the dark Platinum Minimalist theme perfectly.
+ * Uses Modal with pre-mounted content and pure translateY animation (no scale)
+ * to avoid layout-recalc jitter when opening.
  */
 export function DatePicker({ value, onChange, label, maxDate }: Props) {
   const [open, setOpen] = useState(false);
-  const [internalOpen, setInternalOpen] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
   const [viewYear, setViewYear] = useState(value.getFullYear());
   const [viewMonth, setViewMonth] = useState(value.getMonth());
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  // Single animated value for enter/exit
+  const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (open) {
-      setInternalOpen(true);
-      fadeAnim.setValue(0);
-      scaleAnim.setValue(0.9);
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
+      setModalVisible(true);
+      // Reset to start position and animate in on next frame
+      anim.setValue(0);
+      requestAnimationFrame(() => {
+        Animated.timing(anim, {
           toValue: 1,
-          duration: 250,
+          duration: 220,
           useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 250,
-          friction: 25,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else if (internalOpen) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 0.9,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setInternalOpen(false);
+        }).start();
+      });
+    } else if (modalVisible) {
+      // Animate out, then unmount modal
+      Animated.timing(anim, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }).start(() => {
+        setModalVisible(false);
       });
     }
-  }, [open, internalOpen]);
+  }, [open]);
 
   const formatted = `${value.getDate()} ${MONTHS[value.getMonth()].slice(0, 3)} ${value.getFullYear()}`;
 
@@ -86,37 +75,56 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
     return [...blanks, ...dates];
   }, [viewYear, viewMonth]);
 
-  const prevMonth = () => {
+  const prevMonth = useCallback(() => {
     if (viewMonth === 0) { setViewMonth(11); setViewYear(viewYear - 1); }
     else setViewMonth(viewMonth - 1);
-  };
+  }, [viewMonth, viewYear]);
 
-  const nextMonth = () => {
+  const nextMonth = useCallback(() => {
     if (viewMonth === 11) { setViewMonth(0); setViewYear(viewYear + 1); }
     else setViewMonth(viewMonth + 1);
-  };
+  }, [viewMonth, viewYear]);
 
-  const selectDay = (day: number) => {
+  const selectDay = useCallback((day: number) => {
     onChange(new Date(viewYear, viewMonth, day));
     setOpen(false);
-  };
+  }, [viewYear, viewMonth, onChange]);
 
-  const isSelected = (day: number) =>
+  const isSelected = useCallback((day: number) =>
     day === value.getDate() &&
     viewMonth === value.getMonth() &&
-    viewYear === value.getFullYear();
+    viewYear === value.getFullYear(),
+  [value, viewMonth, viewYear]);
 
-  const isToday = (day: number) => {
+  const isToday = useCallback((day: number) => {
     const now = new Date();
     return day === now.getDate() && viewMonth === now.getMonth() && viewYear === now.getFullYear();
-  };
+  }, [viewMonth, viewYear]);
 
-  const isDisabled = (day: number) => {
+  const isDisabled = useCallback((day: number) => {
     if (!maxDate) return false;
     const current = new Date(viewYear, viewMonth, day).getTime();
     const max = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate()).getTime();
     return current > max;
-  };
+  }, [viewYear, viewMonth, maxDate]);
+
+  const handleOpen = useCallback(() => {
+    Keyboard.dismiss();
+    setViewYear(value.getFullYear());
+    setViewMonth(value.getMonth());
+    setOpen(true);
+  }, [value]);
+
+  const handleClose = useCallback(() => {
+    setOpen(false);
+  }, []);
+
+  // Interpolations — pure translateY, no scale (avoids layout recalc jitter)
+  const backdropOpacity = anim;
+  const cardTranslateY = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [30, 0],
+  });
 
   return (
     <>
@@ -124,10 +132,7 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
         {label && <Text style={styles.label}>{label}</Text>}
         <TouchableOpacity
           style={styles.trigger}
-          onPress={() => {
-            Keyboard.dismiss();
-            setOpen(true);
-          }}
+          onPress={handleOpen}
           activeOpacity={0.7}
           accessibilityLabel={`Select date, currently ${formatted}`}
           accessibilityRole="button"
@@ -138,17 +143,23 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
         </TouchableOpacity>
       </View>
 
-      <Modal visible={internalOpen} transparent animationType="none" onRequestClose={() => setOpen(false)}>
-        <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setOpen(false)} />
+      <Modal visible={modalVisible} transparent animationType="none" onRequestClose={handleClose}>
+        {/* Backdrop */}
+        <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleClose} />
         </Animated.View>
+
+        {/* Card — no scale, only translateY + opacity */}
         <Animated.View
           style={[
             styles.cardWrap,
-            { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
+            {
+              opacity: anim,
+              transform: [{ translateY: cardTranslateY }],
+            },
           ]}
         >
-          <TouchableOpacity activeOpacity={1} style={styles.card}>
+          <View style={styles.card}>
             {/* Header with month/year nav */}
             <View style={styles.calHeader}>
               <TouchableOpacity onPress={prevMonth} hitSlop={12} style={styles.navBtn}>
@@ -200,14 +211,12 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
                 </View>
               ))}
             </View>
-          </TouchableOpacity>
+          </View>
         </Animated.View>
       </Modal>
     </>
   );
 }
-
-const CELL_SIZE = 42;
 
 const styles = StyleSheet.create({
   fieldWrap: { marginBottom: spacing.md },
