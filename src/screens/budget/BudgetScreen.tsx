@@ -23,8 +23,12 @@ import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomSheet } from "../../components/BottomSheet";
+import { useRoute, useNavigation, RouteProp } from "@react-navigation/native";
+import { TabParamList } from "../../types/navigation";
 
 export function BudgetScreen() {
+  const route = useRoute<RouteProp<TabParamList, "Budget">>();
+  const navigation = useNavigation();
   const { user, updateProfile } = useAuth();
   const { selectedMonth, setSelectedMonth } = useAppData();
   const { data: summary, isLoading } = useDashboard();
@@ -32,6 +36,16 @@ export function BudgetScreen() {
   const { setBudget } = useBudgets();
   const { alert } = useDialog();
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+
+  React.useEffect(() => {
+    if (route.params?.openCategoryId && categories) {
+      const cat = categories.find((c) => c.id === route.params?.openCategoryId);
+      if (cat) {
+        setEditingCategory(cat);
+      }
+      navigation.setParams({ openCategoryId: undefined });
+    }
+  }, [route.params?.openCategoryId, categories, navigation]);
 
   const [isSavingsModalOpen, setIsSavingsModalOpen] = useState(false);
   const [savingsInput, setSavingsInput] = useState(String(user?.savingsGoal ?? 20));

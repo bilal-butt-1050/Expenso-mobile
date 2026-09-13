@@ -10,7 +10,7 @@ export type TabParamList = {
   Home: undefined;
   Expenses: { highlightId?: string; deleteId?: string } | undefined;
   Income: { highlightId?: string; deleteId?: string } | undefined;
-  Budget: undefined;
+  Budget: { openCategoryId?: string } | undefined;
   Settings: undefined;
 };
 

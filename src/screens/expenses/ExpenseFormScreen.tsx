@@ -229,6 +229,13 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       };
 
       const budgetItem = dashboardData?.budgetVsActual.find((b) => b.categoryId === categoryId);
+
+      if (!budgetItem || budgetItem.budget <= 0) {
+        setIsSaving(false);
+        navigation.navigate("Tabs", { screen: "Budget", params: { openCategoryId: categoryId } } as any);
+        return;
+      }
+
       const diff = editing ? parsedAmount - editing.amount : parsedAmount;
       const newActual = (budgetItem?.actual ?? 0) + diff;
 
