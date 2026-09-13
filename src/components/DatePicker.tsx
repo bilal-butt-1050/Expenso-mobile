@@ -6,6 +6,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Keyboard,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
@@ -74,7 +75,10 @@ export function DatePicker({ value, onChange, label }: Props) {
         {label && <Text style={styles.label}>{label}</Text>}
         <TouchableOpacity
           style={styles.trigger}
-          onPress={() => setOpen(true)}
+          onPress={() => {
+            Keyboard.dismiss();
+            setTimeout(() => setOpen(true), 150);
+          }}
           activeOpacity={0.7}
           accessibilityLabel={`Select date, currently ${formatted}`}
           accessibilityRole="button"

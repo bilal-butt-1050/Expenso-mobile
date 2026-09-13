@@ -108,7 +108,13 @@ export function IncomeFormScreen({ route, navigation }: Props) {
           snapTo = 0;
           nextExpanded = true;
         } else if (velocityY > 1.5 || currentY > defaultOffset + 100) {
-          setIsPickerOpen(false);
+          Animated.timing(panY, {
+            toValue: SCREEN_HEIGHT,
+            duration: 250,
+            useNativeDriver: true,
+          }).start(() => {
+            setIsPickerOpen(false);
+          });
           return;
         } else {
           snapTo = defaultOffset;
@@ -126,6 +132,26 @@ export function IncomeFormScreen({ route, navigation }: Props) {
       }
     })
   ).current;
+
+  const openSheet = React.useCallback(() => {
+    Keyboard.dismiss();
+    setSearchQuery("");
+    setIsSheetExpanded(false);
+    // Add a slight delay to allow keyboard to dismiss smoothly before the sheet opens
+    setTimeout(() => {
+      setIsPickerOpen(true);
+    }, 150);
+  }, []);
+
+  const closeSheet = React.useCallback(() => {
+    Animated.timing(panY, {
+      toValue: SCREEN_HEIGHT,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setIsPickerOpen(false);
+    });
+  }, [panY]);
 
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -232,7 +258,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         <View style={styles.fieldWrap}>
           <TouchableOpacity
             style={styles.dropdownTrigger}
-            onPress={() => { Keyboard.dismiss(); setSearchQuery(""); setIsSheetExpanded(false); setIsPickerOpen(true); }}
+            onPress={openSheet}
             activeOpacity={0.7}
             accessibilityLabel="Select Income Source"
           >
@@ -299,9 +325,9 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         />
       </ScrollView>
 
-      {/* Source Selection Sheet */}
-      <Modal visible={isPickerOpen} transparent animationType="fade" onRequestClose={() => setIsPickerOpen(false)}>
-        <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={() => setIsPickerOpen(false)}>
+      {/* Source Category Sheet */}
+      <Modal visible={isPickerOpen} transparent animationType="fade" onRequestClose={closeSheet}>
+        <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={closeSheet}>
           <Animated.View
             style={[
               styles.sheetContent,
@@ -315,8 +341,8 @@ export function IncomeFormScreen({ route, navigation }: Props) {
             <View {...panResponder.panHandlers} style={{ backgroundColor: 'transparent', paddingVertical: spacing.sm }}>
               <View style={styles.sheetDragHandle} />
               <View style={styles.sheetHeader}>
-                <Text style={styles.sheetTitle}>Income Source</Text>
-                <TouchableOpacity onPress={() => setIsPickerOpen(false)} hitSlop={12}>
+                <Text style={styles.sheetTitle}>Source</Text>
+                <TouchableOpacity onPress={closeSheet} hitSlop={12}>
                   <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
@@ -329,7 +355,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
                   <TouchableOpacity
                     key={p.source}
                     style={[styles.optionRow, isSelected && styles.optionRowSelected]}
-                    onPress={() => { setSelectedPreset(p); setIsPickerOpen(false); }}
+                    onPress={() => { setSelectedPreset(p); closeSheet(); }}
                     activeOpacity={0.7}
                   >
                     <CategoryPill icon={p.icon} size={32} />
