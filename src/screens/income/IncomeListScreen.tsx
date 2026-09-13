@@ -12,7 +12,8 @@ import { ScreenContainer } from "../../components/ScreenContainer";
 import { MonthPicker } from "../../components/MonthPicker";
 import { EmptyState } from "../../components/EmptyState";
 import { ListScreenSkeleton } from "../../components/Skeleton";
-import { CategoryPill } from "../../components/CategoryPill";
+import { CategoryPill, StatusBadge } from "../../components/CategoryPill";
+import { CustomSwitch } from "../../components/CustomSwitch";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
@@ -251,12 +252,9 @@ function IncomeItem({
           <Text style={{ fontSize: 15, fontWeight: "600", color: isReceived ? colors.textPrimary : colors.textSecondary }}>
             {isReceived ? "Received" : "Expected"}
           </Text>
-          <Switch
+          <CustomSwitch
             value={isReceived}
             onValueChange={handleToggle}
-            trackColor={{ false: colors.border, true: colors.accent }}
-            thumbColor={colors.textPrimary}
-            style={{ transform: [{ scale: 0.85 }] }}
           />
         </View>
       </View>

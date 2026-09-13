@@ -13,6 +13,7 @@ import { MonthPicker } from "../../components/MonthPicker";
 import { EmptyState } from "../../components/EmptyState";
 import { ListScreenSkeleton } from "../../components/Skeleton";
 import { CategoryPill, StatusBadge } from "../../components/CategoryPill";
+import { CustomSwitch } from "../../components/CustomSwitch";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
@@ -251,12 +252,9 @@ function ExpenseItem({
           <Text style={{ fontSize: 15, fontWeight: "600", color: isPaid ? colors.textPrimary : colors.textSecondary }}>
             {isPaid ? "Paid" : "Unpaid"}
           </Text>
-          <Switch
+          <CustomSwitch
             value={isPaid}
             onValueChange={handleToggle}
-            trackColor={{ false: colors.border, true: colors.accent }}
-            thumbColor={colors.textPrimary}
-            style={{ transform: [{ scale: 0.85 }] }}
           />
         </View>
       </View>
