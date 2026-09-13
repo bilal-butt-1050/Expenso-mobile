@@ -22,12 +22,14 @@ interface Props {
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export function BottomSheet({ visible, onClose, children }: Props) {
+  const [showModal, setShowModal] = React.useState(visible);
   const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (visible) {
+      setShowModal(true);
       Keyboard.dismiss();
       panY.setValue(SCREEN_HEIGHT);
       Animated.parallel([
@@ -43,24 +45,26 @@ export function BottomSheet({ visible, onClose, children }: Props) {
           friction: 25,
         }),
       ]).start();
+    } else if (showModal) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(panY, {
+          toValue: SCREEN_HEIGHT,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setShowModal(false);
+      });
     }
-  }, [visible]);
+  }, [visible, showModal]);
 
   const handleClose = () => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(panY, {
-        toValue: SCREEN_HEIGHT,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onClose();
-    });
+    onClose();
   };
 
   const panResponder = useRef(
@@ -90,7 +94,7 @@ export function BottomSheet({ visible, onClose, children }: Props) {
   ).current;
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose}>
+    <Modal visible={showModal} transparent animationType="none" onRequestClose={handleClose}>
       <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleClose} />
       </Animated.View>
