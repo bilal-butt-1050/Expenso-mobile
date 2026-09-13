@@ -54,16 +54,8 @@ export function HomeScreen() {
             <View style={styles.heroSection}>
               <Text style={styles.heroLabel}>AVAILABLE BALANCE</Text>
               <Text style={styles.heroAmount} numberOfLines={1} adjustsFontSizeToFit>
-                {formatCurrency(data.remainingBalance)}
+                {formatCurrency(data.savingsAllTime)}
               </Text>
-
-              {/* All-Time Savings Pill */}
-              <View style={styles.savingsPill}>
-                <MaterialCommunityIcons name="shield-check" size={16} color={colors.success} />
-                <Text style={styles.savingsPillText}>
-                  All-Time Savings: <Text style={{ color: colors.textPrimary }}>{formatCurrency(data.savingsAllTime)}</Text>
-                </Text>
-              </View>
             </View>
 
             {/* QUICK ACTIONS — Floating Pills */}
