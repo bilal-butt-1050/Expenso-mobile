@@ -114,19 +114,6 @@ export function BudgetScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Rollover Savings */}
-              {summary && summary.rolloverSavings > 0 && (
-                <View style={styles.rolloverCard}>
-                  <View style={styles.rolloverIconWrap}>
-                    <MaterialCommunityIcons name="party-popper" size={20} color={colors.success} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.rolloverTitle}>Rolled over from last month</Text>
-                    <Text style={styles.rolloverSub}>Added to your All-Time Savings</Text>
-                  </View>
-                  <Text style={styles.rolloverAmount}>+{formatCurrency(summary.rolloverSavings)}</Text>
-                </View>
-              )}
 
               {/* Summary */}
               <View style={styles.summaryCard}>
