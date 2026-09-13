@@ -52,11 +52,10 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     if (dialogState.type !== "none") {
-      Animated.spring(modalAnim, {
+      Animated.timing(modalAnim, {
         toValue: 1,
+        duration: 150,
         useNativeDriver: true,
-        tension: 250,
-        friction: 20,
       }).start();
     } else {
       modalAnim.setValue(0);
@@ -75,13 +74,13 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
     if (dialogState.type === "confirm" && dialogState.onCancel) {
       dialogState.onCancel();
     }
-    setDialogState({ type: "none" });
+    closeDialog();
   };
 
   const handleConfirm = async () => {
     if (dialogState.type === "confirm") {
       const fn = dialogState.onConfirm;
-      setDialogState({ type: "none" });
+      closeDialog();
       await fn();
     }
   };
@@ -90,7 +89,17 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
     if (dialogState.type === "alert" && dialogState.onDismiss) {
       dialogState.onDismiss();
     }
-    setDialogState({ type: "none" });
+    closeDialog();
+  };
+
+  const closeDialog = () => {
+    Animated.timing(modalAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      setDialogState({ type: "none" });
+    });
   };
 
   const isModalOpen = dialogState.type !== "none";

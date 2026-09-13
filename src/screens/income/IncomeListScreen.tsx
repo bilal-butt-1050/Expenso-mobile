@@ -3,6 +3,8 @@ import { SectionList, StyleSheet, Text, TouchableOpacity, View, Switch, Animated
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Dimensions } from "react-native";
+const SCREEN_WIDTH = Dimensions.get("window").width;
 import { useIncome } from "../../hooks/useIncome";
 import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
@@ -33,6 +35,7 @@ export function IncomeListScreen() {
   const { confirm } = useDialog();
   const [filter, setFilter] = useState<Filter>("All");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const { data: allIncomes, isLoading, removeIncome, toggleStatus } = useIncome(
     filter === "All" ? {} : { status: filter }
@@ -62,8 +65,8 @@ export function IncomeListScreen() {
       confirmText: "Delete",
       destructive: true,
       icon: "trash-can-outline",
-      onConfirm: async () => {
-        await removeIncome(income.id);
+      onConfirm: () => {
+        setDeletingId(income.id);
       },
     });
   };
@@ -114,7 +117,12 @@ export function IncomeListScreen() {
           <IncomeItem
             item={item}
             isNewlyAdded={item.id === highlightId}
-            onPress={() => navigation.navigate("IncomeForm", { income: item })}
+            isDeleting={item.id === deletingId}
+            onDeleteAnimFinish={async () => {
+              await removeIncome(item.id);
+              setDeletingId(null);
+            }}
+            onPress={() => navigation.navigate("IncomeForm", { income: item } as any)}
             onLongPress={() => confirmDelete(item)}
             onToggleStatus={() => handleToggleStatus(item)}
           />
@@ -150,18 +158,23 @@ export function IncomeListScreen() {
 function IncomeItem({
   item,
   isNewlyAdded,
+  isDeleting,
   onPress,
   onLongPress,
   onToggleStatus,
+  onDeleteAnimFinish,
 }: {
   item: Income;
   isNewlyAdded?: boolean;
+  isDeleting?: boolean;
   onPress: () => void;
   onLongPress: () => void;
   onToggleStatus: () => void;
+  onDeleteAnimFinish?: () => void;
 }) {
   const [isReceived, setIsReceived] = React.useState(item.status === "Received");
   const highlightAnim = useRef(new Animated.Value(isNewlyAdded ? 1 : 0)).current;
+  const deleteAnim = useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
     setIsReceived(item.status === "Received");
@@ -176,6 +189,20 @@ function IncomeItem({
     }
   }, [isNewlyAdded]);
 
+  React.useEffect(() => {
+    if (isDeleting) {
+      Animated.sequence([
+        Animated.timing(deleteAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: false,
+        })
+      ]).start(() => {
+        if (onDeleteAnimFinish) onDeleteAnimFinish();
+      });
+    }
+  }, [isDeleting]);
+
   const handleToggle = () => {
     setIsReceived(!isReceived);
     onToggleStatus();
@@ -188,11 +215,35 @@ function IncomeItem({
         backgroundColor: highlightAnim.interpolate({
           inputRange: [0, 1],
           outputRange: [colors.surfaceRaised, 'rgba(129, 140, 248, 0.2)'] // accent with low opacity
-        }) 
+        }),
+        transform: [{
+          translateX: deleteAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, -SCREEN_WIDTH]
+          })
+        }],
+        opacity: deleteAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 0]
+        }),
+        height: deleteAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [72, 0]
+        }),
+        marginBottom: deleteAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [8, 0]
+        }),
+        paddingVertical: deleteAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [12, 0]
+        }),
+        overflow: "hidden",
       }
     ]}>
       <TouchableOpacity
         style={styles.rowTouchArea}
+        delayLongPress={250}
         onPress={onPress}
         onLongPress={onLongPress}
         activeOpacity={0.7}
