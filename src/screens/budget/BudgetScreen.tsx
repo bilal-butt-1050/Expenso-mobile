@@ -49,12 +49,13 @@ export function BudgetScreen() {
   };
 
   const rows = (categories ?? []).map((category) => {
-    const match = summary?.budgetVsActual.find((b) => b.categoryId === category.id);
+    const budgetMatch = summary?.budgetVsActual.find((b) => b.categoryId === category.id);
+    const breakdownMatch = summary?.categoryBreakdown.find((c) => c.categoryId === category.id);
     return {
       category,
-      budget: match?.budget ?? 0,
-      actual: match?.actual ?? 0,
-      hasBudget: Boolean(match),
+      budget: budgetMatch?.budget ?? 0,
+      actual: breakdownMatch?.amount ?? budgetMatch?.actual ?? 0,
+      hasBudget: Boolean(budgetMatch),
     };
   }).sort((a, b) => {
     // 1. Sort by actual spent (highest first)
