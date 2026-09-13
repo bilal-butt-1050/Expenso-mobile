@@ -14,8 +14,9 @@ export function useExpenses(filters: { categoryId?: string; status?: ExpenseStat
 
   const addExpense = useCallback(
     async (input: ExpenseInput) => {
-      await expensesApi.createExpense(input);
+      const result = await expensesApi.createExpense(input);
       notifyDataChanged();
+      return result;
     },
     [notifyDataChanged]
   );

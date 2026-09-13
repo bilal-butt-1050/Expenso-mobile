@@ -149,17 +149,22 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         paymentMethod,
       };
 
+      let newIncomeId: string | undefined;
       if (editing) {
         await editIncome(editing.id, input);
       } else {
-        await addIncome(input);
+        const result = await addIncome(input);
+        newIncomeId = result.id;
       }
 
-      // showToast({
-      //   message: editing ? "Income updated" : "Income logged",
-      //   type: "success",
-      // });
-      navigation.goBack();
+      if (editing) {
+        navigation.goBack();
+      } else {
+        navigation.navigate("Tabs", {
+          screen: "Income",
+          params: { highlightId: newIncomeId }
+        } as any);
+      }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {

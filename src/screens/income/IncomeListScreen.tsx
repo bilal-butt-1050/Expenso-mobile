@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { SectionList, StyleSheet, Text, TouchableOpacity, View, Switch, Animated, LayoutAnimation, Modal } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useIncome } from "../../hooks/useIncome";
@@ -25,6 +25,9 @@ type Filter = IncomeStatus | "All";
 
 export function IncomeListScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<RouteProp<RootStackParamList, "Tabs">>();
+  const highlightId = (route.params as any)?.highlightId;
+
   const insets = useSafeAreaInsets();
   const { selectedMonth, setSelectedMonth } = useAppData();
   const { confirm } = useDialog();
@@ -110,6 +113,7 @@ export function IncomeListScreen() {
         renderItem={({ item }) => (
           <IncomeItem
             item={item}
+            isNewlyAdded={item.id === highlightId}
             onPress={() => navigation.navigate("IncomeForm", { income: item })}
             onLongPress={() => confirmDelete(item)}
             onToggleStatus={() => handleToggleStatus(item)}
@@ -145,20 +149,32 @@ export function IncomeListScreen() {
 
 function IncomeItem({
   item,
+  isNewlyAdded,
   onPress,
   onLongPress,
   onToggleStatus,
 }: {
   item: Income;
+  isNewlyAdded?: boolean;
   onPress: () => void;
   onLongPress: () => void;
   onToggleStatus: () => void;
 }) {
   const [isReceived, setIsReceived] = React.useState(item.status === "Received");
+  const highlightAnim = useRef(new Animated.Value(isNewlyAdded ? 1 : 0)).current;
 
   React.useEffect(() => {
     setIsReceived(item.status === "Received");
   }, [item.status]);
+
+  React.useEffect(() => {
+    if (isNewlyAdded) {
+      Animated.sequence([
+        Animated.timing(highlightAnim, { toValue: 1, duration: 0, useNativeDriver: false }),
+        Animated.timing(highlightAnim, { toValue: 0, duration: 2000, delay: 500, useNativeDriver: false })
+      ]).start();
+    }
+  }, [isNewlyAdded]);
 
   const handleToggle = () => {
     setIsReceived(!isReceived);
@@ -166,7 +182,15 @@ function IncomeItem({
   };
 
   return (
-    <View style={styles.row}>
+    <Animated.View style={[
+      styles.row, 
+      { 
+        backgroundColor: highlightAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: ['transparent', 'rgba(129, 140, 248, 0.2)'] // accent with low opacity
+        }) 
+      }
+    ]}>
       <TouchableOpacity
         style={styles.rowTouchArea}
         onPress={onPress}
@@ -197,7 +221,7 @@ function IncomeItem({
           />
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

@@ -206,15 +206,24 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       }
 
       // Actually save the expense
+      let newExpenseId: string | undefined;
       if (editing) {
         await editExpense(editing.id, input);
       } else {
-        await addExpense(input);
+        const result = await addExpense(input);
+        newExpenseId = result.id;
       }
 
-      // showToast({ message: editing ? "Expense updated" : "Expense logged", type: "success" });
       setBudgetAlert(null);
-      navigation.goBack();
+      
+      if (editing) {
+        navigation.goBack();
+      } else {
+        navigation.navigate("Tabs", { 
+          screen: "Expenses", 
+          params: { highlightId: newExpenseId } 
+        } as any);
+      }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
