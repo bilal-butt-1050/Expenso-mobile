@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { TabActions } from "@react-navigation/native";
 import { useCategories } from "../../hooks/useCategories";
 import { useExpenses } from "../../hooks/useExpenses";
 import { useDashboard } from "../../hooks/useDashboard";
@@ -247,10 +248,8 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       if (editing) {
         navigation.goBack();
       } else {
-        navigation.navigate("Tabs", { 
-          screen: "Expenses", 
-          params: { highlightId: newExpenseId } 
-        } as any);
+        navigation.dispatch(TabActions.jumpTo("Expenses", { highlightId: newExpenseId }));
+        navigation.goBack();
       }
     } catch (err) {
       setError(getErrorMessage(err));

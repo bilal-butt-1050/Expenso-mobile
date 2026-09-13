@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { TabActions } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useIncome } from "../../hooks/useIncome";
 import { useDialog } from "../../context/DialogContext";
@@ -188,10 +189,8 @@ export function IncomeFormScreen({ route, navigation }: Props) {
       if (editing) {
         navigation.goBack();
       } else {
-        navigation.navigate("Tabs", {
-          screen: "Income",
-          params: { highlightId: newIncomeId }
-        } as any);
+        navigation.dispatch(TabActions.jumpTo("Income", { highlightId: newIncomeId }));
+        navigation.goBack();
       }
     } catch (err) {
       setError(getErrorMessage(err));
