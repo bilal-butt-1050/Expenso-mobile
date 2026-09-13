@@ -68,6 +68,19 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  const hasChanges = React.useMemo(() => {
+    if (!editing) return true;
+    if (categoryId !== editing.categoryId) return true;
+    if (description !== (editing.description ?? "")) return true;
+    const parsedAmount = Number(amount.replace(/,/g, ""));
+    if (!isNaN(parsedAmount) && parsedAmount !== editing.amount) return true;
+    if (paymentMethod !== editing.paymentMethod) return true;
+    if (needWant !== editing.needWant) return true;
+    if (status !== editing.status) return true;
+    if (date.toISOString().split("T")[0] !== new Date(editing.date).toISOString().split("T")[0]) return true;
+    return false;
+  }, [editing, categoryId, description, amount, paymentMethod, needWant, status, date]);
+
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isSheetExpanded, setIsSheetExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -340,7 +353,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Button label={editing ? "Save Changes" : "Add Expense"} onPress={() => handleSave(false)} loading={isSaving} />
+        <Button label={editing ? "Save Changes" : "Add Expense"} onPress={() => handleSave(false)} loading={isSaving} disabled={!hasChanges} />
       </ScrollView>
 
       {/* Category Sheet */}

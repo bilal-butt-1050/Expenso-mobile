@@ -66,6 +66,19 @@ export function IncomeFormScreen({ route, navigation }: Props) {
     (editing?.paymentMethod as PaymentMethod) ?? "Bank Transfer"
   );
   const [date, setDate] = useState<Date>(editing ? new Date(editing.date) : new Date());
+
+  const hasChanges = React.useMemo(() => {
+    if (!editing) return true;
+    if (selectedPreset.source !== editing.source) return true;
+    if (description !== (editing.description ?? "")) return true;
+    const parsedAmount = Number(amount.replace(/,/g, ""));
+    if (!isNaN(parsedAmount) && parsedAmount !== editing.amount) return true;
+    if (paymentMethod !== editing.paymentMethod) return true;
+    if (status !== editing.status) return true;
+    if (date.toISOString().split("T")[0] !== new Date(editing.date).toISOString().split("T")[0]) return true;
+    return false;
+  }, [editing, selectedPreset, description, amount, paymentMethod, status, date]);
+
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isSheetExpanded, setIsSheetExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -320,6 +333,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
           label={editing ? "Save Changes" : "Log Income"}
           onPress={handleSave}
           loading={isSaving}
+          disabled={!hasChanges}
           style={{ marginTop: spacing.sm }}
         />
       </ScrollView>
