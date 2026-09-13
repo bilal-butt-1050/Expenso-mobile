@@ -61,11 +61,11 @@ export function HomeScreen() {
             {/* QUICK ACTIONS — Floating Pills */}
             <View style={styles.quickActionsWrap}>
               <TouchableOpacity style={styles.actionPill} activeOpacity={0.7} onPress={() => navigation.navigate("IncomeForm" as any)}>
-                <MaterialCommunityIcons name="arrow-down" size={20} color={colors.success} />
+                <MaterialCommunityIcons name="plus" size={20} color={colors.success} />
                 <Text style={styles.actionPillText}>Income</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.actionPill} activeOpacity={0.7} onPress={() => navigation.navigate("ExpenseForm" as any)}>
-                <MaterialCommunityIcons name="arrow-up" size={20} color={colors.danger} />
+                <MaterialCommunityIcons name="plus" size={20} color={colors.danger} />
                 <Text style={styles.actionPillText}>Expense</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.actionPill} activeOpacity={0.7} onPress={() => navigation.navigate("Tabs", { screen: "Budget" } as any)}>
