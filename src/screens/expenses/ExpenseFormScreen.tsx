@@ -768,8 +768,7 @@ const styles = StyleSheet.create({
   alertLabel: { fontSize: 15, fontWeight: "600", color: colors.textSecondary },
   alertValue: { fontSize: 17, fontWeight: "800", color: colors.textPrimary },
   alertActions: {
-    flexDirection: "row",
-    gap: spacing.sm,
+    flexDirection: "column",
     width: "100%",
     marginTop: spacing.xs,
   },
