@@ -71,7 +71,12 @@ export function IncomeListScreen() {
 
   return (
     <ScreenContainer style={styles.noPad}>
-      <SectionList
+      {isLoading && (!allIncomes || allIncomes.length === 0) ? (
+        <View style={{ paddingTop: spacing.xl }}>
+          <ListScreenSkeleton />
+        </View>
+      ) : (
+        <SectionList
         sections={groupedData}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
@@ -95,11 +100,7 @@ export function IncomeListScreen() {
           </View>
         }
         ListEmptyComponent={
-          isLoading ? (
-            <ListScreenSkeleton />
-          ) : (
-            <EmptyState icon="wallet-plus-outline" title="No income this month" />
-          )
+          <EmptyState icon="wallet-plus-outline" title="No income this month" />
         }
         renderSectionHeader={({ section: { title } }) => (
           <View style={styles.sectionHeader}>
@@ -115,7 +116,7 @@ export function IncomeListScreen() {
           />
         )}
       />
-
+      )}
       <TouchableOpacity
         style={styles.fab}
         onPress={() => navigation.navigate("IncomeForm", undefined)}

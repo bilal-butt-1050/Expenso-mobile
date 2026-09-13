@@ -70,7 +70,12 @@ export function ExpensesListScreen() {
 
   return (
     <ScreenContainer style={styles.noPad}>
-      <SectionList
+      {isLoading && (!data || data.length === 0) ? (
+        <View style={{ paddingTop: spacing.xl }}>
+          <ListScreenSkeleton />
+        </View>
+      ) : (
+        <SectionList
         sections={groupedData}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
@@ -94,11 +99,7 @@ export function ExpensesListScreen() {
           </View>
         }
         ListEmptyComponent={
-          isLoading ? (
-            <ListScreenSkeleton />
-          ) : (
-            <EmptyState icon="receipt-text-outline" title="No expenses yet" />
-          )
+          <EmptyState icon="receipt-text-outline" title="No expenses yet" />
         }
         renderSectionHeader={({ section: { title } }) => (
           <View style={styles.sectionHeader}>
@@ -114,7 +115,7 @@ export function ExpensesListScreen() {
           />
         )}
       />
-
+      )}
       <TouchableOpacity
         style={styles.fab}
         onPress={() => navigation.navigate("ExpenseForm", undefined)}
