@@ -126,7 +126,7 @@ export function ExpensesListScreen() {
         renderItem={({ item }) => (
           <ExpenseItem
             item={item}
-            isNewlyAdded={item.id === highlightId}
+            isNewlyAdded={item.id === highlightingId}
             isDeleting={item.id === deletingId}
             onDeleteAnimFinish={async () => {
               LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
