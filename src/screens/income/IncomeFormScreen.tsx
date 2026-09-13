@@ -17,6 +17,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { TabActions } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useIncome } from "../../hooks/useIncome";
+import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
 import { formatCurrency, formatAmountInput } from "../../utils/currency";
 import { getErrorMessage } from "../../api/client";
@@ -54,6 +55,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const editing = route.params?.income;
   const { addIncome, editIncome, removeIncome } = useIncome();
+  const { setSelectedMonth } = useAppData();
   const { confirm } = useDialog();
 
   const [selectedPreset, setSelectedPreset] = useState<SourcePreset>(
@@ -217,6 +219,10 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         const result = await addIncome(input);
         newIncomeId = result.id;
       }
+
+      // Switch to the month of the new income so the user can see it
+      const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`;
+      setSelectedMonth(monthKey);
 
       navigation.dispatch(TabActions.jumpTo("Income", { highlightId: editing ? editing.id : newIncomeId }));
       navigation.goBack();

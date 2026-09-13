@@ -11,10 +11,8 @@ import { MonthPicker } from "../../components/MonthPicker";
 import { HomeSkeleton } from "../../components/Skeleton";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
-import { typography } from "../../theme/typography";
 import { formatCurrency } from "../../utils/currency";
 import { RootStackParamList } from "../../types/navigation";
-import { BarChart } from "../../components/BarChart";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -26,181 +24,143 @@ export function HomeScreen() {
 
   return (
     <ScreenContainer style={styles.noPad}>
+      {/* Top Header Row — Fixed at top */}
+      <View style={styles.topRow}>
+        <View style={{ flex: 1, marginRight: spacing.md }}>
+          <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
+        </View>
+        <TouchableOpacity
+          style={styles.headerAvatar}
+          onPress={() => navigation.navigate("Settings" as any)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+        >
+          <Text style={styles.headerAvatarText}>
+            {(user?.name || user?.email || "E")[0].toUpperCase()}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.accent} />}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Top Control Row */}
-        <View style={styles.topRow}>
-          <View style={{ flex: 1, marginRight: spacing.md }}>
-            <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
-          </View>
-          <TouchableOpacity
-            style={styles.headerAvatar}
-            onPress={() => navigation.navigate("Settings" as any)}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-          >
-            <Text style={styles.headerAvatarText}>
-              {(user?.name || user?.email || "E")[0].toUpperCase()}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
         {!data ? (
           <HomeSkeleton />
         ) : (
           <>
-            {/* Main Balance Hero */}
+            {/* HERO SECTION — Clean, Typographic Focus */}
             <View style={styles.heroSection}>
               <Text style={styles.heroLabel}>AVAILABLE BALANCE</Text>
               <Text style={styles.heroAmount} numberOfLines={1} adjustsFontSizeToFit>
                 {formatCurrency(data.remainingBalance)}
               </Text>
-              
-              {data.pacingStatus && (
-                <View style={[
-                  styles.statusPill, 
-                  data.pacingStatus === "On Track" ? styles.statusPillGood : 
-                  data.pacingStatus === "Over Budget" ? styles.statusPillBad : styles.statusPillWarn
-                ]}>
-                  <MaterialCommunityIcons 
-                    name={data.pacingStatus === "On Track" ? "check-circle" : "alert-circle"} 
-                    size={14} 
-                    color={
-                      data.pacingStatus === "On Track" ? colors.success : 
-                      data.pacingStatus === "Over Budget" ? colors.danger : colors.warning
-                    } 
-                  />
-                  <Text style={[
-                    styles.statusText, 
-                    { color: data.pacingStatus === "On Track" ? colors.success : 
-                             data.pacingStatus === "Over Budget" ? colors.danger : colors.warning }
-                  ]}>
-                    {data.pacingStatus}
-                  </Text>
-                </View>
-              )}
+
+              {/* All-Time Savings Pill */}
+              <View style={styles.savingsPill}>
+                <MaterialCommunityIcons name="shield-check" size={16} color={colors.success} />
+                <Text style={styles.savingsPillText}>
+                  All-Time Savings: <Text style={{ color: colors.textPrimary }}>{formatCurrency(data.savingsAllTime)}</Text>
+                </Text>
+              </View>
             </View>
 
-            {/* Quick Actions Row */}
-            <View style={styles.quickActions}>
-              <QuickAction 
-                icon="arrow-down" 
-                label="Add Income" 
-                color={colors.success} 
-                onPress={() => navigation.navigate("IncomeForm" as any)} 
-              />
-              <QuickAction 
-                icon="arrow-up" 
-                label="Add Expense" 
-                color={colors.danger} 
-                onPress={() => navigation.navigate("ExpenseForm" as any)} 
-              />
-              <QuickAction 
-                icon="chart-donut" 
-                label="Budgets" 
-                color={colors.accent} 
-                onPress={() => navigation.navigate("Tabs", { screen: "Budget" } as any)} 
-              />
+            {/* QUICK ACTIONS — Floating Pills */}
+            <View style={styles.quickActionsWrap}>
+              <TouchableOpacity style={styles.actionPill} activeOpacity={0.7} onPress={() => navigation.navigate("IncomeForm" as any)}>
+                <MaterialCommunityIcons name="arrow-down" size={20} color={colors.success} />
+                <Text style={styles.actionPillText}>Income</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionPill} activeOpacity={0.7} onPress={() => navigation.navigate("ExpenseForm" as any)}>
+                <MaterialCommunityIcons name="arrow-up" size={20} color={colors.danger} />
+                <Text style={styles.actionPillText}>Expense</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionPill} activeOpacity={0.7} onPress={() => navigation.navigate("Tabs", { screen: "Budget" } as any)}>
+                <MaterialCommunityIcons name="chart-donut" size={20} color={colors.accent} />
+                <Text style={styles.actionPillText}>Budgets</Text>
+              </TouchableOpacity>
             </View>
 
-            {/* Reminders — only shown when there's something actionable */}
+            {/* ACTION CENTER — Horizontally Scrolling Global Reminders */}
             {(data.unpaidExpenses > 0 || (data.expectedIncome ?? 0) > 0 || (data.dailyAllowance ?? 0) > 0 || (data.daysRemaining ?? 0) > 0) && (
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Reminders</Text>
-
-                {data.unpaidExpenses > 0 && (
-                  <DashRow icon="clock-outline" label="Unpaid expenses this month" value={formatCurrency(data.unpaidExpenses)} />
-                )}
-                {(data.expectedIncome ?? 0) > 0 && (
-                  <DashRow icon="cash-clock" label="Income still expected" value={formatCurrency(data.expectedIncome!)} />
-                )}
-                {(data.dailyAllowance ?? 0) > 0 && (
-                  <DashRow icon="calendar-check-outline" label="Safe to spend per day" value={formatCurrency(data.dailyAllowance!)} />
-                )}
-                {(data.daysRemaining ?? 0) > 0 && (
-                  <DashRow icon="timer-sand" label="Days left in this month" value={`${data.daysRemaining} days`} />
-                )}
+              <View style={styles.sectionWrap}>
+                <Text style={styles.sectionTitle}>Action Center</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionCenterScroll}>
+                  {data.unpaidExpenses > 0 && (
+                    <ActionChip icon="clock-alert-outline" color={colors.warning} label="Total Unpaid Bills" value={formatCurrency(data.unpaidExpenses)} />
+                  )}
+                  {(data.expectedIncome ?? 0) > 0 && (
+                    <ActionChip icon="cash-clock" color={colors.success} label="Expected Income" value={formatCurrency(data.expectedIncome!)} />
+                  )}
+                  {(data.dailyAllowance ?? 0) > 0 && (
+                    <ActionChip icon="calendar-check-outline" color={colors.accent} label="Daily Safe Spend" value={formatCurrency(data.dailyAllowance!)} />
+                  )}
+                  {(data.daysRemaining ?? 0) > 0 && (
+                    <ActionChip icon="timer-sand" color={colors.textSecondary} label="Days Left" value={`${data.daysRemaining} days`} />
+                  )}
+                </ScrollView>
               </View>
             )}
 
-            {/* Monthly Snapshot */}
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Monthly Snapshot</Text>
+            {/* INSIGHTS MESH — Asymmetric Grid */}
+            <View style={styles.sectionWrap}>
+              <Text style={styles.sectionTitle}>Monthly Snapshot</Text>
+              
+              <View style={styles.meshGrid}>
+                {/* Row 1: Split 50/50 */}
+                <View style={styles.meshRow}>
+                  <View style={[styles.meshBlock, { flex: 1, backgroundColor: colors.surface }]}>
+                    <MaterialCommunityIcons name="cash-multiple" size={22} color={colors.success} />
+                    <Text style={styles.meshLabel}>Received</Text>
+                    <Text style={styles.meshValue}>{formatCurrency(data.receivedIncome ?? data.monthlyIncome)}</Text>
+                  </View>
+                  <View style={[styles.meshBlock, { flex: 1, backgroundColor: colors.surface }]}>
+                    <MaterialCommunityIcons name="cart-outline" size={22} color={colors.danger} />
+                    <Text style={styles.meshLabel}>Spent</Text>
+                    <Text style={styles.meshValue}>{formatCurrency(data.paidExpenses)}</Text>
+                  </View>
+                </View>
 
-              <DashRow
-                icon="cash-multiple"
-                label="Total income received"
-                value={formatCurrency(data.receivedIncome ?? data.monthlyIncome)}
-              />
-              <DashRow
-                icon="cart-outline"
-                label="Spent this month (paid)"
-                value={formatCurrency(data.paidExpenses)}
-              />
-              <DashRow
-                icon="wallet-outline"
-                label="Remaining balance"
-                value={formatCurrency(data.remainingBalance)}
-              />
-              <DashRow
-                icon="piggy-bank-outline"
-                label="Savings rate"
-                value={`${Math.round(data.savingsPercentage * 100)}%`}
-              />
+                {/* Row 2: Full Width Savings Rate */}
+                <View style={[styles.meshBlock, { backgroundColor: colors.surface, flexDirection: "row", alignItems: "center" }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.meshLabel}>Savings Rate</Text>
+                    <Text style={styles.meshValue}>{Math.round(data.savingsPercentage * 100)}%</Text>
+                  </View>
+                  <MaterialCommunityIcons name="piggy-bank-outline" size={32} color={colors.accent} />
+                </View>
 
-              {data.needsPercentage !== undefined && data.wantsPercentage !== undefined && data.totalExpenses > 0 && (
-                <DashRow
-                  icon="scale-balance"
-                  label="Needs vs Wants"
-                  value={`${Math.round(data.needsPercentage)}% / ${Math.round(data.wantsPercentage)}%`}
-                />
-              )}
+                {/* Row 3: Split Pacing & Split */}
+                <View style={styles.meshRow}>
+                  <View style={[styles.meshBlock, { flex: 1, backgroundColor: colors.surface }]}>
+                    <Text style={styles.meshLabel}>Pacing</Text>
+                    <View style={styles.pacingPill}>
+                      <View style={[styles.pacingDot, { 
+                        backgroundColor: data.pacingStatus === "On Track" ? colors.success : data.pacingStatus === "Pacing Fast" ? colors.warning : colors.danger 
+                      }]} />
+                      <Text style={[styles.pacingText, {
+                        color: data.pacingStatus === "On Track" ? colors.success : data.pacingStatus === "Pacing Fast" ? colors.warning : colors.danger
+                      }]}>
+                        {data.pacingStatus}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  {data.needsPercentage !== undefined && data.wantsPercentage !== undefined && data.totalExpenses > 0 && (
+                    <View style={[styles.meshBlock, { flex: 1.2, backgroundColor: colors.surface }]}>
+                      <Text style={styles.meshLabel}>Needs / Wants</Text>
+                      <View style={styles.splitTrack}>
+                        <View style={[styles.splitFill, { width: `${data.needsPercentage}%`, backgroundColor: colors.accent }]} />
+                        <View style={[styles.splitFill, { width: `${data.wantsPercentage}%`, backgroundColor: colors.warning }]} />
+                      </View>
+                      <Text style={styles.splitText}>{Math.round(data.needsPercentage)}% / {Math.round(data.wantsPercentage)}%</Text>
+                    </View>
+                  )}
+                </View>
 
-              {data.pacingStatus && (
-                <DashRow
-                  icon="speedometer"
-                  label="Spending pace"
-                  value={data.pacingStatus}
-                  valueColor={
-                    data.pacingStatus === "On Track" ? colors.success :
-                    data.pacingStatus === "Pacing Fast" ? colors.warning : colors.danger
-                  }
-                />
-              )}
+              </View>
             </View>
-
-            {/* Needs vs Wants Breakdown */}
-            {(data.needsPercentage !== undefined && data.wantsPercentage !== undefined && data.totalExpenses > 0) && (
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Spending Split</Text>
-                <View style={styles.splitTrack}>
-                  <View style={[styles.splitFill, { width: `${data.needsPercentage}%`, backgroundColor: colors.accent }]} />
-                  <View style={[styles.splitFill, { width: `${data.wantsPercentage}%`, backgroundColor: colors.warning }]} />
-                </View>
-                <View style={styles.rowBetween}>
-                  <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: colors.accent }]} />
-                    <Text style={styles.legendText}>Needs ({Math.round(data.needsPercentage)}%)</Text>
-                  </View>
-                  <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: colors.warning }]} />
-                    <Text style={styles.legendText}>Wants ({Math.round(data.wantsPercentage)}%)</Text>
-                  </View>
-                </View>
-              </View>
-            )}
-
-            {/* Spending Trend */}
-            {data.trend.length > 1 && (
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>6-Month Trend</Text>
-                <View style={{ alignItems: "center", paddingTop: spacing.md, paddingBottom: spacing.sm }}>
-                  <BarChart data={data.trend.slice(-6).map((t) => ({ month: t.month, value: t.totalExpenses }))} />
-                </View>
-              </View>
-            )}
 
           </>
         )}
@@ -209,48 +169,31 @@ export function HomeScreen() {
   );
 }
 
-function DashRow({ icon, label, value, valueColor }: {
-  icon: any;
-  label: string;
-  value: string;
-  valueColor?: string;
-}) {
+function ActionChip({ icon, label, value, color }: { icon: any; label: string; value: string; color: string }) {
   return (
-    <View style={styles.dashRow}>
-      <View style={styles.dashIconBox}>
-        <MaterialCommunityIcons name={icon} size={18} color={colors.iconNeutral} />
+    <View style={styles.actionChip}>
+      <View style={[styles.chipIconWrap, { backgroundColor: `${color}1A` }]}>
+        <MaterialCommunityIcons name={icon} size={20} color={color} />
       </View>
-      <Text style={styles.dashLabel} numberOfLines={1}>{label}</Text>
-      <Text style={[styles.dashValue, valueColor ? { color: valueColor } : null]}>
-        {value}
-      </Text>
+      <View>
+        <Text style={styles.chipValue}>{value}</Text>
+        <Text style={styles.chipLabel}>{label}</Text>
+      </View>
     </View>
-  );
-}
-
-function QuickAction({ icon, label, color, onPress }: { icon: any; label: string; color: string; onPress: () => void }) {
-  return (
-    <TouchableOpacity style={styles.quickActionBtn} onPress={onPress} activeOpacity={0.7} accessibilityRole="button">
-      <View style={[styles.quickActionIcon, { backgroundColor: `${color}1A` }]}>
-        <MaterialCommunityIcons name={icon} size={24} color={color} />
-      </View>
-      <Text style={styles.quickActionLabel}>{label}</Text>
-    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   noPad: { paddingHorizontal: 0 },
-  scroll: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm, // reduced padding since we combined rows
-    paddingBottom: spacing.xxl + 40,
-    gap: spacing.lg,
-  },
   topRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    backgroundColor: colors.background, // sticky illusion
+    zIndex: 10,
   },
   headerAvatar: {
     width: 44,
@@ -264,115 +207,151 @@ const styles = StyleSheet.create({
   },
   headerAvatarText: { fontSize: 18, fontWeight: "700", color: colors.accent },
   
+  scroll: {
+    paddingBottom: spacing.xxl + 80,
+  },
+
   heroSection: {
     alignItems: "center",
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.xl,
   },
   heroLabel: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
-    color: colors.textMuted,
-    letterSpacing: 1,
+    color: colors.textSecondary,
+    letterSpacing: 1.5,
     marginBottom: spacing.xs,
   },
   heroAmount: {
-    fontSize: 48,
+    fontSize: 52,
     fontWeight: "800",
     color: colors.textPrimary,
-    letterSpacing: -1,
+    letterSpacing: -1.5,
+    marginBottom: spacing.md,
   },
-  statusPill: {
+  savingsPill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginTop: spacing.sm,
+    gap: 6,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
     borderWidth: 1,
+    borderColor: colors.borderLight,
   },
-  statusPillGood: { backgroundColor: colors.successMuted, borderColor: `${colors.success}33` },
-  statusPillWarn: { backgroundColor: colors.warningMuted, borderColor: `${colors.warning}33` },
-  statusPillBad: { backgroundColor: colors.dangerMuted, borderColor: `${colors.danger}33` },
-  statusText: { fontSize: 12, fontWeight: "700" },
-
-  quickActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.sm,
-  },
-  quickActionBtn: {
-    alignItems: "center",
-    gap: 8,
-  },
-  quickActionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  quickActionLabel: {
+  savingsPillText: {
     fontSize: 13,
     fontWeight: "600",
     color: colors.textSecondary,
   },
 
-  dashRow: {
+  quickActionsWrap: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  actionPill: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    paddingVertical: 10,
-  },
-  dashIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: colors.iconBg,
-    borderWidth: 1,
-    borderColor: colors.iconBorder,
-    alignItems: "center",
     justifyContent: "center",
+    gap: 6,
+    backgroundColor: colors.surfaceRaised,
+    paddingVertical: 14,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  dashLabel: {
-    flex: 1,
+  actionPillText: {
     fontSize: 14,
-    fontWeight: "500",
-    color: colors.textSecondary,
-  },
-  dashValue: {
-    fontSize: 15,
     fontWeight: "700",
     color: colors.textPrimary,
   },
 
-  card: {
+  sectionWrap: {
+    marginBottom: spacing.xl,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+
+  actionCenterScroll: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+  },
+  actionChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
     backgroundColor: colors.surface,
+    paddingRight: spacing.lg,
+    paddingLeft: spacing.sm,
+    paddingVertical: spacing.sm,
     borderRadius: radius.lg,
-    padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  cardTitle: {
+  chipIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  chipValue: {
     fontSize: 16,
     fontWeight: "700",
     color: colors.textPrimary,
-    marginBottom: 4,
   },
-  cardSub: {
-    fontSize: 13,
+  chipLabel: {
+    fontSize: 12,
+    fontWeight: "500",
     color: colors.textMuted,
   },
-  rowBetween: {
+
+  meshGrid: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+  },
+  meshRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    gap: spacing.sm,
   },
-  cardHighlight: {
-    fontSize: 22,
+  meshBlock: {
+    borderRadius: 24,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  meshLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.textMuted,
+    marginTop: spacing.xs,
+    marginBottom: 4,
+  },
+  meshValue: {
+    fontSize: 24,
     fontWeight: "800",
-    color: colors.accent,
+    color: colors.textPrimary,
   },
+
+  pacingPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 4,
+  },
+  pacingDot: { width: 8, height: 8, borderRadius: 4 },
+  pacingText: { fontSize: 14, fontWeight: "700" },
 
   splitTrack: {
     height: 8,
@@ -380,25 +359,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceRaised,
     flexDirection: "row",
     overflow: "hidden",
-    marginTop: spacing.md,
-    marginBottom: spacing.md,
+    marginTop: 6,
+    marginBottom: 8,
   },
-  splitFill: {
-    height: "100%",
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
-    fontSize: 13,
-    fontWeight: "500",
+  splitFill: { height: "100%" },
+  splitText: {
+    fontSize: 12,
+    fontWeight: "600",
     color: colors.textSecondary,
   },
 });

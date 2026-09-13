@@ -114,6 +114,8 @@ export interface TrendPoint {
 
 export interface DashboardSummary {
   month: string;
+  savingsGoal: number;
+  rolloverSavings: number;
   monthlyIncome: number;
   receivedIncome?: number;
   expectedIncome?: number;

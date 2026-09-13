@@ -1,8 +1,10 @@
 import React, { useState } from "react";
-import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View, TextInput } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useBudgets } from "../../hooks/useBudgets";
 import { useCategories } from "../../hooks/useCategories";
+import { useAuth } from "../../context/AuthContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { Card } from "../../components/Card";
 import { MonthPicker } from "../../components/MonthPicker";
@@ -23,12 +25,28 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomSheet } from "../../components/BottomSheet";
 
 export function BudgetScreen() {
+  const { user, updateProfile } = useAuth();
   const { selectedMonth, setSelectedMonth } = useAppData();
   const { data: summary, isLoading } = useDashboard();
   const { data: categories } = useCategories();
   const { setBudget } = useBudgets();
   const { alert } = useDialog();
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+
+  const [isSavingsModalOpen, setIsSavingsModalOpen] = useState(false);
+  const [savingsInput, setSavingsInput] = useState(String(user?.savingsGoal ?? 20));
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveGoal = async (val: number) => {
+    setIsSaving(true);
+    try {
+      await updateProfile({ savingsGoal: val });
+      setIsSavingsModalOpen(false);
+    } catch {
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const rows = (categories ?? []).map((category) => {
     const match = summary?.budgetVsActual.find((b) => b.categoryId === category.id);
@@ -65,9 +83,35 @@ export function BudgetScreen() {
           contentContainerStyle={{ paddingBottom: spacing.xxl + 32 }}
           ListHeaderComponent={
             <>
-              <View style={{ marginBottom: spacing.md }}>
-                <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
+              <View style={styles.topRow}>
+                <View style={{ flex: 1, marginRight: spacing.md }}>
+                  <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
+                </View>
+                <TouchableOpacity 
+                  style={styles.savingsGoalBtn}
+                  onPress={() => {
+                    setSavingsInput(String(user?.savingsGoal || 20));
+                    setIsSavingsModalOpen(true);
+                  }}
+                >
+                  <MaterialCommunityIcons name="piggy-bank-outline" size={18} color={colors.accent} />
+                  <Text style={styles.savingsGoalBtnText}>Goal: {user?.savingsGoal || 0}%</Text>
+                </TouchableOpacity>
               </View>
+
+              {/* Rollover Savings */}
+              {summary && summary.rolloverSavings > 0 && (
+                <View style={styles.rolloverCard}>
+                  <View style={styles.rolloverIconWrap}>
+                    <MaterialCommunityIcons name="party-popper" size={20} color={colors.success} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rolloverTitle}>Rolled over from last month</Text>
+                    <Text style={styles.rolloverSub}>Added to your All-Time Savings</Text>
+                  </View>
+                  <Text style={styles.rolloverAmount}>+{formatCurrency(summary.rolloverSavings)}</Text>
+                </View>
+              )}
 
               {/* Summary */}
               <View style={styles.summaryCard}>
@@ -158,12 +202,82 @@ export function BudgetScreen() {
           currentAmount={rows.find((r) => r.category.id === editingCategory?.id)?.budget ?? 0}
           onClose={() => setEditingCategory(null)}
           onSave={async (amount) => {
-            if (editingCategory) {
+            if (!editingCategory) return;
+            try {
               await setBudget(editingCategory.id, amount);
+              setEditingCategory(null);
+            } catch (error: any) {
+              alert({
+                title: "Error",
+                message: error.message || "Failed to save budget",
+              });
             }
-            setEditingCategory(null);
           }}
         />
+      </BottomSheet>
+
+      {/* Savings Goal Bottom Sheet Modal */}
+      <BottomSheet
+        visible={isSavingsModalOpen}
+        onClose={() => setIsSavingsModalOpen(false)}
+      >
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Monthly Savings Target</Text>
+          <Text style={styles.modalSubtitle}>
+            Set what percentage of your monthly income you aim to save. The dashboard will track your live pace against this goal.
+          </Text>
+
+          {/* Quick Presets */}
+          <View style={styles.presetRow}>
+            {[15, 20, 25, 30, 40, 50].map((pct) => (
+              <TouchableOpacity
+                key={pct}
+                style={[
+                  styles.presetPill,
+                  Number(savingsInput) === pct && styles.presetPillActive,
+                ]}
+                onPress={() => setSavingsInput(String(pct))}
+              >
+                <Text
+                  style={[
+                    styles.presetText,
+                    Number(savingsInput) === pct && styles.presetTextActive,
+                  ]}
+                >
+                  {pct}%
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.inputWrap}>
+            <Text style={styles.inputPrefix}>Target %</Text>
+            <TextInput
+              value={savingsInput}
+              onChangeText={setSavingsInput}
+              keyboardType="numeric"
+              style={styles.numericInput}
+              placeholder="20"
+              placeholderTextColor={colors.textMuted}
+              maxLength={3}
+            />
+          </View>
+
+          <View style={styles.modalActions}>
+            <Button
+              label="Cancel"
+              variant="secondary"
+              onPress={() => setIsSavingsModalOpen(false)}
+              style={{ flex: 1 }}
+            />
+            <Button
+              label="Save Target"
+              onPress={() => handleSaveGoal(Math.max(0, Math.min(100, Number(savingsInput) || 0)))}
+              loading={isSaving}
+              style={{ flex: 1 }}
+            />
+          </View>
+        </View>
       </BottomSheet>
     </ScreenContainer>
   );
@@ -189,26 +303,88 @@ function BudgetEditSheet({
     <View style={styles.sheetInner}>
       <View style={styles.sheetHeader}>
         <CategoryPill icon={category.icon} color={category.color} size={38} />
-          <Text style={styles.sheetTitle}>{category.name}</Text>
-        </View>
-        <TextField
-          label="Monthly budget (PKR)"
-          keyboardType="decimal-pad"
-          value={value}
-          onChangeText={setValue}
-          autoFocus
-          placeholder="0"
-        />
-        <View style={styles.sheetActions}>
-          <Button label="Cancel" variant="secondary" onPress={onClose} style={{ flex: 1 }} />
-          <Button label="Save" onPress={() => onSave(Number(value) || 0)} style={{ flex: 1 }} />
-        </View>
+        <Text style={styles.sheetTitle}>{category.name}</Text>
       </View>
+      <TextField
+        label="Monthly budget (PKR)"
+        keyboardType="decimal-pad"
+        value={value}
+        onChangeText={setValue}
+        autoFocus
+        placeholder="0"
+      />
+      <View style={styles.sheetActions}>
+        <Button label="Cancel" variant="secondary" onPress={onClose} style={{ flex: 1 }} />
+        <Button label="Save" onPress={() => onSave(Number(value) || 0)} style={{ flex: 1 }} />
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  title: { ...typography.title, marginTop: spacing.lg, marginBottom: spacing.sm },
+  title: {
+    ...typography.title,
+    paddingTop: spacing.lg + 4,
+    marginBottom: spacing.md,
+    fontSize: 24,
+    letterSpacing: -0.3,
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
+  savingsGoalBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: colors.accentMuted,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "rgba(99, 102, 241, 0.3)",
+  },
+  savingsGoalBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.accent,
+  },
+  rolloverCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    backgroundColor: colors.successMuted,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(16, 185, 129, 0.3)",
+    marginBottom: spacing.lg,
+  },
+  rolloverIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(16, 185, 129, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rolloverTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  rolloverSub: {
+    fontSize: 12,
+    color: colors.success,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  rolloverAmount: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: colors.success,
+  },
 
   summaryCard: {
     backgroundColor: colors.surfaceRaised,
@@ -322,7 +498,83 @@ const styles = StyleSheet.create({
   },
   sheetHeader: {
     flexDirection: "row",
-    alignItems: "center", gap: spacing.md, marginBottom: spacing.lg },
+    alignItems: "center",
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
   sheetTitle: { ...typography.subtitle, color: colors.textPrimary, fontSize: 20 },
-  sheetActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.sm },
+  sheetLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  sheetActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+
+  // Savings Goal Modal Styles
+  modalContent: {
+    paddingBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  modalTitle: { ...typography.subtitle, fontSize: 18, fontWeight: "700", color: colors.textPrimary },
+  modalSubtitle: { ...typography.caption, color: colors.textSecondary, lineHeight: 18 },
+  presetRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs + 2,
+    marginTop: spacing.xs,
+  },
+  presetPill: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  presetPillActive: {
+    backgroundColor: colors.accentMuted,
+    borderColor: colors.accent,
+  },
+  presetText: {
+    ...typography.caption,
+    fontWeight: "600",
+    color: colors.textSecondary,
+  },
+  presetTextActive: {
+    color: colors.accent,
+    fontWeight: "700",
+  },
+  inputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    height: 52,
+    marginTop: spacing.xs,
+  },
+  inputPrefix: {
+    ...typography.body,
+    fontWeight: "600",
+    color: colors.textSecondary,
+    marginRight: spacing.sm,
+  },
+  numericInput: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
 });

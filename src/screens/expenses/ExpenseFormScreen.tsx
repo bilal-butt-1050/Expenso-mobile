@@ -18,6 +18,7 @@ import { TabActions } from "@react-navigation/native";
 import { useCategories } from "../../hooks/useCategories";
 import { useExpenses } from "../../hooks/useExpenses";
 import { useDashboard } from "../../hooks/useDashboard";
+import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
 import { getErrorMessage } from "../../api/client";
 import { TextField } from "../../components/TextField";
@@ -56,6 +57,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const { data: categories } = useCategories();
   const { data: dashboardData } = useDashboard();
   const { addExpense, editExpense, removeExpense } = useExpenses();
+  const { setSelectedMonth } = useAppData();
   const { confirm } = useDialog();
 
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? "");
@@ -277,6 +279,10 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
       setBudgetAlert(null);
       
+      // Switch to the month of the new expense so the user can see it
+      const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`;
+      setSelectedMonth(monthKey);
+
       navigation.dispatch(TabActions.jumpTo("Expenses", { highlightId: editing ? editing.id : newExpenseId }));
       navigation.goBack();
     } catch (err) {

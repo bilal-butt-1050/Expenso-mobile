@@ -12,8 +12,18 @@ export async function login(email: string, password: string): Promise<User> {
   return data.user;
 }
 
-export async function register(email: string, password: string, name?: string): Promise<User> {
-  const { data } = await apiClient.post<AuthResponse>("/auth/register", { email, password, name });
+export async function sendOtp(email: string): Promise<void> {
+  await apiClient.post("/auth/send-otp", { email });
+}
+
+export async function loginWithGoogle(idToken: string): Promise<User> {
+  const { data } = await apiClient.post<AuthResponse>("/auth/google", { idToken });
+  await setToken(data.token);
+  return data.user;
+}
+
+export async function register(email: string, password: string, otp: string, name?: string): Promise<User> {
+  const { data } = await apiClient.post<AuthResponse>("/auth/register", { email, password, otp, name });
   await setToken(data.token);
   return data.user;
 }

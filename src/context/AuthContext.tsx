@@ -7,7 +7,9 @@ interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name?: string) => Promise<void>;
+  sendOtp: (email: string) => Promise<void>;
+  register: (email: string, password: string, otp: string, name?: string) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   updateProfile: (data: { name?: string; savingsGoal?: number; currency?: string }) => Promise<void>;
@@ -45,7 +47,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       isLoading,
       login: async (email, password) => setUser(await authApi.login(email, password)),
-      register: async (email, password, name) => setUser(await authApi.register(email, password, name)),
+      sendOtp: async (email) => await authApi.sendOtp(email),
+      register: async (email, password, otp, name) => setUser(await authApi.register(email, password, otp, name)),
+      loginWithGoogle: async (idToken) => setUser(await authApi.loginWithGoogle(idToken)),
       logout: async () => {
         await authApi.logout();
         setUser(null);
