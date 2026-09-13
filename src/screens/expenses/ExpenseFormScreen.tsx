@@ -57,13 +57,15 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const editing = route.params?.expense;
   const { data: categories } = useCategories();
-  const { data: dashboardData } = useDashboard();
+
+  const [date, setDate] = useState<Date>(editing ? new Date(editing.date) : new Date());
+  const expenseMonth = date.toISOString().slice(0, 7);
+
+  const { data: dashboardData } = useDashboard(expenseMonth);
   const { addExpense, editExpense, removeExpense } = useExpenses();
   const { setSelectedMonth } = useAppData();
   const { confirm, alert } = useDialog();
 
-  const [date, setDate] = useState<Date>(editing ? new Date(editing.date) : new Date());
-  const expenseMonth = date.toISOString().slice(0, 7);
   const { setBudget } = useBudgets(expenseMonth);
 
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? "");
@@ -534,7 +536,11 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
               <Button
                 label="Adjust Budget"
                 variant="secondary"
-                onPress={() => { setBudgetAlert(null); navigation.navigate("Tabs", { screen: "Budget" } as any); }}
+                onPress={() => {
+                  setBudgetAlert(null);
+                  setBudgetInputValue("");
+                  setIsBudgetSheetOpen(true);
+                }}
               />
             </View>
           </View>

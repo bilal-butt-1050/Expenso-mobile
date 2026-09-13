@@ -2,7 +2,8 @@ import { fetchDashboardSummary } from "../api/dashboard";
 import { useAppData } from "../context/AppDataContext";
 import { useAsyncData } from "./useAsyncData";
 
-export function useDashboard() {
+export function useDashboard(overrideMonth?: string) {
   const { selectedMonth, dataVersion } = useAppData();
-  return useAsyncData(() => fetchDashboardSummary(selectedMonth), [selectedMonth, dataVersion]);
+  const targetMonth = overrideMonth || selectedMonth;
+  return useAsyncData(() => fetchDashboardSummary(targetMonth), [targetMonth, dataVersion]);
 }
