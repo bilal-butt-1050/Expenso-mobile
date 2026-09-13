@@ -88,6 +88,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
   const peekHeight = 360;
   const defaultOffset = sheetHeight - peekHeight;
   const panY = React.useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const sheetOffset = React.useRef(defaultOffset);
 
   React.useEffect(() => {
@@ -95,12 +96,19 @@ export function IncomeFormScreen({ route, navigation }: Props) {
       setIsSheetExpanded(false);
       sheetOffset.current = defaultOffset;
       panY.setValue(SCREEN_HEIGHT);
-      Animated.spring(panY, {
-        toValue: defaultOffset,
-        useNativeDriver: true,
-        tension: 250,
-        friction: 25,
-      }).start();
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(panY, {
+          toValue: defaultOffset,
+          useNativeDriver: true,
+          tension: 250,
+          friction: 25,
+        }),
+      ]).start();
     }
   }, [isPickerOpen]);
 
@@ -123,11 +131,18 @@ export function IncomeFormScreen({ route, navigation }: Props) {
           snapTo = 0;
           nextExpanded = true;
         } else if (velocityY > 1.5 || currentY > defaultOffset + 100) {
-          Animated.timing(panY, {
-            toValue: SCREEN_HEIGHT,
-            duration: 250,
-            useNativeDriver: true,
-          }).start(() => {
+          Animated.parallel([
+            Animated.timing(fadeAnim, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+            Animated.timing(panY, {
+              toValue: SCREEN_HEIGHT,
+              duration: 250,
+              useNativeDriver: true,
+            }),
+          ]).start(() => {
             setIsPickerOpen(false);
           });
           return;
@@ -159,11 +174,18 @@ export function IncomeFormScreen({ route, navigation }: Props) {
   }, []);
 
   const closeSheet = React.useCallback(() => {
-    Animated.timing(panY, {
-      toValue: SCREEN_HEIGHT,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(panY, {
+        toValue: SCREEN_HEIGHT,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
       setIsPickerOpen(false);
     });
   }, [panY]);
@@ -334,50 +356,51 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         />
       </ScrollView>
 
-      {/* Source Category Sheet */}
-      <Modal visible={isPickerOpen} transparent animationType="fade" onRequestClose={closeSheet}>
-        <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={closeSheet}>
-          <Animated.View
-            style={[
+      {/* Source Sheet */}
+      <Modal visible={isPickerOpen} transparent animationType="none" onRequestClose={closeSheet}>
+        <Animated.View style={[styles.sheetBackdrop, { opacity: fadeAnim }]}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeSheet} />
+        </Animated.View>
+        <Animated.View
+          style={[
               styles.sheetContent,
               {
                 paddingBottom: Math.max(insets.bottom, 16) + spacing.md,
                 height: sheetHeight,
                 transform: [{ translateY: panY }]
               }
-            ]}
-          >
-            <View {...panResponder.panHandlers} style={{ backgroundColor: 'transparent', paddingVertical: spacing.sm }}>
-              <View style={styles.sheetDragHandle} />
-              <View style={styles.sheetHeader}>
-                <Text style={styles.sheetTitle}>Source</Text>
-                <TouchableOpacity onPress={closeSheet} hitSlop={12}>
-                  <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
+          ]}
+        >
+          <View {...panResponder.panHandlers} style={{ backgroundColor: 'transparent', paddingVertical: spacing.sm }}>
+            <View style={styles.sheetDragHandle} />
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Source</Text>
+              <TouchableOpacity onPress={closeSheet} hitSlop={12}>
+                <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
             </View>
+          </View>
 
-            <ScrollView style={styles.optionList} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              {PRESET_SOURCES.map((p) => {
-                const isSelected = p.source === selectedPreset.source;
-                return (
-                  <TouchableOpacity
-                    key={p.source}
-                    style={[styles.optionRow, isSelected && styles.optionRowSelected]}
-                    onPress={() => { setSelectedPreset(p); closeSheet(); }}
-                    activeOpacity={0.7}
-                  >
-                    <CategoryPill icon={p.icon} size={32} />
-                    <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
-                      {p.source}
-                    </Text>
-                    {isSelected && <MaterialCommunityIcons name="check" size={20} color={colors.textPrimary} />}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </Animated.View>
-        </TouchableOpacity>
+          <ScrollView style={styles.optionList} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            {PRESET_SOURCES.map((p) => {
+              const isSelected = p.source === selectedPreset.source;
+              return (
+                <TouchableOpacity
+                  key={p.source}
+                  style={[styles.optionRow, isSelected && styles.optionRowSelected]}
+                  onPress={() => { setSelectedPreset(p); closeSheet(); }}
+                  activeOpacity={0.7}
+                >
+                  <CategoryPill icon={p.icon} size={32} />
+                  <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
+                    {p.source}
+                  </Text>
+                  {isSelected && <MaterialCommunityIcons name="check" size={20} color={colors.textPrimary} />}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </Animated.View>
       </Modal>
     </>
   );

@@ -9,8 +9,10 @@ import { ScreenContainer } from "../../components/ScreenContainer";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { colors } from "../../theme/colors";
-import { radius, spacing } from "../../theme/spacing";
+import { spacing, radius } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
+import { formatCurrency } from "../../utils/currency";
+import { BottomSheet } from "../../components/BottomSheet";
 import { RootStackParamList } from "../../types/navigation";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -88,20 +90,12 @@ export function SettingsScreen() {
       </TouchableOpacity>
 
       {/* Savings Goal Bottom Sheet Modal */}
-      <Modal
+      <BottomSheet
         visible={isSavingsModalOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsSavingsModalOpen(false)}
+        onClose={() => setIsSavingsModalOpen(false)}
       >
-        <TouchableOpacity
-          style={styles.modalBackdrop}
-          activeOpacity={1}
-          onPress={() => setIsSavingsModalOpen(false)}
-        >
-          <TouchableOpacity activeOpacity={1} style={styles.modalSheet}>
-            <View style={styles.modalDragHandle} />
-            <Text style={styles.modalTitle}>Monthly Savings Target</Text>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Monthly Savings Target</Text>
             <Text style={styles.modalSubtitle}>
               Set what percentage of your monthly income you aim to save. The dashboard will track your live pace against this goal.
             </Text>
@@ -156,9 +150,8 @@ export function SettingsScreen() {
                 style={{ flex: 1 }}
               />
             </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+        </View>
+      </BottomSheet>
     </ScreenContainer>
   );
 }
@@ -223,28 +216,9 @@ const styles = StyleSheet.create({
   logoutText: { color: colors.danger, fontWeight: "700", fontSize: 15 },
 
   // Savings Goal Modal Styles
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    justifyContent: "flex-end",
-  },
-  modalSheet: {
-    backgroundColor: colors.surfaceRaised,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    paddingTop: spacing.sm,
+  modalContent: {
+    paddingBottom: spacing.lg,
     gap: spacing.sm,
-  },
-  modalDragHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    alignSelf: "center",
-    marginBottom: spacing.xs,
   },
   modalTitle: { ...typography.subtitle, fontSize: 18, fontWeight: "700", color: colors.textPrimary },
   modalSubtitle: { ...typography.caption, color: colors.textSecondary, lineHeight: 18 },

@@ -20,6 +20,7 @@ import { Category } from "../../types/models";
 import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BottomSheet } from "../../components/BottomSheet";
 
 export function BudgetScreen() {
   const { selectedMonth, setSelectedMonth } = useAppData();
@@ -151,7 +152,7 @@ export function BudgetScreen() {
         />
       )}
 
-      <Modal visible={!!editingCategory} animationType="fade" transparent onRequestClose={() => setEditingCategory(null)}>
+      <BottomSheet visible={!!editingCategory} onClose={() => setEditingCategory(null)}>
         <BudgetEditSheet
           category={editingCategory}
           currentAmount={rows.find((r) => r.category.id === editingCategory?.id)?.budget ?? 0}
@@ -163,7 +164,7 @@ export function BudgetScreen() {
             setEditingCategory(null);
           }}
         />
-      </Modal>
+      </BottomSheet>
     </ScreenContainer>
   );
 }
@@ -185,10 +186,9 @@ function BudgetEditSheet({
   if (!category) return null;
 
   return (
-    <View style={styles.sheetBackdrop}>
-      <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) + spacing.md }]}>
-        <View style={styles.sheetHeader}>
-          <CategoryPill icon={category.icon} color={category.color} size={38} />
+    <View style={styles.sheetInner}>
+      <View style={styles.sheetHeader}>
+        <CategoryPill icon={category.icon} color={category.color} size={38} />
           <Text style={styles.sheetTitle}>{category.name}</Text>
         </View>
         <TextField
@@ -204,7 +204,6 @@ function BudgetEditSheet({
           <Button label="Save" onPress={() => onSave(Number(value) || 0)} style={{ flex: 1 }} />
         </View>
       </View>
-    </View>
   );
 }
 
@@ -317,9 +316,13 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
 
-  sheetBackdrop: { flex: 1, backgroundColor: "#000000AA", justifyContent: "flex-end" },
-  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: spacing.lg },
-  sheetHeader: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.lg },
+  // Sheet
+  sheetInner: {
+    paddingBottom: spacing.md,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    alignItems: "center", gap: spacing.md, marginBottom: spacing.lg },
   sheetTitle: { ...typography.subtitle, color: colors.textPrimary, fontSize: 20 },
   sheetActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.sm },
 });
