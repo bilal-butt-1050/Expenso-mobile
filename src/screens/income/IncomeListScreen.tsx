@@ -198,7 +198,7 @@ function IncomeItem({
           toValue: 1,
           duration: 350,
           easing: Easing.out(Easing.cubic),
-          useNativeDriver: false,
+          useNativeDriver: true, // NATIVE DRIVER FOR PIXEL PERFECT 60FPS
         })
       ]).start(() => {
         if (onDeleteAnimFinish) onDeleteAnimFinish();
@@ -212,32 +212,32 @@ function IncomeItem({
   };
 
   return (
-    <Animated.View style={[
-      styles.row, 
-      { 
-        backgroundColor: highlightAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [colors.surfaceRaised, 'rgba(129, 140, 248, 0.2)'] // accent with low opacity
-        }),
+    <View style={{ marginBottom: 8, borderRadius: 16, backgroundColor: colors.danger, overflow: "hidden", justifyContent: "center" }}>
+      <View style={{ position: "absolute", right: 24, alignItems: "center", justifyContent: "center" }}>
+        <MaterialCommunityIcons name="trash-can-outline" size={26} color="#FFFFFF" />
+      </View>
+      
+      <Animated.View style={{
         transform: [{
           translateX: deleteAnim.interpolate({
             inputRange: [0, 1],
             outputRange: [0, -SCREEN_WIDTH]
           })
-        }],
-      }
-    ]}>
-      {/* Red Tint Overlay for Deletion */}
-      <Animated.View style={[StyleSheet.absoluteFill, { 
-        backgroundColor: colors.danger, 
-        opacity: deleteAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.2] }),
-        borderRadius: 16,
-        zIndex: 10
-      }]} pointerEvents="none" />
-
-      <TouchableOpacity
-        style={styles.rowTouchArea}
-        delayLongPress={250}
+        }]
+      }}>
+        <Animated.View style={[
+          styles.row, 
+          { 
+            backgroundColor: highlightAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [colors.surfaceRaised, 'rgba(129, 140, 248, 0.2)']
+            }),
+            marginBottom: 0
+          }
+        ]}>
+          <TouchableOpacity
+            style={styles.rowTouchArea}
+            delayLongPress={150}
         onPress={onPress}
         onLongPress={onLongPress}
         activeOpacity={0.7}
@@ -263,7 +263,9 @@ function IncomeItem({
           />
         </View>
       </View>
+      </Animated.View>
     </Animated.View>
+    </View>
   );
 }
 
