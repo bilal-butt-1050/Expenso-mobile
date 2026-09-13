@@ -537,8 +537,12 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
                 label="Adjust Budget"
                 variant="secondary"
                 onPress={() => {
+                  if (budgetAlert) {
+                    setBudgetInputValue(formatAmountInput(String(budgetAlert.budget)));
+                  } else {
+                    setBudgetInputValue("");
+                  }
                   setBudgetAlert(null);
-                  setBudgetInputValue("");
                   setIsBudgetSheetOpen(true);
                 }}
               />
