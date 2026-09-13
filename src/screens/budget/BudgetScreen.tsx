@@ -23,12 +23,12 @@ import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomSheet } from "../../components/BottomSheet";
-import { useRoute, useNavigation, RouteProp } from "@react-navigation/native";
+import { useRoute, useNavigation, RouteProp, NavigationProp } from "@react-navigation/native";
 import { TabParamList } from "../../types/navigation";
 
 export function BudgetScreen() {
   const route = useRoute<RouteProp<TabParamList, "Budget">>();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<TabParamList, "Budget">>();
   const { user, updateProfile } = useAuth();
   const { selectedMonth, setSelectedMonth } = useAppData();
   const { data: summary, isLoading } = useDashboard();
