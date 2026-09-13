@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   cellTextSelected: {
-    color: colors.accentForeground,
+    color: colors.background,
     fontWeight: "800",
   },
   cellTextDisabled: {
