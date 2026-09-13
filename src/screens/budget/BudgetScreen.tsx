@@ -46,7 +46,7 @@ export function BudgetScreen() {
       navigation.setParams({ openCategoryId: undefined });
     }
   }, [route.params?.openCategoryId, categories, navigation]);
-
+  
   const [isSavingsModalOpen, setIsSavingsModalOpen] = useState(false);
   const [savingsInput, setSavingsInput] = useState(String(user?.savingsGoal ?? 20));
   const [isSaving, setIsSaving] = useState(false);
