@@ -105,45 +105,59 @@ export function HomeScreen() {
               />
             </View>
 
-            {/* Income & Spent Summary */}
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryCard}>
-                <View style={styles.summaryIconBoxRow}>
-                  <View style={[styles.summaryIconBox, { backgroundColor: colors.successMuted }]}>
-                    <MaterialCommunityIcons name="arrow-down-bold" size={16} color={colors.success} />
-                  </View>
-                  <Text style={styles.summaryLabel}>Income</Text>
-                </View>
-                <Text style={styles.summaryAmount} numberOfLines={1} adjustsFontSizeToFit>
-                  {formatCurrency(data.monthlyIncome)}
-                </Text>
-              </View>
+            {/* This Month's Insights */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>This Month's Insights</Text>
               
-              <View style={styles.summaryCard}>
-                <View style={styles.summaryIconBoxRow}>
-                  <View style={[styles.summaryIconBox, { backgroundColor: colors.dangerMuted }]}>
-                    <MaterialCommunityIcons name="arrow-up-bold" size={16} color={colors.danger} />
-                  </View>
-                  <Text style={styles.summaryLabel}>Spent</Text>
-                </View>
-                <Text style={styles.summaryAmount} numberOfLines={1} adjustsFontSizeToFit>
-                  {formatCurrency(data.totalExpenses)}
-                </Text>
-              </View>
-            </View>
+              <InsightRow 
+                icon="arrow-down-bold" 
+                color={colors.success} 
+                title="Income" 
+                subtitle="Total funds received" 
+                value={formatCurrency(data.monthlyIncome)} 
+              />
+              
+              <InsightRow 
+                icon="arrow-up-bold" 
+                color={colors.danger} 
+                title="Spent" 
+                subtitle="Total outflows" 
+                value={formatCurrency(data.totalExpenses)} 
+              />
 
-            {/* Daily Allowance (If pacing helps) */}
-            {data.dailyAllowance !== undefined && data.dailyAllowance > 0 && (
-              <View style={styles.card}>
-                <View style={styles.rowBetween}>
-                  <View>
-                    <Text style={styles.cardTitle}>Daily Allowance</Text>
-                    <Text style={styles.cardSub}>Safe to spend per day</Text>
-                  </View>
-                  <Text style={styles.cardHighlight}>{formatCurrency(data.dailyAllowance)}</Text>
-                </View>
-              </View>
-            )}
+              <InsightRow 
+                icon="piggy-bank" 
+                color={colors.accent} 
+                title="Savings Rate" 
+                subtitle="Portion of income saved" 
+                value={`${Math.round(data.savingsPercentage * 100)}%`} 
+              />
+
+              <InsightRow 
+                icon="speedometer" 
+                color={
+                  data.pacingStatus === "On Track" ? colors.success :
+                  data.pacingStatus === "Pacing Fast" ? colors.warning : colors.danger
+                } 
+                title="Pacing" 
+                subtitle="Spending speed" 
+                value={data.pacingStatus || "N/A"}
+                valueColor={
+                  data.pacingStatus === "On Track" ? colors.success :
+                  data.pacingStatus === "Pacing Fast" ? colors.warning : colors.danger
+                }
+              />
+
+              {data.dailyAllowance !== undefined && data.dailyAllowance > 0 && (
+                <InsightRow 
+                  icon="calendar-today" 
+                  color={colors.accent} 
+                  title="Daily Allowance" 
+                  subtitle="Safe to spend per day" 
+                  value={formatCurrency(data.dailyAllowance)} 
+                />
+              )}
+            </View>
 
             {/* Needs vs Wants Breakdown */}
             {(data.needsPercentage !== undefined && data.wantsPercentage !== undefined && data.totalExpenses > 0) && (
@@ -183,7 +197,31 @@ export function HomeScreen() {
   );
 }
 
-function QuickAction({ icon, label, color, onPress }: { icon: any, label: string, color: string, onPress: () => void }) {
+function InsightRow({ icon, color, title, subtitle, value, valueColor }: { 
+  icon: any; 
+  color: string; 
+  title: string; 
+  subtitle: string; 
+  value: string; 
+  valueColor?: string;
+}) {
+  return (
+    <View style={styles.insightRow}>
+      <View style={[styles.insightIconBox, { backgroundColor: color + "20" }]}> 
+        <MaterialCommunityIcons name={icon} size={20} color={color} />
+      </View>
+      <View style={styles.insightTextWrap}>
+        <Text style={styles.insightTitle}>{title}</Text>
+        <Text style={styles.insightSub}>{subtitle}</Text>
+      </View>
+      <Text style={[styles.insightValue, valueColor ? { color: valueColor } : null]}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function QuickAction({ icon, label, color, onPress }: { icon: any; label: string; color: string; onPress: () => void }) {
   return (
     <TouchableOpacity style={styles.quickActionBtn} onPress={onPress} activeOpacity={0.7} accessibilityRole="button">
       <View style={[styles.quickActionIcon, { backgroundColor: `${color}1A` }]}>
@@ -273,39 +311,35 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 
-  summaryRow: {
-    flexDirection: "row",
-    gap: spacing.md,
-  },
-  summaryCard: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing.sm,
-  },
-  summaryIconBoxRow: {
+  insightRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  summaryIconBox: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+  insightIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
-  summaryLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.textSecondary,
+  insightTextWrap: {
+    flex: 1,
   },
-  summaryAmount: {
-    fontSize: 22,
-    fontWeight: "800",
+  insightTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  insightSub: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  insightValue: {
+    fontSize: 16,
+    fontWeight: "700",
     color: colors.textPrimary,
   },
 
