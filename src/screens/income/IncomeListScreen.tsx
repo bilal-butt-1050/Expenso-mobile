@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { SectionList, StyleSheet, Text, TouchableOpacity, View, Switch, Animated, LayoutAnimation, Modal } from "react-native";
+import { SectionList, StyleSheet, Text, TouchableOpacity, View, Animated, Modal, Easing, LayoutAnimation } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -196,7 +196,8 @@ function IncomeItem({
       Animated.sequence([
         Animated.timing(deleteAnim, {
           toValue: 1,
-          duration: 250,
+          duration: 350,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: false,
         })
       ]).start(() => {
@@ -224,12 +225,16 @@ function IncomeItem({
             outputRange: [0, -SCREEN_WIDTH]
           })
         }],
-        opacity: deleteAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [1, 0]
-        })
       }
     ]}>
+      {/* Red Tint Overlay for Deletion */}
+      <Animated.View style={[StyleSheet.absoluteFill, { 
+        backgroundColor: colors.danger, 
+        opacity: deleteAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.2] }),
+        borderRadius: 16,
+        zIndex: 10
+      }]} pointerEvents="none" />
+
       <TouchableOpacity
         style={styles.rowTouchArea}
         delayLongPress={250}
