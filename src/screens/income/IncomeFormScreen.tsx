@@ -29,7 +29,7 @@ import { CategoryPill } from "../../components/CategoryPill";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
-import { IncomeStatus, PaymentMethod } from "../../types/models";
+import { PaymentMethod } from "../../types/models";
 import { RootStackParamList } from "../../types/navigation";
 
 type Props = NativeStackScreenProps<RootStackParamList, "IncomeForm">;
@@ -46,7 +46,6 @@ const PRESET_SOURCES: SourcePreset[] = [
   { source: "Other", icon: "cash-multiple" },
 ];
 
-const STATUS_OPTIONS: IncomeStatus[] = ["Received", "Expected"];
 const PAYMENT_METHODS: PaymentMethod[] = ["Cash", "Bank Transfer", "Card", "Cheque"];
 
 export function IncomeFormScreen({ route, navigation }: Props) {
@@ -61,7 +60,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
   );
   const [amount, setAmount] = useState(editing ? formatAmountInput(String(editing.amount)) : "");
   const [description, setDescription] = useState(editing?.description ?? "");
-  const [status, setStatus] = useState<IncomeStatus>(editing?.status ?? "Received");
+
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
     (editing?.paymentMethod as PaymentMethod) ?? "Bank Transfer"
   );
@@ -74,10 +73,9 @@ export function IncomeFormScreen({ route, navigation }: Props) {
     const parsedAmount = Number(amount.replace(/,/g, ""));
     if (!isNaN(parsedAmount) && parsedAmount !== editing.amount) return true;
     if (paymentMethod !== editing.paymentMethod) return true;
-    if (status !== editing.status) return true;
     if (date.toISOString().split("T")[0] !== new Date(editing.date).toISOString().split("T")[0]) return true;
     return false;
-  }, [editing, selectedPreset, description, amount, paymentMethod, status, date]);
+  }, [editing, selectedPreset, description, amount, paymentMethod, date]);
 
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isSheetExpanded, setIsSheetExpanded] = useState(false);
@@ -206,7 +204,6 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         sourceColor: colors.iconNeutral,
         description: description.trim() || undefined,
         amount: parsedAmount,
-        status,
         paymentMethod,
       };
 
@@ -315,27 +312,6 @@ export function IncomeFormScreen({ route, navigation }: Props) {
           <DatePicker value={date} onChange={setDate} label="Date" maxDate={new Date()} />
         )}
 
-        {/* Status */}
-        <View style={styles.fieldWrap}>
-          <Text style={styles.label}>Status</Text>
-          <View style={styles.segmentRow}>
-            {STATUS_OPTIONS.map((opt) => {
-              const isActive = status === opt;
-              return (
-                <TouchableOpacity
-                  key={opt}
-                  style={[styles.segment, isActive && styles.segmentActive]}
-                  onPress={() => setStatus(opt)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.segmentText, isActive && styles.segmentTextActive]}>
-                    {opt}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
 
         {/* Payment Method */}
         <View style={styles.fieldWrap}>

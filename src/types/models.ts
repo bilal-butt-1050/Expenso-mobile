@@ -45,7 +45,6 @@ export interface ExpenseInput {
   status: ExpenseStatus;
 }
 
-export type IncomeStatus = "Received" | "Expected";
 
 export interface Income {
   id: string;
@@ -57,7 +56,6 @@ export interface Income {
   sourceColor: string;
   description: string | null;
   amount: number;
-  status: IncomeStatus;
   paymentMethod: string;
   createdAt?: string;
   updatedAt?: string;
@@ -70,15 +68,12 @@ export interface IncomeInput {
   sourceColor?: string;
   description?: string;
   amount: number;
-  status: IncomeStatus;
   paymentMethod?: string;
 }
 
 export interface IncomeSummary {
   month: string;
   totalIncome: number;
-  receivedIncome: number;
-  expectedIncome: number;
 }
 
 export interface Budget {
@@ -117,8 +112,7 @@ export interface DashboardSummary {
   savingsGoal: number;
   rolloverSavings: number;
   monthlyIncome: number;
-  receivedIncome?: number;
-  expectedIncome?: number;
+
   totalExpenses: number;
   paidExpenses: number;
   unpaidExpenses: number;

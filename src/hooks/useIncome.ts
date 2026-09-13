@@ -1,15 +1,15 @@
 import { useCallback } from "react";
 import * as incomeApi from "../api/income";
-import { IncomeInput, IncomeStatus } from "../types/models";
+import { IncomeInput } from "../types/models";
 import { useAppData } from "../context/AppDataContext";
 import { useInfiniteData } from "./useInfiniteData";
 
-export function useIncome(filters: { status?: IncomeStatus } = {}) {
+export function useIncome() {
   const { dataVersion, notifyDataChanged } = useAppData();
 
   const state = useInfiniteData(
-    (skip, take) => incomeApi.fetchIncomes({ ...filters, skip, take }),
-    [filters.status, dataVersion],
+    (skip, take) => incomeApi.fetchIncomes({ skip, take }),
+    [dataVersion],
     20 // Take 20 at a time
   );
 
@@ -31,14 +31,6 @@ export function useIncome(filters: { status?: IncomeStatus } = {}) {
     [notifyDataChanged]
   );
 
-  const toggleStatus = useCallback(
-    async (id: string) => {
-      const res = await incomeApi.toggleIncomeStatus(id);
-      notifyDataChanged();
-      return res;
-    },
-    [notifyDataChanged]
-  );
 
   const removeIncome = useCallback(
     async (id: string) => {
@@ -48,5 +40,5 @@ export function useIncome(filters: { status?: IncomeStatus } = {}) {
     [notifyDataChanged]
   );
 
-  return { ...state, addIncome, editIncome, toggleStatus, removeIncome };
+  return { ...state, addIncome, editIncome, removeIncome };
 }

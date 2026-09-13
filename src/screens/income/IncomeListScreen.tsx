@@ -18,12 +18,11 @@ import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
-import { Income, IncomeStatus } from "../../types/models";
+import { Income } from "../../types/models";
 import { RootStackParamList } from "../../types/navigation";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-type Filter = IncomeStatus | "All";
 
 export function IncomeListScreen() {
   const navigation = useNavigation<Nav>();
@@ -33,14 +32,10 @@ export function IncomeListScreen() {
 
   const insets = useSafeAreaInsets();
   const { confirm } = useDialog();
-  const [filter, setFilter] = useState<Filter>("All");
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [highlightingId, setHighlightingId] = useState<string | null>(null);
 
-  const { data: allIncomes, isLoading, isFetchingMore, loadMore, removeIncome, toggleStatus } = useIncome(
-    filter === "All" ? {} : { status: filter }
-  );
+  const { data: allIncomes, isLoading, isFetchingMore, loadMore, removeIncome } = useIncome();
 
   React.useEffect(() => {
     if (deleteId && deleteId !== deletingId) {
@@ -87,9 +82,6 @@ export function IncomeListScreen() {
     });
   };
 
-  const handleToggleStatus = async (income: Income) => {
-    await toggleStatus(income.id);
-  };
 
   return (
     <ScreenContainer style={styles.noPad}>
@@ -108,9 +100,6 @@ export function IncomeListScreen() {
           <View style={styles.top}>
             <View style={styles.headerRow}>
               <Text style={styles.title}>Income</Text>
-              <TouchableOpacity onPress={() => setIsFilterOpen(true)} hitSlop={10}>
-                <MaterialCommunityIcons name="filter-variant" size={24} color={filter !== "All" ? colors.accent : colors.textPrimary} />
-              </TouchableOpacity>
             </View>
           </View>
         }
@@ -134,7 +123,6 @@ export function IncomeListScreen() {
             }}
             onPress={() => navigation.navigate("IncomeForm", { income: item } as any)}
             onLongPress={() => confirmDelete(item)}
-            onToggleStatus={() => handleToggleStatus(item)}
           />
         )}
         onEndReached={loadMore}
@@ -157,19 +145,7 @@ export function IncomeListScreen() {
       >
         <MaterialCommunityIcons name="plus" size={28} color={colors.accentForeground} />
       </TouchableOpacity>
-      {isFilterOpen && (
-        <FilterSheet
-          options={["All", "Received", "Expected"]}
-          selected={filter}
-          title="Filter Income"
-          insets={insets}
-          onClose={() => setIsFilterOpen(false)}
-          onSelect={(f: any) => {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            setFilter(f as Filter);
-          }}
-        />
-      )}
+
     </ScreenContainer>
   );
 }
@@ -180,7 +156,6 @@ function IncomeItem({
   isDeleting,
   onPress,
   onLongPress,
-  onToggleStatus,
   onDeleteAnimFinish,
 }: {
   item: Income;
@@ -188,16 +163,11 @@ function IncomeItem({
   isDeleting?: boolean;
   onPress: () => void;
   onLongPress: () => void;
-  onToggleStatus: () => void;
   onDeleteAnimFinish?: () => void;
 }) {
-  const [isReceived, setIsReceived] = React.useState(item.status === "Received");
   const highlightAnim = useRef(new Animated.Value(isNewlyAdded ? 1 : 0)).current;
   const deleteAnim = useRef(new Animated.Value(0)).current;
 
-  React.useEffect(() => {
-    setIsReceived(item.status === "Received");
-  }, [item.status]);
 
   React.useEffect(() => {
     if (isNewlyAdded) {
@@ -223,10 +193,6 @@ function IncomeItem({
     }
   }, [isDeleting]);
 
-  const handleToggle = () => {
-    setIsReceived(!isReceived);
-    onToggleStatus();
-  };
 
   return (
     <View style={{ marginBottom: 8, borderRadius: 16, backgroundColor: isDeleting ? colors.danger : "transparent", overflow: "hidden", justifyContent: "center" }}>
@@ -261,7 +227,7 @@ function IncomeItem({
         onLongPress={onLongPress}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel={`${item.source}, ${formatCurrency(item.amount)}, ${isReceived ? "Received" : "Expected"}`}
+        accessibilityLabel={`${item.source}, ${formatCurrency(item.amount)}`}
       >
         <CategoryPill icon={item.sourceIcon || "cash-multiple"} size={48} />
         <View style={styles.rowMiddle}>
@@ -272,15 +238,6 @@ function IncomeItem({
       </TouchableOpacity>
       <View style={styles.rowEnd}>
         <Text style={styles.rowAmount}>+{formatCurrency(item.amount)}</Text>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
-          <Text style={{ fontSize: 15, fontWeight: "600", color: isReceived ? colors.textPrimary : colors.textSecondary }}>
-            {isReceived ? "Received" : "Expected"}
-          </Text>
-          <CustomSwitch
-            value={isReceived}
-            onValueChange={handleToggle}
-          />
-        </View>
       </View>
       </Animated.View>
     </Animated.View>

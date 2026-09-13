@@ -75,15 +75,12 @@ export function HomeScreen() {
             </View>
 
             {/* ACTION CENTER — Horizontally Scrolling Global Reminders */}
-            {(data.unpaidExpenses > 0 || (data.expectedIncome ?? 0) > 0 || (data.dailyAllowance ?? 0) > 0 || (data.daysRemaining ?? 0) > 0) && (
+            {(data.unpaidExpenses > 0 || (data.dailyAllowance ?? 0) > 0 || (data.daysRemaining ?? 0) > 0) && (
               <View style={styles.sectionWrap}>
                 <Text style={styles.sectionTitle}>Action Center</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionCenterScroll}>
                   {data.unpaidExpenses > 0 && (
                     <ActionChip icon="clock-alert-outline" color={colors.warning} label="Total Unpaid Bills" value={formatCurrency(data.unpaidExpenses)} />
-                  )}
-                  {(data.expectedIncome ?? 0) > 0 && (
-                    <ActionChip icon="cash-clock" color={colors.success} label="Expected Income" value={formatCurrency(data.expectedIncome!)} />
                   )}
                   {(data.dailyAllowance ?? 0) > 0 && (
                     <ActionChip icon="calendar-check-outline" color={colors.accent} label="Daily Safe Spend" value={formatCurrency(data.dailyAllowance!)} />
@@ -105,7 +102,7 @@ export function HomeScreen() {
                   <View style={[styles.meshBlock, { flex: 1, backgroundColor: colors.surface }]}>
                     <MaterialCommunityIcons name="cash-multiple" size={22} color={colors.success} />
                     <Text style={styles.meshLabel}>Received</Text>
-                    <Text style={styles.meshValue}>{formatCurrency(data.receivedIncome ?? data.monthlyIncome)}</Text>
+                    <Text style={styles.meshValue}>{formatCurrency(data.monthlyIncome)}</Text>
                   </View>
                   <View style={[styles.meshBlock, { flex: 1, backgroundColor: colors.surface }]}>
                     <MaterialCommunityIcons name="cart-outline" size={22} color={colors.danger} />
@@ -120,7 +117,7 @@ export function HomeScreen() {
                     <Text style={styles.meshLabel}>Saved This Month</Text>
                     <View style={{ flexDirection: "row", alignItems: "baseline", gap: spacing.sm }}>
                       <Text style={styles.meshValue}>
-                        {formatCurrency(Math.max(0, (data.receivedIncome ?? data.monthlyIncome) - data.paidExpenses))}
+                        {formatCurrency(Math.max(0, data.monthlyIncome - data.paidExpenses))}
                       </Text>
                       <Text style={{ fontSize: 18, color: colors.success, fontWeight: "700" }}>
                         ({Math.round(data.savingsPercentage * 100)}%)
