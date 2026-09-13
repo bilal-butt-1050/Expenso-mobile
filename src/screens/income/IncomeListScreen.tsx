@@ -231,10 +231,12 @@ function IncomeItem({
   };
 
   return (
-    <View style={{ marginBottom: 8, borderRadius: 16, backgroundColor: colors.danger, overflow: "hidden", justifyContent: "center" }}>
-      <View style={{ position: "absolute", right: 24, alignItems: "center", justifyContent: "center" }}>
-        <MaterialCommunityIcons name="trash-can-outline" size={26} color="#FFFFFF" />
-      </View>
+    <View style={{ marginBottom: 8, borderRadius: 16, backgroundColor: isDeleting ? colors.danger : "transparent", overflow: "hidden", justifyContent: "center" }}>
+      {isDeleting && (
+        <View style={{ position: "absolute", right: 24, alignItems: "center", justifyContent: "center" }}>
+          <MaterialCommunityIcons name="trash-can-outline" size={26} color="#FFFFFF" />
+        </View>
+      )}
       
       <Animated.View style={{
         transform: [{
