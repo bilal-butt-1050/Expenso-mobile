@@ -9,7 +9,6 @@ import { useIncome } from "../../hooks/useIncome";
 import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
-import { MonthPicker } from "../../components/MonthPicker";
 import { EmptyState } from "../../components/EmptyState";
 import { ListScreenSkeleton } from "../../components/Skeleton";
 import { CategoryPill, StatusBadge } from "../../components/CategoryPill";
@@ -33,14 +32,13 @@ export function IncomeListScreen() {
   const deleteId = (route.params as any)?.deleteId;
 
   const insets = useSafeAreaInsets();
-  const { selectedMonth, setSelectedMonth } = useAppData();
   const { confirm } = useDialog();
   const [filter, setFilter] = useState<Filter>("All");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [highlightingId, setHighlightingId] = useState<string | null>(null);
 
-  const { data: allIncomes, isLoading, removeIncome, toggleStatus } = useIncome(
+  const { data: allIncomes, isLoading, isFetchingMore, loadMore, removeIncome, toggleStatus } = useIncome(
     filter === "All" ? {} : { status: filter }
   );
 
@@ -75,8 +73,6 @@ export function IncomeListScreen() {
     });
     return sections;
   }, [allIncomes]);
-
-  const totalIncome = allIncomes?.reduce((sum, item) => sum + item.amount, 0) ?? 0;
 
   const confirmDelete = (income: Income) => {
     confirm({
@@ -116,13 +112,6 @@ export function IncomeListScreen() {
                 <MaterialCommunityIcons name="filter-variant" size={24} color={filter !== "All" ? colors.accent : colors.textPrimary} />
               </TouchableOpacity>
             </View>
-            <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
-            <View style={styles.hero}>
-              <Text style={styles.heroLabel}>TOTAL</Text>
-              <Text style={styles.heroAmount} numberOfLines={1} adjustsFontSizeToFit>
-                {formatCurrency(totalIncome)}
-              </Text>
-            </View>
           </View>
         }
         ListEmptyComponent={
@@ -148,6 +137,15 @@ export function IncomeListScreen() {
             onToggleStatus={() => handleToggleStatus(item)}
           />
         )}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          isFetchingMore ? (
+            <View style={{ paddingVertical: spacing.lg }}>
+              <ListScreenSkeleton />
+            </View>
+          ) : null
+        }
       />
       )}
       <TouchableOpacity

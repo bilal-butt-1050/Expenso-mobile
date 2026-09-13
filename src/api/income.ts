@@ -1,8 +1,12 @@
 import { apiClient } from "./client";
 import { Income, IncomeInput, IncomeSummary } from "../types/models";
 
-export async function fetchIncomes(params?: { month?: string; status?: string }): Promise<Income[]> {
-  const { data } = await apiClient.get<Income[]>("/income", { params });
+export async function fetchIncomes(params?: {
+  status?: string;
+  skip?: number;
+  take?: number;
+}): Promise<{ items: Income[]; hasMore: boolean }> {
+  const { data } = await apiClient.get<{ items: Income[]; hasMore: boolean }>("/income", { params });
   return data;
 }
 

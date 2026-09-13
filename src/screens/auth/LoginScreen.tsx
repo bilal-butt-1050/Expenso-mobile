@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
+// import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { AuthStackParamList } from "../../types/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { getErrorMessage } from "../../api/client";
@@ -24,11 +24,18 @@ export function LoginScreen({ navigation }: Props) {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // See RegisterScreen.tsx for notes on GoogleSignin inside Expo Go
-    GoogleSignin.configure({
-      webClientId: "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com", // You should pull this from ENV
-      offlineAccess: true,
-    });
+    // GoogleSignin is temporarily disabled to prevent Expo Go crashes.
+    // Uncomment when you have a custom dev build.
+    /*
+    try {
+      GoogleSignin.configure({
+        webClientId: "166423632403-eah00rst0smqrkre0phm0i2s5uripqe6.apps.googleusercontent.com",
+        offlineAccess: true,
+      });
+    } catch (e) {
+      console.warn("GoogleSignin is not supported in Expo Go. Please use a development build.");
+    }
+    */
   }, []);
 
   const handleSubmit = async () => {
@@ -44,6 +51,8 @@ export function LoginScreen({ navigation }: Props) {
   };
 
   const handleGoogleSignIn = async () => {
+    setError("Google Sign-In requires a custom dev build. It is disabled in Expo Go.");
+    /*
     setError(null);
     try {
       await GoogleSignin.hasPlayServices();
@@ -59,6 +68,7 @@ export function LoginScreen({ navigation }: Props) {
     } finally {
       setIsLoading(false);
     }
+    */
   };
 
   return (

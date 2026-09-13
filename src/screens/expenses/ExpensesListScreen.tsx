@@ -9,7 +9,6 @@ import { useExpenses } from "../../hooks/useExpenses";
 import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
-import { MonthPicker } from "../../components/MonthPicker";
 import { EmptyState } from "../../components/EmptyState";
 import { ListScreenSkeleton } from "../../components/Skeleton";
 import { CategoryPill, StatusBadge } from "../../components/CategoryPill";
@@ -31,15 +30,14 @@ export function ExpensesListScreen() {
   const route = useRoute<RouteProp<RootStackParamList, "Tabs">>();
   const highlightId = (route.params as any)?.highlightId;
   const deleteId = (route.params as any)?.deleteId;
-  
   const insets = useSafeAreaInsets();
-  const { selectedMonth, setSelectedMonth } = useAppData();
+  
   const { confirm } = useDialog();
   const [filter, setFilter] = useState<Filter>("All");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [highlightingId, setHighlightingId] = useState<string | null>(null);
-  const { data, isLoading, removeExpense, toggleStatus } = useExpenses(
+  const { data, isLoading, isFetchingMore, loadMore, removeExpense, toggleStatus } = useExpenses(
     filter === "All" ? {} : { status: filter }
   );
 
@@ -115,13 +113,6 @@ export function ExpensesListScreen() {
                 <MaterialCommunityIcons name="filter-variant" size={24} color={filter !== "All" ? colors.accent : colors.textPrimary} />
               </TouchableOpacity>
             </View>
-            <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
-            <View style={styles.hero}>
-              <Text style={styles.heroLabel}>TOTAL</Text>
-              <Text style={styles.heroAmount} numberOfLines={1} adjustsFontSizeToFit>
-                {formatCurrency(totalExpenses)}
-              </Text>
-            </View>
           </View>
         }
         ListEmptyComponent={
@@ -147,6 +138,15 @@ export function ExpensesListScreen() {
             onToggleStatus={() => handleToggleStatus(item)}
           />
         )}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          isFetchingMore ? (
+            <View style={{ paddingVertical: spacing.lg }}>
+              <ListScreenSkeleton />
+            </View>
+          ) : null
+        }
       />
       )}
       <TouchableOpacity

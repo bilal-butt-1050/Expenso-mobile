@@ -2,14 +2,15 @@ import { useCallback } from "react";
 import * as incomeApi from "../api/income";
 import { IncomeInput, IncomeStatus } from "../types/models";
 import { useAppData } from "../context/AppDataContext";
-import { useAsyncData } from "./useAsyncData";
+import { useInfiniteData } from "./useInfiniteData";
 
 export function useIncome(filters: { status?: IncomeStatus } = {}) {
-  const { selectedMonth, dataVersion, notifyDataChanged } = useAppData();
+  const { dataVersion, notifyDataChanged } = useAppData();
 
-  const state = useAsyncData(
-    () => incomeApi.fetchIncomes({ month: selectedMonth, ...filters }),
-    [selectedMonth, filters.status, dataVersion]
+  const state = useInfiniteData(
+    (skip, take) => incomeApi.fetchIncomes({ ...filters, skip, take }),
+    [filters.status, dataVersion],
+    20 // Take 20 at a time
   );
 
   const addIncome = useCallback(

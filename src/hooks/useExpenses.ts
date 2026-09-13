@@ -2,14 +2,15 @@ import { useCallback } from "react";
 import * as expensesApi from "../api/expenses";
 import { ExpenseInput, ExpenseStatus } from "../types/models";
 import { useAppData } from "../context/AppDataContext";
-import { useAsyncData } from "./useAsyncData";
+import { useInfiniteData } from "./useInfiniteData";
 
 export function useExpenses(filters: { categoryId?: string; status?: ExpenseStatus } = {}) {
-  const { selectedMonth, dataVersion, notifyDataChanged } = useAppData();
+  const { dataVersion, notifyDataChanged } = useAppData();
 
-  const state = useAsyncData(
-    () => expensesApi.fetchExpenses({ month: selectedMonth, ...filters }),
-    [selectedMonth, filters.categoryId, filters.status, dataVersion]
+  const state = useInfiniteData(
+    (skip, take) => expensesApi.fetchExpenses({ ...filters, skip, take }),
+    [filters.categoryId, filters.status, dataVersion],
+    20 // Take 20 at a time
   );
 
   const addExpense = useCallback(

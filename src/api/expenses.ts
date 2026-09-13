@@ -2,11 +2,12 @@ import { apiClient } from "./client";
 import { Expense, ExpenseInput, ExpenseStatus } from "../types/models";
 
 export async function fetchExpenses(filters: {
-  month?: string;
   categoryId?: string;
   status?: ExpenseStatus;
-}): Promise<Expense[]> {
-  const { data } = await apiClient.get<Expense[]>("/expenses", { params: filters });
+  skip?: number;
+  take?: number;
+}): Promise<{ items: Expense[]; hasMore: boolean }> {
+  const { data } = await apiClient.get<{ items: Expense[]; hasMore: boolean }>("/expenses", { params: filters });
   return data;
 }
 
