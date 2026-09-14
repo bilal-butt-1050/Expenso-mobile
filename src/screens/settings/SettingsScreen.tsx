@@ -34,6 +34,9 @@ export function SettingsScreen() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
@@ -117,7 +120,7 @@ export function SettingsScreen() {
         label="Edit Profile"
         subtitle="Change your display name"
         onPress={() => {
-          setNameInput(user?.name || "");
+          setNameInput(displayName);
           setNameError(null);
           setIsEditNameOpen(true);
         }}
@@ -130,6 +133,9 @@ export function SettingsScreen() {
           setCurrentPassword("");
           setNewPassword("");
           setConfirmNewPassword("");
+          setShowCurrentPassword(false);
+          setShowNewPassword(false);
+          setShowConfirmPassword(false);
           setPasswordError(null);
           setIsChangePasswordOpen(true);
         }}
@@ -173,22 +179,37 @@ export function SettingsScreen() {
             label="Current Password"
             value={currentPassword}
             onChangeText={setCurrentPassword}
-            secureTextEntry
+            secureTextEntry={!showCurrentPassword}
             placeholder="Enter current password"
+            rightElement={
+              <TouchableOpacity onPress={() => setShowCurrentPassword(!showCurrentPassword)} style={{ padding: spacing.xs }}>
+                <MaterialCommunityIcons name={showCurrentPassword ? "eye-off" : "eye"} size={22} color={colors.textMuted} />
+              </TouchableOpacity>
+            }
           />
           <TextField
             label="New Password"
             value={newPassword}
             onChangeText={setNewPassword}
-            secureTextEntry
+            secureTextEntry={!showNewPassword}
             placeholder="Minimum 8 characters"
+            rightElement={
+              <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)} style={{ padding: spacing.xs }}>
+                <MaterialCommunityIcons name={showNewPassword ? "eye-off" : "eye"} size={22} color={colors.textMuted} />
+              </TouchableOpacity>
+            }
           />
           <TextField
             label="Confirm New Password"
             value={confirmNewPassword}
             onChangeText={setConfirmNewPassword}
-            secureTextEntry
+            secureTextEntry={!showConfirmPassword}
             placeholder="Re-enter new password"
+            rightElement={
+              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={{ padding: spacing.xs }}>
+                <MaterialCommunityIcons name={showConfirmPassword ? "eye-off" : "eye"} size={22} color={colors.textMuted} />
+              </TouchableOpacity>
+            }
           />
           <View style={styles.modalActions}>
             <Button label="Cancel" variant="secondary" onPress={() => setIsChangePasswordOpen(false)} style={{ flex: 1 }} />
