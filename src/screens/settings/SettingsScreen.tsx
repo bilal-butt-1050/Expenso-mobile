@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Image, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import md5 from "md5";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -32,6 +33,12 @@ export function SettingsScreen() {
     });
   };
 
+  const email = user?.email || "";
+  const nameFromEmail = email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+  const displayName = user?.name || nameFromEmail || "Expenso User";
+  const emailHash = md5(email.trim().toLowerCase());
+  const avatarUrl = `https://www.gravatar.com/avatar/${emailHash}?d=identicon&s=150`;
+
   return (
     <ScreenContainer>
       <View style={styles.header}>
@@ -40,11 +47,11 @@ export function SettingsScreen() {
 
       <Card style={styles.profileCard}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{(user?.name || user?.email || "?")[0].toUpperCase()}</Text>
+          <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.name}>{user?.name || "Expenso user"}</Text>
-          <Text style={styles.email}>{user?.email}</Text>
+          <Text style={styles.name}>{displayName}</Text>
+          <Text style={styles.email}>{email}</Text>
         </View>
       </Card>
 
@@ -103,8 +110,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accentMuted,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
-  avatarText: { color: colors.accent, fontWeight: "700", fontSize: 18 },
+  avatarImage: { width: "100%", height: "100%" },
   name: { ...typography.body, fontWeight: "700" },
   email: { ...typography.caption, marginTop: 2 },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.md },
