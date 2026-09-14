@@ -144,7 +144,7 @@ export function SettingsScreen() {
       <Text style={styles.sectionTitle}>Preferences</Text>
       <SettingsRow
         icon="shape-outline"
-        label="Customize categories"
+        label="Customize Categories"
         subtitle="Add, edit or remove spending categories"
         onPress={() => navigation.navigate("Categories")}
       />

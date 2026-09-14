@@ -73,7 +73,7 @@ export function CategoriesScreen() {
           const isImmutable = item.name === "Other" || item.name === "Savings";
           return (
             <TouchableOpacity 
-              style={styles.row} 
+              style={[styles.row, isImmutable && { opacity: 0.5 }]} 
               onPress={() => {
                 if (!isImmutable) navigation.navigate("CategoryForm", { category: item });
               }}
