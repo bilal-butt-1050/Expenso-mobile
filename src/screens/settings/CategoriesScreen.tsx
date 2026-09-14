@@ -224,6 +224,7 @@ function CategoryItem({
             style={styles.innerRow} 
             onPress={onPress}
             activeOpacity={isImmutable ? 1 : 0.7}
+            disabled={isImmutable}
           >
             <CategoryPill icon={item.icon} color={item.color} />
             <Text style={styles.label}>{item.name}</Text>
