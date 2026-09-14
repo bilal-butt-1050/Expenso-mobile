@@ -8,7 +8,7 @@ interface AuthContextValue {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   sendOtp: (email: string) => Promise<void>;
-  register: (email: string, password: string, otp: string, name?: string) => Promise<void>;
+  register: (email: string, password: string, otp: string, name: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;

@@ -46,6 +46,11 @@ export function RegisterScreen({ navigation }: Props) {
   const handleNext = async () => {
     setError(null);
     
+    if (!name.trim()) {
+      setError("Name is required");
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -66,7 +71,7 @@ export function RegisterScreen({ navigation }: Props) {
     setError(null);
     setIsLoading(true);
     try {
-      await register(email.trim(), password, otp.trim(), name.trim() || undefined);
+      await register(email.trim(), password, otp.trim(), name.trim());
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
