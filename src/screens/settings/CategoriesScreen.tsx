@@ -94,7 +94,7 @@ export function CategoriesScreen() {
             isNewlyAdded={item.id === highlightingId}
             isDeleting={item.id === deletingId}
             onPress={() => {
-              const isImmutable = item.name === "Other" || item.name === "Savings";
+              const isImmutable = item.name === "Other";
               if (!isImmutable) navigation.navigate("CategoryForm", { category: item });
             }}
             onDelete={() => confirmDelete(item)}
@@ -192,7 +192,7 @@ function CategoryItem({
     }
   }, [isDeleting]);
 
-  const isImmutable = item.name === "Other" || item.name === "Savings";
+  const isImmutable = item.name === "Other";
 
   return (
     <View style={{ marginBottom: 0, backgroundColor: isDeleting ? colors.danger : "transparent", overflow: "hidden", justifyContent: "center" }}>
