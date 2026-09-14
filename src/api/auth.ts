@@ -44,3 +44,6 @@ export async function updateProfile(data: {
   const { data: user } = await apiClient.patch<User>("/auth/profile", data);
   return user;
 }
+export async function changePassword(currentPassword?: string, newPassword?: string) {
+  await apiClient.patch("/auth/password", { currentPassword, newPassword });
+}

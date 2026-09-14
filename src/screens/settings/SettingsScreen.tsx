@@ -9,6 +9,9 @@ import { useDialog } from "../../context/DialogContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
+import { BottomSheet } from "../../components/BottomSheet";
+import { TextField } from "../../components/TextField";
+import { getErrorMessage } from "../../api/client";
 import { colors } from "../../theme/colors";
 import { spacing, radius } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
@@ -19,8 +22,61 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export function SettingsScreen() {
   const navigation = useNavigation<Nav>();
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, changePassword } = useAuth();
   const { confirm } = useDialog();
+
+  const [isEditNameOpen, setIsEditNameOpen] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [isSavingName, setIsSavingName] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  const handleSaveName = async () => {
+    setNameError(null);
+    if (!nameInput.trim()) {
+      setNameError("Name cannot be empty");
+      return;
+    }
+    setIsSavingName(true);
+    try {
+      await updateProfile({ name: nameInput.trim() });
+      setIsEditNameOpen(false);
+    } catch (error) {
+      setNameError(getErrorMessage(error));
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setPasswordError(null);
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError("New passwords do not match");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters");
+      return;
+    }
+    setIsChangingPassword(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+      setIsChangePasswordOpen(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+    } catch (error) {
+      setPasswordError(getErrorMessage(error));
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   const confirmLogout = () => {
     confirm({
@@ -55,6 +111,31 @@ export function SettingsScreen() {
         </View>
       </Card>
 
+      <Text style={styles.sectionTitle}>Account</Text>
+      <SettingsRow
+        icon="account-edit-outline"
+        label="Edit Profile"
+        subtitle="Change your display name"
+        onPress={() => {
+          setNameInput(user?.name || "");
+          setNameError(null);
+          setIsEditNameOpen(true);
+        }}
+      />
+      <SettingsRow
+        icon="lock-reset"
+        label="Change Password"
+        subtitle="Update your account password"
+        onPress={() => {
+          setCurrentPassword("");
+          setNewPassword("");
+          setConfirmNewPassword("");
+          setPasswordError(null);
+          setIsChangePasswordOpen(true);
+        }}
+      />
+
+      <Text style={styles.sectionTitle}>Preferences</Text>
       <SettingsRow
         icon="shape-outline"
         label="Categories"
@@ -65,6 +146,56 @@ export function SettingsScreen() {
       <TouchableOpacity style={styles.logout} onPress={confirmLogout}>
         <Text style={styles.logoutText}>Log Out</Text>
       </TouchableOpacity>
+
+      <BottomSheet visible={isEditNameOpen} onClose={() => setIsEditNameOpen(false)}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Edit Profile</Text>
+          {nameError && <Text style={styles.errorText}>{nameError}</Text>}
+          <TextField
+            label="Display Name"
+            value={nameInput}
+            onChangeText={setNameInput}
+            placeholder="e.g. Jane Doe"
+            autoCapitalize="words"
+          />
+          <View style={styles.modalActions}>
+            <Button label="Cancel" variant="secondary" onPress={() => setIsEditNameOpen(false)} style={{ flex: 1 }} />
+            <Button label="Save" onPress={handleSaveName} loading={isSavingName} style={{ flex: 1 }} />
+          </View>
+        </View>
+      </BottomSheet>
+
+      <BottomSheet visible={isChangePasswordOpen} onClose={() => setIsChangePasswordOpen(false)}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Change Password</Text>
+          {passwordError && <Text style={styles.errorText}>{passwordError}</Text>}
+          <TextField
+            label="Current Password"
+            value={currentPassword}
+            onChangeText={setCurrentPassword}
+            secureTextEntry
+            placeholder="Enter current password"
+          />
+          <TextField
+            label="New Password"
+            value={newPassword}
+            onChangeText={setNewPassword}
+            secureTextEntry
+            placeholder="Minimum 8 characters"
+          />
+          <TextField
+            label="Confirm New Password"
+            value={confirmNewPassword}
+            onChangeText={setConfirmNewPassword}
+            secureTextEntry
+            placeholder="Re-enter new password"
+          />
+          <View style={styles.modalActions}>
+            <Button label="Cancel" variant="secondary" onPress={() => setIsChangePasswordOpen(false)} style={{ flex: 1 }} />
+            <Button label="Update" onPress={handleChangePassword} loading={isChangingPassword} style={{ flex: 1 }} />
+          </View>
+        </View>
+      </BottomSheet>
     </ScreenContainer>
   );
 }
@@ -115,7 +246,8 @@ const styles = StyleSheet.create({
   avatarImage: { width: "100%", height: "100%" },
   name: { ...typography.body, fontWeight: "700" },
   email: { ...typography.caption, marginTop: 2 },
-  row: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.md },
+  sectionTitle: { ...typography.small, color: colors.textMuted, marginTop: spacing.xl, marginBottom: spacing.xs, marginLeft: spacing.sm, textTransform: "uppercase", letterSpacing: 0.5 },
+  row: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.sm },
   rowIcon: {
     width: 36,
     height: 36,
@@ -128,4 +260,8 @@ const styles = StyleSheet.create({
   rowSubtitle: { ...typography.small, marginTop: 2 },
   logout: { marginTop: spacing.xl, alignItems: "center", paddingVertical: spacing.md },
   logoutText: { color: colors.danger, fontWeight: "700", fontSize: 15 },
+  modalContent: { padding: spacing.xl, gap: spacing.md },
+  modalTitle: { ...typography.title, fontSize: 20, marginBottom: spacing.sm },
+  modalActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.md },
+  errorText: { color: colors.danger, ...typography.caption, marginBottom: -spacing.sm },
 });
