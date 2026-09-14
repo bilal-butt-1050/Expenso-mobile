@@ -12,7 +12,7 @@ interface AuthContextValue {
   loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
-  updateProfile: (data: { name?: string; savingsGoal?: number; currency?: string }) => Promise<void>;
+  updateProfile: (data: { name?: string; currency?: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);

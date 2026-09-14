@@ -39,7 +39,6 @@ export async function logout(): Promise<void> {
 
 export async function updateProfile(data: {
   name?: string;
-  savingsGoal?: number;
   currency?: string;
 }): Promise<User> {
   const { data: user } = await apiClient.patch<User>("/auth/profile", data);

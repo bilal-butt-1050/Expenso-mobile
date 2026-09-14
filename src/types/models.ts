@@ -7,7 +7,6 @@ export interface User {
   email: string;
   name: string | null;
   currency: string;
-  savingsGoal: number;
 }
 
 export interface Category {
@@ -109,7 +108,7 @@ export interface TrendPoint {
 
 export interface DashboardSummary {
   month: string;
-  savingsGoal: number;
+  plannedSavings: number;
   rolloverSavings: number;
   monthlyIncome: number;
 

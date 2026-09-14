@@ -46,21 +46,6 @@ export function BudgetScreen() {
       navigation.setParams({ openCategoryId: undefined });
     }
   }, [route.params?.openCategoryId, categories, navigation]);
-  
-  const [isSavingsModalOpen, setIsSavingsModalOpen] = useState(false);
-  const [savingsInput, setSavingsInput] = useState(String(user?.savingsGoal ?? 20));
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleSaveGoal = async (val: number) => {
-    setIsSaving(true);
-    try {
-      await updateProfile({ savingsGoal: val });
-      setIsSavingsModalOpen(false);
-    } catch {
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const rows = (categories ?? []).map((category) => {
     const budgetMatch = summary?.budgetVsActual.find((b) => b.categoryId === category.id);
@@ -99,19 +84,9 @@ export function BudgetScreen() {
           ListHeaderComponent={
             <>
               <View style={styles.topRow}>
-                <View style={{ flex: 1, marginRight: spacing.md }}>
+                <View style={{ flex: 1 }}>
                   <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
                 </View>
-                <TouchableOpacity 
-                  style={styles.savingsGoalBtn}
-                  onPress={() => {
-                    setSavingsInput(String(user?.savingsGoal || 20));
-                    setIsSavingsModalOpen(true);
-                  }}
-                >
-                  <MaterialCommunityIcons name="piggy-bank-outline" size={18} color={colors.accent} />
-                  <Text style={styles.savingsGoalBtnText}>Goal: {user?.savingsGoal || 0}%</Text>
-                </TouchableOpacity>
               </View>
 
 
@@ -142,7 +117,7 @@ export function BudgetScreen() {
                     <Text style={styles.unallocatedText}>
                       {unallocated < 0
                         ? `Over by ${formatCurrency(Math.abs(unallocated))}`
-                        : `${formatCurrency(unallocated)} unallocated`}
+                        : `${formatCurrency(unallocated)} planned savings`}
                     </Text>
                   </>
                 )}
@@ -218,69 +193,7 @@ export function BudgetScreen() {
         />
       </BottomSheet>
 
-      {/* Savings Goal Bottom Sheet Modal */}
-      <BottomSheet
-        visible={isSavingsModalOpen}
-        onClose={() => setIsSavingsModalOpen(false)}
-      >
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Monthly Savings Target</Text>
-          <Text style={styles.modalSubtitle}>
-            Set what percentage of your monthly income you aim to save. The dashboard will track your live pace against this goal.
-          </Text>
 
-          {/* Quick Presets */}
-          <View style={styles.presetRow}>
-            {[15, 20, 25, 30, 40, 50].map((pct) => (
-              <TouchableOpacity
-                key={pct}
-                style={[
-                  styles.presetPill,
-                  Number(savingsInput) === pct && styles.presetPillActive,
-                ]}
-                onPress={() => setSavingsInput(String(pct))}
-              >
-                <Text
-                  style={[
-                    styles.presetText,
-                    Number(savingsInput) === pct && styles.presetTextActive,
-                  ]}
-                >
-                  {pct}%
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <View style={styles.inputWrap}>
-            <Text style={styles.inputPrefix}>Target %</Text>
-            <TextInput
-              value={savingsInput}
-              onChangeText={setSavingsInput}
-              keyboardType="numeric"
-              style={styles.numericInput}
-              placeholder="20"
-              placeholderTextColor={colors.textMuted}
-              maxLength={3}
-            />
-          </View>
-
-          <View style={styles.modalActions}>
-            <Button
-              label="Cancel"
-              variant="secondary"
-              onPress={() => setIsSavingsModalOpen(false)}
-              style={{ flex: 1 }}
-            />
-            <Button
-              label="Save Target"
-              onPress={() => handleSaveGoal(Math.max(0, Math.min(100, Number(savingsInput) || 0)))}
-              loading={isSaving}
-              style={{ flex: 1 }}
-            />
-          </View>
-        </View>
-      </BottomSheet>
     </ScreenContainer>
   );
 }

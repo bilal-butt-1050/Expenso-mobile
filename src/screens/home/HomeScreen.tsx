@@ -119,6 +119,11 @@ export function HomeScreen() {
                       <Text style={styles.meshValue}>
                         {formatCurrency(Math.max(0, data.monthlyIncome - data.paidExpenses))}
                       </Text>
+                      {data.plannedSavings > 0 && (
+                        <Text style={{ fontSize: 14, color: colors.textSecondary, fontWeight: "600", marginLeft: -4 }}>
+                          / {formatCurrency(data.plannedSavings)}
+                        </Text>
+                      )}
                       <Text style={{ fontSize: 18, color: colors.success, fontWeight: "700" }}>
                         ({Math.round(data.savingsPercentage * 100)}%)
                       </Text>
