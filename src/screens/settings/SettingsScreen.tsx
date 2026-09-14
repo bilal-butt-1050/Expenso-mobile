@@ -23,7 +23,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 export function SettingsScreen() {
   const navigation = useNavigation<Nav>();
   const { user, logout, updateProfile, changePassword } = useAuth();
-  const { confirm } = useDialog();
+  const { confirm, alert } = useDialog();
 
   const [isEditNameOpen, setIsEditNameOpen] = useState(false);
   const [nameInput, setNameInput] = useState("");
@@ -38,7 +38,9 @@ export function SettingsScreen() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [currentPasswordError, setCurrentPasswordError] = useState<string | null>(null);
+  const [newPasswordError, setNewPasswordError] = useState<string | null>(null);
+  const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
 
   const handleSaveName = async () => {
     setNameError(null);
@@ -58,15 +60,21 @@ export function SettingsScreen() {
   };
 
   const handleChangePassword = async () => {
-    setPasswordError(null);
-    if (newPassword !== confirmNewPassword) {
-      setPasswordError("New passwords do not match");
-      return;
-    }
+    setCurrentPasswordError(null);
+    setNewPasswordError(null);
+    setConfirmPasswordError(null);
+
+    let hasError = false;
     if (newPassword.length < 8) {
-      setPasswordError("New password must be at least 8 characters");
-      return;
+      setNewPasswordError("New password must be at least 8 characters");
+      hasError = true;
     }
+    if (newPassword !== confirmNewPassword) {
+      setConfirmPasswordError("New passwords do not match");
+      hasError = true;
+    }
+    if (hasError) return;
+
     setIsChangingPassword(true);
     try {
       await changePassword(currentPassword, newPassword);
@@ -74,8 +82,18 @@ export function SettingsScreen() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmNewPassword("");
+      alert({
+        title: "Success",
+        message: "Password updated successfully.",
+        icon: "check-circle-outline",
+      });
     } catch (error) {
-      setPasswordError(getErrorMessage(error));
+      const msg = getErrorMessage(error);
+      if (msg.toLowerCase().includes("current password")) {
+        setCurrentPasswordError(msg);
+      } else {
+        setNewPasswordError(msg);
+      }
     } finally {
       setIsChangingPassword(false);
     }
@@ -136,7 +154,9 @@ export function SettingsScreen() {
           setShowCurrentPassword(false);
           setShowNewPassword(false);
           setShowConfirmPassword(false);
-          setPasswordError(null);
+          setCurrentPasswordError(null);
+          setNewPasswordError(null);
+          setConfirmPasswordError(null);
           setIsChangePasswordOpen(true);
         }}
       />
@@ -156,17 +176,23 @@ export function SettingsScreen() {
       <BottomSheet visible={isEditNameOpen} onClose={() => setIsEditNameOpen(false)}>
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Edit Profile</Text>
-          {nameError && <Text style={styles.errorText}>{nameError}</Text>}
           <TextField
             label="Display Name"
             value={nameInput}
             onChangeText={setNameInput}
             placeholder="e.g. Jane Doe"
             autoCapitalize="words"
+            error={nameError}
           />
           <View style={styles.modalActions}>
             <Button label="Cancel" variant="secondary" onPress={() => setIsEditNameOpen(false)} style={{ flex: 1 }} />
-            <Button label="Save" onPress={handleSaveName} loading={isSavingName} style={{ flex: 1 }} />
+            <Button 
+              label="Save" 
+              onPress={handleSaveName} 
+              loading={isSavingName} 
+              disabled={nameInput.trim() === displayName.trim() || !nameInput.trim()}
+              style={{ flex: 1 }} 
+            />
           </View>
         </View>
       </BottomSheet>
@@ -174,13 +200,13 @@ export function SettingsScreen() {
       <BottomSheet visible={isChangePasswordOpen} onClose={() => setIsChangePasswordOpen(false)}>
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Change Password</Text>
-          {passwordError && <Text style={styles.errorText}>{passwordError}</Text>}
           <TextField
             label="Current Password"
             value={currentPassword}
             onChangeText={setCurrentPassword}
             secureTextEntry={!showCurrentPassword}
             placeholder="Enter current password"
+            error={currentPasswordError}
             rightElement={
               <TouchableOpacity onPress={() => setShowCurrentPassword(!showCurrentPassword)} style={{ padding: spacing.xs }}>
                 <MaterialCommunityIcons name={showCurrentPassword ? "eye-off" : "eye"} size={22} color={colors.textMuted} />
@@ -193,6 +219,7 @@ export function SettingsScreen() {
             onChangeText={setNewPassword}
             secureTextEntry={!showNewPassword}
             placeholder="Minimum 8 characters"
+            error={newPasswordError}
             rightElement={
               <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)} style={{ padding: spacing.xs }}>
                 <MaterialCommunityIcons name={showNewPassword ? "eye-off" : "eye"} size={22} color={colors.textMuted} />
@@ -205,6 +232,7 @@ export function SettingsScreen() {
             onChangeText={setConfirmNewPassword}
             secureTextEntry={!showConfirmPassword}
             placeholder="Re-enter new password"
+            error={confirmPasswordError}
             rightElement={
               <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={{ padding: spacing.xs }}>
                 <MaterialCommunityIcons name={showConfirmPassword ? "eye-off" : "eye"} size={22} color={colors.textMuted} />
@@ -213,7 +241,13 @@ export function SettingsScreen() {
           />
           <View style={styles.modalActions}>
             <Button label="Cancel" variant="secondary" onPress={() => setIsChangePasswordOpen(false)} style={{ flex: 1 }} />
-            <Button label="Update" onPress={handleChangePassword} loading={isChangingPassword} style={{ flex: 1 }} />
+            <Button 
+              label="Update" 
+              onPress={handleChangePassword} 
+              loading={isChangingPassword} 
+              disabled={confirmNewPassword.length === 0}
+              style={{ flex: 1 }} 
+            />
           </View>
         </View>
       </BottomSheet>

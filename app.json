@@ -4,17 +4,13 @@
     "slug": "expenso",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo.jpg",
+    "icon": "./assets/icon.jpg",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0B0F19",
     "splash": {
-      "image": "./assets/logo.jpg",
-      "resizeMode": "contain",
       "backgroundColor": "#0B0F19",
       "dark": {
-        "image": "./assets/logo.jpg",
-        "backgroundColor": "#0B0F19",
-        "resizeMode": "contain"
+        "backgroundColor": "#0B0F19"
       }
     },
     "androidStatusBar": {
@@ -37,17 +33,13 @@
       "package": "com.expenso.app",
       "userInterfaceStyle": "dark",
       "splash": {
-        "image": "./assets/logo.jpg",
-        "resizeMode": "contain",
         "backgroundColor": "#0B0F19",
         "dark": {
-          "image": "./assets/logo.jpg",
-          "backgroundColor": "#0B0F19",
-          "resizeMode": "contain"
+          "backgroundColor": "#0B0F19"
         }
       },
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/icon.jpg",
         "backgroundColor": "#0B0F19"
       }
     },
@@ -60,12 +52,9 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#0B0F19",
-          "image": "./assets/logo.jpg",
           "dark": {
-            "image": "./assets/logo.jpg",
             "backgroundColor": "#0B0F19"
-          },
-          "imageWidth": 200
+          }
         }
       ]
     ]
