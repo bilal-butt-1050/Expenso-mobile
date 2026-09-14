@@ -1,6 +1,6 @@
-import React from "react";
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import React, { useState, useEffect, useRef } from "react";
+import { FlatList, StyleSheet, Text, TouchableOpacity, View, Animated, Easing, LayoutAnimation, Dimensions } from "react-native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -14,16 +14,43 @@ import { spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { RootStackParamList } from "../../types/navigation";
 import { getErrorMessage } from "../../api/client";
+import { Category } from "../../types/models";
+
+const SCREEN_WIDTH = Dimensions.get("window").width;
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export function CategoriesScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<RouteProp<RootStackParamList, "Categories">>();
+  const highlightId = route.params?.highlightId;
+  const deleteId = route.params?.deleteId;
+  
   const insets = useSafeAreaInsets();
   const { data: categories, isLoading, removeCategory } = useCategories();
   const { confirm, alert } = useDialog();
 
-  const confirmDelete = (id: string, name: string) => {
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [highlightingId, setHighlightingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (deleteId && deleteId !== deletingId) {
+      setDeletingId(deleteId);
+      navigation.setParams({ deleteId: undefined });
+    }
+  }, [deleteId, deletingId, navigation]);
+
+  useEffect(() => {
+    if (highlightId) {
+      setHighlightingId(highlightId);
+      navigation.setParams({ highlightId: undefined });
+      setTimeout(() => {
+        setHighlightingId(null);
+      }, 3000);
+    }
+  }, [highlightId, navigation]);
+
+  const confirmDelete = (item: Category) => {
     if ((categories?.length || 0) <= 5) {
       alert({
         title: "Minimum categories reached",
@@ -34,21 +61,13 @@ export function CategoriesScreen() {
     }
 
     confirm({
-      title: `Delete "${name}"?`,
+      title: `Delete "${item.name}"?`,
       message: 'Any expenses in this category will move to "Other" — nothing gets lost.',
       confirmText: "Delete",
       destructive: true,
       icon: "trash-can-outline",
-      onConfirm: async () => {
-        try {
-          await removeCategory(id);
-        } catch (err: any) {
-          alert({
-            title: "Couldn't delete category",
-            message: getErrorMessage(err),
-            icon: "alert-circle-outline",
-          });
-        }
+      onConfirm: () => {
+        setDeletingId(item.id);
       },
     });
   };
@@ -69,34 +88,31 @@ export function CategoriesScreen() {
             <EmptyState icon="shape-outline" title="No categories" />
           )
         }
-        renderItem={({ item }) => {
-          const isImmutable = item.name === "Other" || item.name === "Savings";
-          return (
-            <TouchableOpacity 
-              style={[styles.row, isImmutable && { opacity: 0.5 }]} 
-              onPress={() => {
-                if (!isImmutable) navigation.navigate("CategoryForm", { category: item });
-              }}
-              activeOpacity={isImmutable ? 1 : 0.7}
-            >
-              <CategoryPill icon={item.icon} color={item.color} />
-              <Text style={styles.label}>{item.name}</Text>
-              {item.isDefault && <Text style={styles.defaultTag}>Default</Text>}
-              
-              {!isImmutable && (
-                <TouchableOpacity
-                  onPress={() => confirmDelete(item.id, item.name)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.textMuted} />
-                </TouchableOpacity>
-              )}
-              {isImmutable && (
-                <MaterialCommunityIcons name="lock-outline" size={18} color={colors.textMuted} style={{ opacity: 0.5 }} />
-              )}
-            </TouchableOpacity>
-          );
-        }}
+        renderItem={({ item }) => (
+          <CategoryItem
+            item={item}
+            isNewlyAdded={item.id === highlightingId}
+            isDeleting={item.id === deletingId}
+            onPress={() => {
+              const isImmutable = item.name === "Other" || item.name === "Savings";
+              if (!isImmutable) navigation.navigate("CategoryForm", { category: item });
+            }}
+            onDelete={() => confirmDelete(item)}
+            onDeleteAnimFinish={async () => {
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              try {
+                await removeCategory(item.id);
+              } catch (err: any) {
+                alert({
+                  title: "Couldn't delete category",
+                  message: getErrorMessage(err),
+                  icon: "alert-circle-outline",
+                });
+              }
+              setDeletingId(null);
+            }}
+          />
+        )}
       />
 
       <TouchableOpacity
@@ -134,16 +150,115 @@ export function CategoriesScreen() {
   );
 }
 
+function CategoryItem({
+  item,
+  isNewlyAdded,
+  isDeleting,
+  onPress,
+  onDelete,
+  onDeleteAnimFinish,
+}: {
+  item: Category;
+  isNewlyAdded?: boolean;
+  isDeleting?: boolean;
+  onPress: () => void;
+  onDelete: () => void;
+  onDeleteAnimFinish?: () => void;
+}) {
+  const highlightAnim = useRef(new Animated.Value(isNewlyAdded ? 1 : 0)).current;
+  const deleteAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (isNewlyAdded) {
+      Animated.sequence([
+        Animated.timing(highlightAnim, { toValue: 1, duration: 0, useNativeDriver: false }),
+        Animated.timing(highlightAnim, { toValue: 0, duration: 2000, delay: 500, useNativeDriver: false })
+      ]).start();
+    }
+  }, [isNewlyAdded]);
+
+  useEffect(() => {
+    if (isDeleting) {
+      Animated.sequence([
+        Animated.timing(deleteAnim, {
+          toValue: 1,
+          duration: 350,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        })
+      ]).start(() => {
+        if (onDeleteAnimFinish) onDeleteAnimFinish();
+      });
+    }
+  }, [isDeleting]);
+
+  const isImmutable = item.name === "Other" || item.name === "Savings";
+
+  return (
+    <View style={{ marginBottom: 0, backgroundColor: isDeleting ? colors.danger : "transparent", overflow: "hidden", justifyContent: "center" }}>
+      {isDeleting && (
+        <View style={{ position: "absolute", right: 24, alignItems: "center", justifyContent: "center" }}>
+          <MaterialCommunityIcons name="trash-can-outline" size={26} color="#FFFFFF" />
+        </View>
+      )}
+      
+      <Animated.View style={{
+        transform: [{
+          translateX: deleteAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, -SCREEN_WIDTH]
+          })
+        }]
+      }}>
+        <Animated.View style={[
+          styles.row, 
+          isImmutable && { opacity: 0.5 },
+          { 
+            backgroundColor: highlightAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [colors.background, colors.surfaceRaised]
+            }) 
+          }
+        ]}>
+          <TouchableOpacity 
+            style={styles.innerRow} 
+            onPress={onPress}
+            activeOpacity={isImmutable ? 1 : 0.7}
+          >
+            <CategoryPill icon={item.icon} color={item.color} />
+            <Text style={styles.label}>{item.name}</Text>
+            {item.isDefault && <Text style={styles.defaultTag}>Default</Text>}
+            
+            {!isImmutable && (
+              <TouchableOpacity
+                onPress={onDelete}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            )}
+            {isImmutable && (
+              <MaterialCommunityIcons name="lock-outline" size={18} color={colors.textMuted} />
+            )}
+          </TouchableOpacity>
+        </Animated.View>
+      </Animated.View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   list: { padding: spacing.lg, paddingBottom: 100 },
   row: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  innerRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
     paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   label: { ...typography.body, flex: 1 },
   defaultTag: { ...typography.small, backgroundColor: colors.surfaceRaised, paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: 999 },

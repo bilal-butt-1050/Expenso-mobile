@@ -19,7 +19,7 @@ export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabParamList>;
   ExpenseForm: { expense?: Expense } | undefined;
   IncomeForm: { income?: Income } | undefined;
-  Categories: undefined;
+  Categories: { highlightId?: string; deleteId?: string } | undefined;
   CategoryForm: { category?: Category } | undefined;
   Income: undefined;
 };

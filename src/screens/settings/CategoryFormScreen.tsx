@@ -34,12 +34,18 @@ export function CategoryFormScreen({ route, navigation }: Props) {
     setError(null);
     setIsSaving(true);
     try {
+      let categoryId = editing?.id;
       if (editing) {
         await editCategory(editing.id, { name: name.trim(), icon, color });
       } else {
-        await addCategory({ name: name.trim(), icon, color });
+        const result = await addCategory({ name: name.trim(), icon, color });
+        categoryId = result.id;
       }
-      navigation.goBack();
+      navigation.navigate({
+        name: "Categories",
+        params: { highlightId: categoryId },
+        merge: true,
+      } as any);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
