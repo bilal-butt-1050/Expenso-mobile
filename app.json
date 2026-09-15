@@ -8,8 +8,11 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0B0F19",
     "splash": {
+      "image": "./assets/transparent.png",
+      "resizeMode": "contain",
       "backgroundColor": "#0B0F19",
       "dark": {
+        "image": "./assets/transparent.png",
         "backgroundColor": "#0B0F19"
       }
     },
@@ -33,8 +36,11 @@
       "package": "com.expenso.app",
       "userInterfaceStyle": "dark",
       "splash": {
+        "image": "./assets/transparent.png",
+        "resizeMode": "contain",
         "backgroundColor": "#0B0F19",
         "dark": {
+          "image": "./assets/transparent.png",
           "backgroundColor": "#0B0F19"
         }
       },
@@ -44,15 +50,21 @@
       }
     },
     "extra": {
-      "apiUrl": "https://expenso-backend-icj0.onrender.com"
+      "apiUrl": "https://expenso-backend-icj0.onrender.com",
+      "eas": {
+        "projectId": "d196b589-e7ca-491b-b05a-3ba0c3f16433"
+      }
     },
     "plugins": [
       "expo-font",
       [
         "expo-splash-screen",
         {
+          "image": "./assets/transparent.png",
+          "imageWidth": 1,
           "backgroundColor": "#0B0F19",
           "dark": {
+            "image": "./assets/transparent.png",
             "backgroundColor": "#0B0F19"
           }
         }
