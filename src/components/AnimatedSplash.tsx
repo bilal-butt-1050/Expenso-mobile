@@ -51,7 +51,7 @@ export function AnimatedSplash({ ready, onComplete }: Props) {
     if (!ready || hasExited.current) return;
     hasExited.current = true;
 
-    // Small hold so the user can appreciate the logo
+    // Extended hold so the user can appreciate the logo before login
     const timer = setTimeout(() => {
       Animated.parallel([
         Animated.timing(exitOpacity, {
@@ -67,7 +67,7 @@ export function AnimatedSplash({ ready, onComplete }: Props) {
       ]).start(() => {
         onComplete();
       });
-    }, 400);
+    }, 2000); // 2 second delay for better visibility
 
     return () => clearTimeout(timer);
   }, [ready, exitOpacity, exitScale, onComplete]);
