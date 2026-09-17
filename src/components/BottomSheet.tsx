@@ -8,6 +8,8 @@ import {
   PanResponder,
   Dimensions,
   Keyboard,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { colors } from "../theme/colors";
 import { spacing } from "../theme/spacing";
@@ -99,15 +101,21 @@ export function BottomSheet({ visible, onClose, children }: Props) {
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleClose} />
       </Animated.View>
 
-      <Animated.View
-        style={[styles.sheetWrap, { transform: [{ translateY: panY }] }]}
-        {...panResponder.panHandlers}
+      <KeyboardAvoidingView 
+        style={styles.sheetWrap} 
+        behavior={Platform.OS === "ios" ? "padding" : "padding"}
+        pointerEvents="box-none"
       >
-        <TouchableOpacity activeOpacity={1} style={[styles.sheetContent, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
-          <View style={styles.dragHandle} />
-          {children}
-        </TouchableOpacity>
-      </Animated.View>
+        <Animated.View
+          style={[{ transform: [{ translateY: panY }] }]}
+          {...panResponder.panHandlers}
+        >
+          <TouchableOpacity activeOpacity={1} style={[styles.sheetContent, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+            <View style={styles.dragHandle} />
+            {children}
+          </TouchableOpacity>
+        </Animated.View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
