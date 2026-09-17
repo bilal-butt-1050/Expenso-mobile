@@ -77,6 +77,7 @@ export function RegisterScreen({ navigation }: Props) {
 
   const handleGoogleSignIn = async () => {
     setError(null);
+    setIsLoading(true); // Start loading immediately on tap
     try {
       await GoogleSignin.hasPlayServices();
       try {
@@ -87,7 +88,6 @@ export function RegisterScreen({ navigation }: Props) {
       }
       const userInfo = await GoogleSignin.signIn();
       if (userInfo.data?.idToken) {
-        setIsLoading(true);
         await loginWithGoogle(userInfo.data.idToken);
       }
     } catch (err: any) {
@@ -187,7 +187,11 @@ export function RegisterScreen({ navigation }: Props) {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <TouchableOpacity style={styles.googleBtn} onPress={handleGoogleSignIn} disabled={isLoading}>
-        <MaterialCommunityIcons name="google" size={20} color={colors.textPrimary} />
+        {isLoading ? (
+          <ActivityIndicator size="small" color={colors.textPrimary} />
+        ) : (
+          <MaterialCommunityIcons name="google" size={20} color={colors.textPrimary} />
+        )}
         <Text style={styles.googleBtnText}>Continue with Google</Text>
       </TouchableOpacity>
 
