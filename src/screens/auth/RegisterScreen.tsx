@@ -140,6 +140,7 @@ export function RegisterScreen({ navigation }: Props) {
         <Text style={styles.subtitle}>Takes less than a minute.</Text>
       </View>
 
+      {/* 
       <TextField label="Name (optional)" value={name} onChangeText={setName} placeholder="Bilal" />
       <TextField
         label="Email"
@@ -169,8 +170,6 @@ export function RegisterScreen({ navigation }: Props) {
         placeholder="Repeat password"
       />
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
       <Button
         label="Continue"
         onPress={handleNext}
@@ -183,6 +182,9 @@ export function RegisterScreen({ navigation }: Props) {
         <Text style={styles.dividerText}>OR</Text>
         <View style={styles.dividerLine} />
       </View>
+      */}
+
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <TouchableOpacity style={styles.googleBtn} onPress={handleGoogleSignIn} disabled={isLoading}>
         <MaterialCommunityIcons name="google" size={20} color={colors.textPrimary} />

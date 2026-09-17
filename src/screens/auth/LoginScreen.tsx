@@ -77,6 +77,7 @@ export function LoginScreen({ navigation }: Props) {
         <Text style={styles.tagline}>Know where every rupee goes.</Text>
       </View>
 
+      {/* 
       <TextField
         label="Email"
         autoCapitalize="none"
@@ -98,8 +99,6 @@ export function LoginScreen({ navigation }: Props) {
         }
       />
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
       <Button label="Log In" onPress={handleSubmit} loading={isLoading} disabled={!email || !password} />
 
       <View style={styles.divider}>
@@ -107,6 +106,9 @@ export function LoginScreen({ navigation }: Props) {
         <Text style={styles.dividerText}>OR</Text>
         <View style={styles.dividerLine} />
       </View>
+      */}
+
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <TouchableOpacity style={styles.googleBtn} onPress={handleGoogleSignIn} disabled={isLoading}>
         <MaterialCommunityIcons name="google" size={20} color={colors.textPrimary} />
