@@ -50,7 +50,7 @@
       }
     },
     "extra": {
-      "apiUrl": "https://expenso-backend-icj0.onrender.com",
+      "apiUrl": "http://140.238.208.13:8080",
       "eas": {
         "projectId": "d196b589-e7ca-491b-b05a-3ba0c3f16433"
       }
