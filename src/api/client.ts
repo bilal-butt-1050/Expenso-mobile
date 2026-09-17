@@ -14,20 +14,19 @@ function resolveApiUrl(): string {
     return process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl || "http://localhost:4000";
   }
 
-  // 2. On a mobile device in Expo Go (LAN mode), dynamically use the exact IP
+  // 2. Prioritize EXPO_PUBLIC_API_URL if defined (like your VPS IP)
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+
+  // 3. On a mobile device in Expo Go (LAN mode), dynamically use the exact IP
   // the phone used to download the bundle from Metro (hostUri).
-  // This automatically handles changing Wi-Fi networks and dynamic DHCP IPs!
   const hostUri = Constants.expoConfig?.hostUri;
   if (hostUri) {
     const host = hostUri.split(":")[0];
     if (host && !host.includes("exp.direct") && host !== "localhost" && host !== "127.0.0.1") {
       return `http://${host}:4000`;
     }
-  }
-
-  // 3. Fallback to EXPO_PUBLIC_API_URL if defined (tunnel mode or manual override)
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
   }
 
   // 4. Fallback to extra.apiUrl from app.json
