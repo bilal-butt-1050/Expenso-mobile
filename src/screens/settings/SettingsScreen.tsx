@@ -143,6 +143,7 @@ export function SettingsScreen() {
           setIsEditNameOpen(true);
         }}
       />
+      {/* 
       <SettingsRow
         icon="lock-reset"
         label="Change Password"
@@ -160,6 +161,7 @@ export function SettingsScreen() {
           setIsChangePasswordOpen(true);
         }}
       />
+      */}
 
       <Text style={styles.sectionTitle}>Preferences</Text>
       <SettingsRow
@@ -197,6 +199,7 @@ export function SettingsScreen() {
         </View>
       </BottomSheet>
 
+      {/* 
       <BottomSheet visible={isChangePasswordOpen} onClose={() => setIsChangePasswordOpen(false)}>
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Change Password</Text>
@@ -251,6 +254,7 @@ export function SettingsScreen() {
           </View>
         </View>
       </BottomSheet>
+      */}
     </ScreenContainer>
   );
 }
