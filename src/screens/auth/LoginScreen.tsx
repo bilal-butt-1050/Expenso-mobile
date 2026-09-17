@@ -50,6 +50,12 @@ export function LoginScreen({ navigation }: Props) {
     setError(null);
     try {
       await GoogleSignin.hasPlayServices();
+      try {
+        // Sign out first to ensure the account chooser is shown every time
+        await GoogleSignin.signOut();
+      } catch (e) {
+        // Ignore errors if already signed out
+      }
       const userInfo = await GoogleSignin.signIn();
       if (userInfo.data?.idToken) {
         setIsLoading(true);
