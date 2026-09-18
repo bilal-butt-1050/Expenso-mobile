@@ -3,7 +3,7 @@ import { Category, Expense, Income } from "./models";
 
 export type AuthStackParamList = {
   Login: undefined;
-  Register: undefined;
+  Register?: undefined;
 };
 
 export type TabParamList = {

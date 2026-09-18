@@ -100,7 +100,7 @@ export function AnimatedSplash({ ready, onComplete }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...(StyleSheet.absoluteFill as object),
     width,
     height,
     backgroundColor: colors.background,
