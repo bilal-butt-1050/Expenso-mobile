@@ -12,7 +12,7 @@ interface AuthContextValue {
   loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
-  updateProfile: (data: { name?: string; currency?: string }) => Promise<void>;
+  updateProfile: (data: { name?: string; currency?: string; avatarUrl?: string | null }) => Promise<void>;
   changePassword: (currentPassword?: string, newPassword?: string) => Promise<void>;
 }
 

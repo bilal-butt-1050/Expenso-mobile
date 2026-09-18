@@ -40,6 +40,7 @@ export async function logout(): Promise<void> {
 export async function updateProfile(data: {
   name?: string;
   currency?: string;
+  avatarUrl?: string | null;
 }): Promise<User> {
   const { data: user } = await apiClient.patch<User>("/auth/profile", data);
   return user;

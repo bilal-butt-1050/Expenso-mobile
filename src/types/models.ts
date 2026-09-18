@@ -7,6 +7,7 @@ export interface User {
   email: string;
   name: string | null;
   currency: string;
+  avatarUrl?: string | null;
 }
 
 export interface Category {

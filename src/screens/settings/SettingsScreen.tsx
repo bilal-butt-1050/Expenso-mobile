@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Image, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import md5 from "md5";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { useAuth } from "../../context/AuthContext";
 import { useDialog } from "../../context/DialogContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
@@ -41,6 +42,24 @@ export function SettingsScreen() {
   const [currentPasswordError, setCurrentPasswordError] = useState<string | null>(null);
   const [newPasswordError, setNewPasswordError] = useState<string | null>(null);
   const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
+
+  const [googlePhoto, setGooglePhoto] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    if (user?.avatarUrl) return;
+    (async () => {
+      try {
+        const currentUser = await GoogleSignin.getCurrentUser();
+        if (currentUser?.user?.photo) {
+          setGooglePhoto(currentUser.user.photo);
+          updateProfile({ avatarUrl: currentUser.user.photo }).catch(() => {});
+        }
+      } catch (e) {
+        // Ignore if not signed in via Google
+      }
+    })();
+  }, [user?.avatarUrl, updateProfile]);
 
   const handleSaveName = async () => {
     setNameError(null);
@@ -114,7 +133,8 @@ export function SettingsScreen() {
   const nameFromEmail = email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, l => l.toUpperCase());
   const displayName = user?.name || nameFromEmail || "Expenso User";
   const emailHash = md5(email.trim().toLowerCase());
-  const avatarUrl = `https://www.gravatar.com/avatar/${emailHash}?d=identicon&s=150`;
+  const fallbackAvatarUrl = `https://www.gravatar.com/avatar/${emailHash}?d=identicon&s=150`;
+  const avatarUrl = user?.avatarUrl || googlePhoto || fallbackAvatarUrl;
 
   return (
     <ScreenContainer>
@@ -124,7 +144,17 @@ export function SettingsScreen() {
 
       <Card style={styles.profileCard}>
         <View style={styles.avatar}>
-          <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+          {avatarUrl && !imageError ? (
+            <Image
+              source={{ uri: avatarUrl }}
+              style={styles.avatarImage}
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <Text style={styles.avatarFallbackText}>
+              {(displayName || "E")[0].toUpperCase()}
+            </Text>
+          )}
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.name}>{displayName}</Text>
@@ -303,6 +333,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   avatarImage: { width: "100%", height: "100%" },
+  avatarFallbackText: { fontSize: 20, fontWeight: "700", color: colors.accent },
   name: { ...typography.body, fontWeight: "700" },
   email: { ...typography.caption, marginTop: 2 },
   sectionTitle: { ...typography.small, color: colors.textMuted, marginTop: spacing.xl, marginBottom: spacing.xs, marginLeft: spacing.sm, textTransform: "uppercase", letterSpacing: 0.5 },

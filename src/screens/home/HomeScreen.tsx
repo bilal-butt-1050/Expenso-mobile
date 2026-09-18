@@ -1,5 +1,5 @@
 import React from "react";
-import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -35,9 +35,16 @@ export function HomeScreen() {
           activeOpacity={0.8}
           accessibilityRole="button"
         >
-          <Text style={styles.headerAvatarText}>
-            {(user?.name || user?.email || "E")[0].toUpperCase()}
-          </Text>
+          {user?.avatarUrl ? (
+            <Image
+              source={{ uri: user.avatarUrl }}
+              style={styles.headerAvatarImage}
+            />
+          ) : (
+            <Text style={styles.headerAvatarText}>
+              {(user?.name || user?.email || "E")[0].toUpperCase()}
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -205,7 +212,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
+  headerAvatarImage: { width: "100%", height: "100%" },
   headerAvatarText: { fontSize: 18, fontWeight: "700", color: colors.accent },
   
   scroll: {
