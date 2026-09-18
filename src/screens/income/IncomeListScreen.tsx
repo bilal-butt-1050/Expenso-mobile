@@ -232,7 +232,7 @@ function IncomeItem({
         <CategoryPill icon={item.sourceIcon || "cash-multiple"} size={48} />
         <View style={styles.rowMiddle}>
           <Text style={styles.rowTitle} numberOfLines={1}>
-            {item.description || item.source}
+            {item.source}
           </Text>
         </View>
       </TouchableOpacity>

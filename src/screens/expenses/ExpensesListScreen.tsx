@@ -267,7 +267,7 @@ function ExpenseItem({
         <CategoryPill icon={item.category.icon} size={48} />
         <View style={styles.rowMiddle}>
           <Text style={styles.rowTitle} numberOfLines={1}>
-            {item.description || item.category.name}
+            {item.category.name}
           </Text>
         </View>
       </TouchableOpacity>
