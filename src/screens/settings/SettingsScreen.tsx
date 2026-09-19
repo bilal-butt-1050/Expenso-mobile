@@ -5,6 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import * as Updates from "expo-updates";
 import { useAuth } from "../../context/AuthContext";
 import { useDialog } from "../../context/DialogContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
@@ -129,6 +130,57 @@ export function SettingsScreen() {
     });
   };
 
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+
+  const handleCheckForUpdates = async () => {
+    if (__DEV__ || !Updates.isEnabled) {
+      alert({
+        title: "Development Mode",
+        message: "Over-the-air updates are only active in standalone APK/production builds.",
+        icon: "information-outline",
+      });
+      return;
+    }
+
+    setIsCheckingUpdate(true);
+    try {
+      const update = await Updates.checkForUpdateAsync();
+      if (update.isAvailable) {
+        alert({
+          title: "Update Available",
+          message: "Downloading the latest version in the background...",
+          icon: "download",
+        });
+        const res = await Updates.fetchUpdateAsync();
+        if (res.isNew) {
+          confirm({
+            title: "Update Downloaded",
+            message: "The latest update has been downloaded. Would you like to restart the app to apply it now?",
+            confirmText: "Restart Now",
+            icon: "restart",
+            onConfirm: async () => {
+              await Updates.reloadAsync();
+            },
+          });
+        }
+      } else {
+        alert({
+          title: "Up to Date",
+          message: "You are running the latest version of Expenso.",
+          icon: "check-circle-outline",
+        });
+      }
+    } catch (err) {
+      alert({
+        title: "Update Check Failed",
+        message: "Unable to reach update servers. Please check your internet connection.",
+        icon: "alert-circle-outline",
+      });
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
+
   const email = user?.email || "";
   const nameFromEmail = email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, l => l.toUpperCase());
   const displayName = user?.name || nameFromEmail || "Expenso User";
@@ -199,6 +251,14 @@ export function SettingsScreen() {
         label="Customize Categories"
         subtitle="Add, edit or remove spending categories"
         onPress={() => navigation.navigate("Categories")}
+      />
+
+      <Text style={styles.sectionTitle}>App & System</Text>
+      <SettingsRow
+        icon="cloud-sync-outline"
+        label={isCheckingUpdate ? "Checking for Updates..." : "Check for Updates"}
+        subtitle={`Channel: ${Updates.channel || "development"} • v1.0.0`}
+        onPress={handleCheckForUpdates}
       />
 
       <TouchableOpacity style={styles.logout} onPress={confirmLogout}>
