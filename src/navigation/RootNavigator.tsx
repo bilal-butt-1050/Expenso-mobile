@@ -35,13 +35,11 @@ export function RootNavigator() {
   const { user, isLoading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
 
-  // Once auth check finishes, hide the native splash immediately —
-  // our custom AnimatedSplash takes over the visual transition.
+  // Dismiss native splash immediately on mount —
+  // our custom AnimatedSplash is already mounted and covering the screen with zero flicker.
   useEffect(() => {
-    if (!isLoading) {
-      SplashScreen.hideAsync().catch(() => {});
-    }
-  }, [isLoading]);
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
 
   const handleSplashComplete = useCallback(() => {
     setShowSplash(false);
