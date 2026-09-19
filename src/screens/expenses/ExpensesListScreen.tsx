@@ -21,6 +21,8 @@ import { formatDate } from "../../utils/date";
 import { Expense, ExpenseStatus } from "../../types/models";
 import { RootStackParamList } from "../../types/navigation";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SwipeableExpenseRow } from "../../components/SwipeableExpenseRow";
+import { hapticLight } from "../../utils/haptics";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Filter = ExpenseStatus | "All";
@@ -89,6 +91,7 @@ export function ExpensesListScreen() {
   };
 
   const handleToggleStatus = async (expense: Expense) => {
+    hapticLight();
     await toggleStatus(expense.id);
   };
 
@@ -124,7 +127,7 @@ export function ExpensesListScreen() {
           </View>
         )}
         renderItem={({ item }) => (
-          <ExpenseItem
+          <SwipeableExpenseRow
             item={item}
             isNewlyAdded={item.id === highlightingId}
             isDeleting={item.id === deletingId}
@@ -136,6 +139,7 @@ export function ExpensesListScreen() {
             onPress={() => navigation.navigate("ExpenseForm", { expense: item })}
             onLongPress={() => confirmDelete(item)}
             onToggleStatus={() => handleToggleStatus(item)}
+            onDelete={() => confirmDelete(item)}
           />
         )}
         onEndReached={loadMore}
@@ -175,119 +179,6 @@ export function ExpensesListScreen() {
   );
 }
 
-function ExpenseItem({
-  item,
-  isNewlyAdded,
-  isDeleting,
-  onPress,
-  onLongPress,
-  onToggleStatus,
-  onDeleteAnimFinish,
-}: {
-  item: Expense;
-  isNewlyAdded?: boolean;
-  isDeleting?: boolean;
-  onPress: () => void;
-  onLongPress: () => void;
-  onToggleStatus: () => void;
-  onDeleteAnimFinish?: () => void;
-}) {
-  const [isPaid, setIsPaid] = React.useState(item.status === "Paid");
-  const highlightAnim = useRef(new Animated.Value(isNewlyAdded ? 1 : 0)).current;
-  const deleteAnim = useRef(new Animated.Value(0)).current;
-
-  React.useEffect(() => {
-    setIsPaid(item.status === "Paid");
-  }, [item.status]);
-
-  React.useEffect(() => {
-    if (isNewlyAdded) {
-      Animated.sequence([
-        Animated.timing(highlightAnim, { toValue: 1, duration: 0, useNativeDriver: false }),
-        Animated.timing(highlightAnim, { toValue: 0, duration: 2000, delay: 500, useNativeDriver: false })
-      ]).start();
-    }
-  }, [isNewlyAdded]);
-
-  React.useEffect(() => {
-    if (isDeleting) {
-      Animated.sequence([
-        Animated.timing(deleteAnim, {
-          toValue: 1,
-          duration: 350,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true, // NATIVE DRIVER FOR PIXEL PERFECT 60FPS
-        })
-      ]).start(() => {
-        if (onDeleteAnimFinish) onDeleteAnimFinish();
-      });
-    }
-  }, [isDeleting]);
-
-  const handleToggle = () => {
-    setIsPaid(!isPaid);
-    onToggleStatus();
-  };
-
-  return (
-    <View style={{ marginBottom: 8, borderRadius: 16, backgroundColor: isDeleting ? colors.danger : "transparent", overflow: "hidden", justifyContent: "center" }}>
-      {isDeleting && (
-        <View style={{ position: "absolute", right: 24, alignItems: "center", justifyContent: "center" }}>
-          <MaterialCommunityIcons name="trash-can-outline" size={26} color="#FFFFFF" />
-        </View>
-      )}
-      
-      <Animated.View style={{
-        transform: [{
-          translateX: deleteAnim.interpolate({
-            inputRange: [0, 1],
-            outputRange: [0, -SCREEN_WIDTH]
-          })
-        }]
-      }}>
-        <Animated.View style={[
-          styles.row, 
-          { 
-            backgroundColor: highlightAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [colors.surfaceRaised, 'rgba(129, 140, 248, 0.2)']
-            }),
-            marginBottom: 0
-          }
-        ]}>
-          <TouchableOpacity
-            style={styles.rowTouchArea}
-            delayLongPress={150}
-        onPress={onPress}
-        onLongPress={onLongPress}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityLabel={`${item.category.name}, ${formatCurrency(item.amount)}, ${isPaid ? "Paid" : "Unpaid"}`}
-      >
-        <CategoryPill icon={item.category.icon} size={48} />
-        <View style={styles.rowMiddle}>
-          <Text style={styles.rowTitle} numberOfLines={1}>
-            {item.category.name}
-          </Text>
-        </View>
-      </TouchableOpacity>
-      <View style={styles.rowEnd}>
-        <Text style={styles.rowAmount}>{formatCurrency(item.amount)}</Text>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
-          <Text style={{ fontSize: 15, fontWeight: "600", color: isPaid ? colors.textPrimary : colors.textSecondary }}>
-            {isPaid ? "Paid" : "Unpaid"}
-          </Text>
-          <CustomSwitch
-            value={isPaid}
-            onValueChange={handleToggle}
-          />
-        </View>
-      </View>
-      </Animated.View>
-    </Animated.View>
-    </View>
-  );
-}
 
 function FilterSheet({ options, selected, title, insets, onClose, onSelect }: any) {
   const anim = useRef(new Animated.Value(0)).current;

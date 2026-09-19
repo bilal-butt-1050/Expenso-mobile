@@ -1,4 +1,6 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import md5 from "md5";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -22,6 +24,30 @@ export function HomeScreen() {
   const { selectedMonth, setSelectedMonth } = useAppData();
   const { data, isLoading, refetch } = useDashboard();
 
+  const [googlePhoto, setGooglePhoto] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    if (user?.avatarUrl) return;
+    (async () => {
+      try {
+        const currentUser = await GoogleSignin.getCurrentUser();
+        if (currentUser?.user?.photo) {
+          setGooglePhoto(currentUser.user.photo);
+        }
+      } catch (e) {
+        // Ignore
+      }
+    })();
+  }, [user?.avatarUrl]);
+
+  const email = user?.email || "";
+  const nameFromEmail = email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+  const displayName = user?.name || nameFromEmail || "E";
+  const emailHash = md5(email.trim().toLowerCase());
+  const fallbackAvatarUrl = `https://www.gravatar.com/avatar/${emailHash}?d=identicon&s=150`;
+  const avatarUrl = user?.avatarUrl || googlePhoto || fallbackAvatarUrl;
+
   return (
     <ScreenContainer style={styles.noPad}>
       {/* Top Header Row — Fixed at top */}
@@ -35,14 +61,15 @@ export function HomeScreen() {
           activeOpacity={0.8}
           accessibilityRole="button"
         >
-          {user?.avatarUrl ? (
+          {avatarUrl && !imageError ? (
             <Image
-              source={{ uri: user.avatarUrl }}
+              source={{ uri: avatarUrl }}
               style={styles.headerAvatarImage}
+              onError={() => setImageError(true)}
             />
           ) : (
             <Text style={styles.headerAvatarText}>
-              {(user?.name || user?.email || "E")[0].toUpperCase()}
+              {displayName[0].toUpperCase()}
             </Text>
           )}
         </TouchableOpacity>

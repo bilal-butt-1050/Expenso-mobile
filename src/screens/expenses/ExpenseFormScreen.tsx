@@ -34,6 +34,7 @@ import { NeedWant, PaymentMethod, ExpenseStatus } from "../../types/models";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatCurrency, formatAmountInput } from "../../utils/currency";
 import { RootStackParamList } from "../../types/navigation";
+import { hapticSuccess, hapticError, hapticWarning, hapticHeavy } from "../../utils/haptics";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ExpenseForm">;
 
@@ -262,6 +263,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       // Warn BEFORE saving
       if (!forceSave && budgetItem && budgetItem.budget > 0) {
         if (newActual > budgetItem.budget) {
+          hapticWarning();
           setBudgetAlert({
             categoryName: budgetItem.name,
             categoryIcon: budgetItem.icon,
@@ -279,6 +281,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
           newActual >= budgetItem.budget * 0.8 &&
           (budgetItem.actual ?? 0) < budgetItem.budget * 0.8
         ) {
+          hapticWarning();
           setBudgetAlert({
             categoryName: budgetItem.name,
             categoryIcon: budgetItem.icon,
@@ -304,6 +307,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         newExpenseId = result.id;
       }
 
+      hapticSuccess();
       setBudgetAlert(null);
       
       // Switch to the month of the new expense so the user can see it
@@ -313,6 +317,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       navigation.dispatch(TabActions.jumpTo("Expenses", { highlightId: editing ? editing.id : newExpenseId }));
       navigation.goBack();
     } catch (err) {
+      hapticError();
       setError(getErrorMessage(err));
     } finally {
       setIsSaving(false);
@@ -328,6 +333,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       destructive: true,
       icon: "trash-can-outline",
       onConfirm: () => {
+        hapticHeavy();
         navigation.dispatch(TabActions.jumpTo("Expenses", { deleteId: editing.id }));
         navigation.goBack();
       },
