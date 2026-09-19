@@ -86,7 +86,7 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
   }, [viewMonth, viewYear]);
 
   const selectDay = useCallback((day: number) => {
-    onChange(new Date(viewYear, viewMonth, day));
+    onChange(new Date(viewYear, viewMonth, day, 12, 0, 0));
     setOpen(false);
   }, [viewYear, viewMonth, onChange]);
 

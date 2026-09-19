@@ -1,9 +1,22 @@
+let activeCurrency = "PKR";
+
+export function setActiveCurrency(currency: string) {
+  if (currency) {
+    activeCurrency = currency;
+  }
+}
+
+export function getActiveCurrency(): string {
+  return activeCurrency;
+}
+
 // Centralized currency formatting across all screens. Formats values as whole units.
-export function formatCurrency(amount: number, currency = "PKR"): string {
+export function formatCurrency(amount: number, currency?: string): string {
+  const curr = currency || activeCurrency || "PKR";
   const rounded = Math.round(amount);
   const formatted = Math.abs(rounded).toLocaleString("en-PK");
   const sign = rounded < 0 ? "-" : "";
-  const symbol = currency === "PKR" ? "Rs" : currency;
+  const symbol = curr === "PKR" ? "Rs" : curr;
   return `${sign}${symbol} ${formatted}`;
 }
 
