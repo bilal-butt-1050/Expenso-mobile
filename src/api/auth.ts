@@ -22,11 +22,12 @@ export async function loginWithGoogle(idToken: string): Promise<User> {
   return data.user;
 }
 
-export async function register(email: string, password: string, otp: string, name: string): Promise<User> {
-  const { data } = await apiClient.post<AuthResponse>("/auth/register", { email, password, otp, name });
+export async function register(email: string, password: string, name: string, otp?: string): Promise<User> {
+  const { data } = await apiClient.post<AuthResponse>("/auth/register", { email, password, name, otp });
   await setToken(data.token);
   return data.user;
 }
+
 
 export async function fetchCurrentUser(): Promise<User> {
   const { data } = await apiClient.get<User>("/auth/me");
