@@ -220,28 +220,33 @@ function CategoryItem({
             }) 
           }
         ]}>
-          <TouchableOpacity 
-            style={styles.innerRow} 
-            onPress={onPress}
-            activeOpacity={isImmutable ? 1 : 0.7}
-            disabled={isImmutable}
-          >
-            <CategoryPill icon={item.icon} color={item.color} />
-            <Text style={styles.label}>{item.name}</Text>
-            {item.isDefault && <Text style={styles.defaultTag}>Default</Text>}
+          <View style={styles.innerRow}>
+            <TouchableOpacity 
+              style={styles.rowMain} 
+              onPress={onPress}
+              activeOpacity={isImmutable ? 1 : 0.7}
+              disabled={isImmutable}
+            >
+              <CategoryPill icon={item.icon} color={item.color} />
+              <Text style={styles.label}>{item.name}</Text>
+              {item.isDefault && <Text style={styles.defaultTag}>Default</Text>}
+            </TouchableOpacity>
             
             {!isImmutable && (
               <TouchableOpacity
                 onPress={onDelete}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={styles.actionBtn}
               >
                 <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             )}
             {isImmutable && (
-              <MaterialCommunityIcons name="lock-outline" size={18} color={colors.textMuted} />
+              <View style={styles.actionBtn}>
+                <MaterialCommunityIcons name="lock-outline" size={18} color={colors.textMuted} />
+              </View>
             )}
-          </TouchableOpacity>
+          </View>
         </Animated.View>
       </Animated.View>
     </View>
@@ -258,8 +263,18 @@ const styles = StyleSheet.create({
   innerRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
     paddingVertical: spacing.sm,
+  },
+  rowMain: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  actionBtn: {
+    padding: spacing.xs,
+    alignItems: "center",
+    justifyContent: "center",
   },
   label: { ...typography.body, flex: 1 },
   defaultTag: { ...typography.small, backgroundColor: colors.surfaceRaised, paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: 999 },

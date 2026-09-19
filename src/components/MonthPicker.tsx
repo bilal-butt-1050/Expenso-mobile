@@ -8,10 +8,11 @@ import { formatMonthLabel, isCurrentOrFutureMonth, shiftMonth } from "../utils/d
 interface Props {
   month: string;
   onChange: (month: string) => void;
+  allowFuture?: boolean;
 }
 
-export function MonthPicker({ month, onChange }: Props) {
-  const isCurrentMonth = isCurrentOrFutureMonth(month);
+export function MonthPicker({ month, onChange, allowFuture = false }: Props) {
+  const isRightDisabled = !allowFuture && isCurrentOrFutureMonth(month);
 
   return (
     <View style={styles.container}>
@@ -28,9 +29,9 @@ export function MonthPicker({ month, onChange }: Props) {
       <Text style={styles.label}>{formatMonthLabel(month)}</Text>
 
       <TouchableOpacity
-        style={[styles.arrowBtn, isCurrentMonth && styles.arrowDisabled]}
-        onPress={() => !isCurrentMonth && onChange(shiftMonth(month, 1))}
-        disabled={isCurrentMonth}
+        style={[styles.arrowBtn, isRightDisabled && styles.arrowDisabled]}
+        onPress={() => !isRightDisabled && onChange(shiftMonth(month, 1))}
+        disabled={isRightDisabled}
         hitSlop={10}
         activeOpacity={0.7}
         accessibilityLabel="Next month"
@@ -38,7 +39,7 @@ export function MonthPicker({ month, onChange }: Props) {
         <MaterialCommunityIcons
           name="chevron-right"
           size={24}
-          color={isCurrentMonth ? colors.textMuted : colors.textPrimary}
+          color={isRightDisabled ? colors.textMuted : colors.textPrimary}
         />
       </TouchableOpacity>
     </View>

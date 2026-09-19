@@ -1,21 +1,17 @@
 import React, { useState } from "react";
 import {
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
-  PanResponder,
-  Animated,
-  Dimensions,
   Keyboard
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { TabActions } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "../../context/AuthContext";
 import { useIncome } from "../../hooks/useIncome";
 import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
@@ -26,6 +22,7 @@ import { Button } from "../../components/Button";
 import { DatePicker } from "../../components/DatePicker";
 import { MonthPicker } from "../../components/MonthPicker";
 import { CategoryPill } from "../../components/CategoryPill";
+import { BottomSheet } from "../../components/BottomSheet";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
@@ -77,113 +74,17 @@ export function IncomeFormScreen({ route, navigation }: Props) {
     return false;
   }, [editing, selectedPreset, description, amount, paymentMethod, date]);
 
+  const { user } = useAuth();
   const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [isSheetExpanded, setIsSheetExpanded] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const SCREEN_HEIGHT = Dimensions.get("window").height;
-  const sheetHeight = SCREEN_HEIGHT * 0.92;
-  const peekHeight = 360;
-  const defaultOffset = sheetHeight - peekHeight;
-  const panY = React.useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const sheetOffset = React.useRef(defaultOffset);
-
-  React.useEffect(() => {
-    if (isPickerOpen) {
-      setIsSheetExpanded(false);
-      sheetOffset.current = defaultOffset;
-      panY.setValue(SCREEN_HEIGHT);
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.spring(panY, {
-          toValue: defaultOffset,
-          useNativeDriver: true,
-          tension: 250,
-          friction: 25,
-        }),
-      ]).start();
-    }
-  }, [isPickerOpen]);
-
-  const panResponder = React.useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderMove: (e, gestureState) => {
-        let newY = sheetOffset.current + gestureState.dy;
-        if (newY < 0) newY = 0;
-        panY.setValue(newY);
-      },
-      onPanResponderRelease: (e, gestureState) => {
-        const currentY = sheetOffset.current + gestureState.dy;
-        const velocityY = gestureState.vy;
-
-        let snapTo = defaultOffset;
-        let nextExpanded = false;
-
-        if (velocityY < -1 || currentY < defaultOffset / 2) {
-          snapTo = 0;
-          nextExpanded = true;
-        } else if (velocityY > 1.5 || currentY > defaultOffset + 100) {
-          Animated.parallel([
-            Animated.timing(fadeAnim, {
-              toValue: 0,
-              duration: 200,
-              useNativeDriver: true,
-            }),
-            Animated.timing(panY, {
-              toValue: SCREEN_HEIGHT,
-              duration: 250,
-              useNativeDriver: true,
-            }),
-          ]).start(() => {
-            setIsPickerOpen(false);
-          });
-          return;
-        } else {
-          snapTo = defaultOffset;
-          nextExpanded = false;
-        }
-
-        sheetOffset.current = snapTo;
-        setIsSheetExpanded(nextExpanded);
-        Animated.spring(panY, {
-          toValue: snapTo,
-          useNativeDriver: true,
-          tension: 250,
-          friction: 25,
-        }).start();
-      }
-    })
-  ).current;
 
   const openSheet = React.useCallback(() => {
     Keyboard.dismiss();
-    setSearchQuery("");
-    setIsSheetExpanded(false);
     setIsPickerOpen(true);
   }, []);
 
   const closeSheet = React.useCallback(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(panY, {
-        toValue: SCREEN_HEIGHT,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setIsPickerOpen(false);
-    });
-  }, [panY]);
+    setIsPickerOpen(false);
+  }, []);
 
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -271,7 +172,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
           keyboardType="decimal-pad"
           value={amount}
           onChangeText={(val) => setAmount(formatAmountInput(val))}
-          placeholder="Amount (PKR)"
+          placeholder={`Amount (${user?.currency || "PKR"})`}
         />
 
         <TextField
@@ -347,51 +248,37 @@ export function IncomeFormScreen({ route, navigation }: Props) {
       </ScrollView>
 
       {/* Source Sheet */}
-      <Modal visible={isPickerOpen} transparent animationType="none" onRequestClose={closeSheet}>
-        <Animated.View style={[styles.sheetBackdrop, { opacity: fadeAnim }]}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeSheet} />
-        </Animated.View>
-        <Animated.View
-          style={[
-              styles.sheetContent,
-              {
-                paddingBottom: Math.max(insets.bottom, 16) + spacing.md,
-                height: sheetHeight,
-                transform: [{ translateY: panY }]
-              }
-          ]}
-        >
-          <View {...panResponder.panHandlers} style={{ backgroundColor: 'transparent', paddingVertical: spacing.sm }}>
-            <View style={styles.sheetDragHandle} />
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Source</Text>
-              <TouchableOpacity onPress={closeSheet} hitSlop={12}>
-                <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-          </View>
+      <BottomSheet visible={isPickerOpen} onClose={closeSheet}>
+        <View style={styles.sheetHeader}>
+          <Text style={styles.sheetTitle}>Source</Text>
+          <TouchableOpacity onPress={closeSheet} hitSlop={12}>
+            <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
 
-          <ScrollView style={styles.optionList} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            {PRESET_SOURCES.map((p) => {
-              const isSelected = p.source === selectedPreset.source;
-              return (
-                <TouchableOpacity
-                  key={p.source}
-                  style={[styles.optionRow, isSelected && styles.optionRowSelected]}
-                  onPress={() => { setSelectedPreset(p); closeSheet(); }}
-                  activeOpacity={0.7}
-                >
-                  <CategoryPill icon={p.icon} size={32} />
-                  <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
-                    {p.source}
-                  </Text>
-                  {isSelected && <MaterialCommunityIcons name="check" size={20} color={colors.textPrimary} />}
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </Animated.View>
-      </Modal>
+        <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          {PRESET_SOURCES.map((p) => {
+            const isSelected = p.source === selectedPreset.source;
+            return (
+              <TouchableOpacity
+                key={p.source}
+                style={[styles.optionRow, isSelected && styles.optionRowSelected]}
+                onPress={() => {
+                  setSelectedPreset(p);
+                  closeSheet();
+                }}
+                activeOpacity={0.7}
+              >
+                <CategoryPill icon={p.icon} size={32} />
+                <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
+                  {p.source}
+                </Text>
+                {isSelected && <MaterialCommunityIcons name="check" size={20} color={colors.textPrimary} />}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </BottomSheet>
     </>
   );
 }
@@ -438,23 +325,6 @@ const styles = StyleSheet.create({
   segmentText: { fontSize: 14, fontWeight: "600", color: colors.textSecondary, textAlign: "center" },
   segmentTextActive: { color: colors.textPrimary, fontWeight: "700", textAlign: "center" },
 
-  sheetBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" },
-  sheetContent: {
-    backgroundColor: colors.surfaceRaised,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.lg,
-  },
-  sheetDragHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    alignSelf: "center",
-    marginBottom: spacing.sm,
-  },
   sheetHeader: {
     flexDirection: "row",
     justifyContent: "space-between",

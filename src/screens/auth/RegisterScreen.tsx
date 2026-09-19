@@ -16,15 +16,12 @@ import { typography } from "../../theme/typography";
 type Props = NativeStackScreenProps<AuthStackParamList, "Register">;
 
 export function RegisterScreen({ navigation }: Props) {
-  const { register, sendOtp, loginWithGoogle } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [otp, setOtp] = useState("");
-  const [step, setStep] = useState<"DETAILS" | "OTP">("DETAILS");
-  
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -39,11 +36,21 @@ export function RegisterScreen({ navigation }: Props) {
     }
   }, []);
 
-  const handleNext = async () => {
+  const handleRegister = async () => {
     setError(null);
-    
+
     if (!name.trim()) {
       setError("Name is required");
+      return;
+    }
+
+    if (!email.trim()) {
+      setError("Email is required");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
       return;
     }
 
@@ -54,20 +61,7 @@ export function RegisterScreen({ navigation }: Props) {
 
     setIsLoading(true);
     try {
-      await sendOtp(email.trim());
-      setStep("OTP");
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRegister = async () => {
-    setError(null);
-    setIsLoading(true);
-    try {
-      await register(email.trim(), password, otp.trim(), name.trim());
+      await register(email.trim(), password, name.trim());
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -77,11 +71,10 @@ export function RegisterScreen({ navigation }: Props) {
 
   const handleGoogleSignIn = async () => {
     setError(null);
-    setIsLoading(true); // Start loading immediately on tap
+    setIsLoading(true);
     try {
       await GoogleSignin.hasPlayServices();
       try {
-        // Sign out first to ensure the account chooser is shown every time
         await GoogleSignin.signOut();
       } catch (e) {
         // Ignore errors if already signed out
@@ -99,49 +92,21 @@ export function RegisterScreen({ navigation }: Props) {
     }
   };
 
-  if (step === "OTP") {
-    return (
-      <ScreenContainer>
-        <View style={styles.header}>
-          <Text style={styles.title}>Check your email</Text>
-          <Text style={styles.subtitle}>We've sent a 6-digit code to {email}</Text>
-        </View>
-
-        <TextField
-          label="Verification Code"
-          keyboardType="number-pad"
-          value={otp}
-          onChangeText={setOtp}
-          placeholder="123456"
-          maxLength={6}
-          style={{ letterSpacing: 8, textAlign: "center", fontSize: 24, fontWeight: "700" }}
-        />
-
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        <Button
-          label="Verify & Create Account"
-          onPress={handleRegister}
-          loading={isLoading}
-          disabled={otp.length !== 6}
-        />
-
-        <TouchableOpacity onPress={() => setStep("DETAILS")} style={{ marginTop: spacing.lg, alignItems: "center" }}>
-          <Text style={styles.link}>Go back</Text>
-        </TouchableOpacity>
-      </ScreenContainer>
-    );
-  }
-
   return (
     <ScreenContainer>
       <View style={styles.header}>
         <Text style={styles.title}>Create your account</Text>
-        <Text style={styles.subtitle}>Takes less than a minute.</Text>
+        <Text style={styles.subtitle}>Start tracking your expenses with ease</Text>
       </View>
 
-      {/* 
-      <TextField label="Name (optional)" value={name} onChangeText={setName} placeholder="Bilal" />
+      <TextField
+        label="Full Name"
+        value={name}
+        onChangeText={setName}
+        placeholder="Bilal Khan"
+        autoCapitalize="words"
+      />
+
       <TextField
         label="Email"
         autoCapitalize="none"
@@ -150,6 +115,7 @@ export function RegisterScreen({ navigation }: Props) {
         onChangeText={setEmail}
         placeholder="you@example.com"
       />
+
       <TextField
         label="Password"
         secureTextEntry={!showPassword}
@@ -162,6 +128,7 @@ export function RegisterScreen({ navigation }: Props) {
           </TouchableOpacity>
         }
       />
+
       <TextField
         label="Confirm Password"
         secureTextEntry={!showPassword}
@@ -170,11 +137,13 @@ export function RegisterScreen({ navigation }: Props) {
         placeholder="Repeat password"
       />
 
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
       <Button
-        label="Continue"
-        onPress={handleNext}
+        label="Create Account"
+        onPress={handleRegister}
         loading={isLoading}
-        disabled={!email || password.length < 8 || !confirmPassword}
+        disabled={!email || password.length < 8 || !confirmPassword || !name.trim()}
       />
 
       <View style={styles.divider}>
@@ -182,9 +151,6 @@ export function RegisterScreen({ navigation }: Props) {
         <Text style={styles.dividerText}>OR</Text>
         <View style={styles.dividerLine} />
       </View>
-      */}
-
-      {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <TouchableOpacity style={styles.googleBtn} onPress={handleGoogleSignIn} disabled={isLoading}>
         {isLoading ? (
@@ -197,10 +163,9 @@ export function RegisterScreen({ navigation }: Props) {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>Already have an account?</Text>
-        <Text style={styles.link} onPress={() => navigation.navigate("Login")}>
-          {" "}
-          Log in
-        </Text>
+        <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+          <Text style={styles.link}> Log in</Text>
+        </TouchableOpacity>
       </View>
     </ScreenContainer>
   );

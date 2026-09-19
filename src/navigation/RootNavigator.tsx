@@ -12,7 +12,6 @@ import { ExpenseFormScreen } from "../screens/expenses/ExpenseFormScreen";
 import { IncomeFormScreen } from "../screens/income/IncomeFormScreen";
 import { CategoriesScreen } from "../screens/settings/CategoriesScreen";
 import { CategoryFormScreen } from "../screens/settings/CategoryFormScreen";
-import { IncomeScreen } from "../screens/settings/IncomeScreen";
 import { AnimatedSplash } from "../components/AnimatedSplash";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -61,7 +60,6 @@ export function RootNavigator() {
                   component={CategoryFormScreen}
                   options={{ title: "Category" }}
                 />
-                <Stack.Screen name="Income" component={IncomeScreen} options={{ title: "Legacy Income" }} />
               </Stack.Group>
             </>
           ) : (

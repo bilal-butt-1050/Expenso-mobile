@@ -56,12 +56,29 @@ apiClient.interceptors.request.use(async (config) => {
     }
     if (typeof (config.headers as any).set === "function") {
       (config.headers as any).set("Authorization", `Bearer ${token}`);
-    } else {
-      (config.headers as any).Authorization = `Bearer ${token}`;
     }
   }
   return config;
 });
+
+let unauthorizedHandler: (() => void) | null = null;
+
+export function setUnauthorizedHandler(handler: (() => void) | null) {
+  unauthorizedHandler = handler;
+}
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      await clearToken();
+      if (unauthorizedHandler) {
+        unauthorizedHandler();
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export async function getToken(): Promise<string | null> {
   if (Platform.OS === "web") {

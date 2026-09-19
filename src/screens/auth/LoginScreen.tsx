@@ -1,16 +1,36 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  ActivityIndicator,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../../context/AuthContext";
 import { getErrorMessage } from "../../api/client";
 import { ScreenContainer } from "../../components/ScreenContainer";
+import { TextField } from "../../components/TextField";
+import { Button } from "../../components/Button";
 import { colors } from "../../theme/colors";
 import { spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
+import { AuthStackParamList } from "../../types/navigation";
+
+type Nav = NativeStackNavigationProp<AuthStackParamList, "Login">;
 
 export function LoginScreen() {
-  const { loginWithGoogle } = useAuth();
+  const navigation = useNavigation<Nav>();
+  const { login, loginWithGoogle } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -25,13 +45,28 @@ export function LoginScreen() {
     }
   }, []);
 
+  const handleEmailLogin = async () => {
+    setError(null);
+    if (!email.trim() || !password) {
+      setError("Please enter your email and password.");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await login(email.trim().toLowerCase(), password);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     setError(null);
     setIsLoading(true);
     try {
       await GoogleSignin.hasPlayServices();
       try {
-        // Sign out first to ensure the account chooser is shown every time
         await GoogleSignin.signOut();
       } catch (e) {
         // Ignore errors if already signed out
@@ -51,58 +86,111 @@ export function LoginScreen() {
 
   return (
     <ScreenContainer>
-      <View style={styles.content}>
-        <View style={styles.hero}>
-          <Text style={styles.wordmark}>expenso</Text>
-          <Text style={styles.tagline}>Know where every rupee goes.</Text>
-        </View>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.hero}>
+            <Text style={styles.wordmark}>expenso</Text>
+            <Text style={styles.tagline}>Know where every rupee goes.</Text>
+          </View>
 
-        <View style={styles.bottomSection}>
-          {error ? (
-            <View style={styles.errorContainer}>
-              <MaterialCommunityIcons name="alert-circle-outline" size={18} color={colors.danger} />
-              <Text style={styles.errorText}>{error}</Text>
+          <View style={styles.form}>
+            {error ? (
+              <View style={styles.errorContainer}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={18} color={colors.danger} />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+
+            <TextField
+              label="Email"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="you@example.com"
+            />
+
+            <TextField
+              label="Password"
+              secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Your password"
+              rightElement={
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} hitSlop={10}>
+                  <MaterialCommunityIcons
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                    size={20}
+                    color={colors.textMuted}
+                  />
+                </TouchableOpacity>
+              }
+            />
+
+            <Button
+              label="Sign In"
+              onPress={handleEmailLogin}
+              loading={isLoading}
+              style={{ marginTop: spacing.sm }}
+            />
+
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
             </View>
-          ) : null}
 
-          <TouchableOpacity
-            style={styles.googleBtn}
-            onPress={handleGoogleSignIn}
-            disabled={isLoading}
-            activeOpacity={0.8}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color={colors.textPrimary} />
-            ) : (
-              <>
-                <MaterialCommunityIcons name="google" size={20} color={colors.textPrimary} />
-                <Text style={styles.googleBtnText}>Continue with Google</Text>
-              </>
-            )}
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.googleBtn}
+              onPress={handleGoogleSignIn}
+              disabled={isLoading}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="google" size={20} color={colors.textPrimary} />
+              <Text style={styles.googleBtnText}>Continue with Google</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.signupLink}
+              onPress={() => navigation.navigate("Register")}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.signupText}>
+                Don't have an account? <Text style={styles.signupHighlight}>Sign up</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <Text style={styles.disclaimer}>
             By continuing, you agree to our Terms & Privacy Policy.
           </Text>
-        </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    flex: 1,
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: "space-between",
     paddingBottom: spacing.xl,
   },
   hero: {
     alignItems: "center",
-    marginTop: spacing.xxl * 2,
+    marginTop: spacing.xl * 1.5,
+    marginBottom: spacing.xl,
   },
   wordmark: {
     ...typography.display,
-    fontSize: 42,
+    fontSize: 40,
     color: colors.accent,
     letterSpacing: -1,
   },
@@ -111,7 +199,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.xs,
   },
-  bottomSection: {
+  form: {
     width: "100%",
   },
   errorContainer: {
@@ -132,6 +220,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     flexShrink: 1,
   },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: spacing.lg,
+    gap: spacing.md,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  dividerText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.textMuted,
+    textTransform: "uppercase",
+  },
   googleBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -149,11 +254,25 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.textPrimary,
   },
+  signupLink: {
+    alignItems: "center",
+    marginTop: spacing.xl,
+    paddingVertical: spacing.xs,
+  },
+  signupText: {
+    fontSize: 15,
+    color: colors.textSecondary,
+  },
+  signupHighlight: {
+    color: colors.accent,
+    fontWeight: "700",
+  },
   disclaimer: {
     ...typography.caption,
     fontSize: 12,
     color: colors.textMuted,
     textAlign: "center",
-    marginTop: spacing.md,
+    marginTop: spacing.lg,
   },
 });
+

@@ -334,35 +334,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.accent,
   },
-
-  // Toast Styles
-  toastWrapper: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    zIndex: 9999,
-  },
-  toastPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm + 2,
-    shadowColor: "#000000",
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-    maxWidth: "88%",
-  },
-  toastText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
 });

@@ -85,7 +85,7 @@ export function BudgetScreen() {
             <>
               <View style={styles.topRow}>
                 <View style={{ flex: 1 }}>
-                  <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
+                  <MonthPicker month={selectedMonth} onChange={setSelectedMonth} allowFuture />
                 </View>
               </View>
 
@@ -209,6 +209,7 @@ function BudgetEditSheet({
   onClose: () => void;
   onSave: (amount: number) => void;
 }) {
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [value, setValue] = useState(currentAmount ? formatAmountInput(String(currentAmount)) : "");
 
@@ -221,7 +222,7 @@ function BudgetEditSheet({
         <Text style={styles.sheetTitle}>{category.name}</Text>
       </View>
       <TextField
-        label="Monthly budget (PKR)"
+        label={`Monthly budget (${user?.currency || "PKR"})`}
         keyboardType="decimal-pad"
         value={value}
         onChangeText={(val) => setValue(formatAmountInput(val))}
