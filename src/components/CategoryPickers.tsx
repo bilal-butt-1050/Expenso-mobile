@@ -27,6 +27,9 @@ export function ColorPicker({ value, onChange }: ColorProps) {
           <TouchableOpacity
             key={c}
             onPress={() => onChange(c)}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            accessibilityRole="button"
+            accessibilityLabel={`Select color ${c}`}
             style={[styles.swatch, { backgroundColor: c }, value === c && styles.swatchSelected]}
           />
         ))}
@@ -52,6 +55,9 @@ export function IconPicker({ value, color, onChange }: IconProps) {
             <TouchableOpacity
               key={icon}
               onPress={() => onChange(icon)}
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              accessibilityRole="button"
+              accessibilityLabel={`Select icon ${icon}`}
               style={[
                 styles.iconSlot,
                 { backgroundColor: selected ? `${color}26` : colors.surfaceRaised },

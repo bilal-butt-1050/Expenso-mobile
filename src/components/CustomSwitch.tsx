@@ -31,6 +31,9 @@ export function CustomSwitch({ value, onValueChange }: CustomSwitchProps) {
   return (
     <Pressable
       onPress={() => onValueChange(!value)}
+      hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value }}
       style={{
         width: 44,
         height: 24,

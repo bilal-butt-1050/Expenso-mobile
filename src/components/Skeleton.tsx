@@ -76,40 +76,36 @@ export function SkeletonList({ rows = 5 }: { rows?: number }) {
 export function HomeSkeleton() {
   return (
     <View style={homeStyles.container}>
-      {/* Income Hero */}
+      {/* Balance Hero */}
       <View style={homeStyles.hero}>
-        <Skeleton width={80} height={14} />
-        <Skeleton width={200} height={40} borderRadius={6} style={{ marginTop: 8 }} />
-        <Skeleton width={160} height={14} style={{ marginTop: 8 }} />
+        <Skeleton width={140} height={12} />
+        <Skeleton width={220} height={44} borderRadius={8} style={{ marginTop: 8 }} />
       </View>
 
-      {/* Expenses Panel */}
-      <View style={homeStyles.panel}>
-        <View style={homeStyles.panelCol}>
-          <Skeleton width={40} height={12} />
-          <Skeleton width={70} height={20} style={{ marginTop: 6 }} />
-        </View>
-        <View style={homeStyles.panelCol}>
-          <Skeleton width={35} height={12} />
-          <Skeleton width={70} height={20} style={{ marginTop: 6 }} />
-        </View>
-        <View style={homeStyles.panelCol}>
-          <Skeleton width={45} height={12} />
-          <Skeleton width={70} height={20} style={{ marginTop: 6 }} />
+      {/* Quick Action Pills */}
+      <View style={homeStyles.quickActions}>
+        <Skeleton width="30%" height={48} borderRadius={14} />
+        <Skeleton width="30%" height={48} borderRadius={14} />
+        <Skeleton width="30%" height={48} borderRadius={14} />
+      </View>
+
+      {/* Action Center */}
+      <View style={homeStyles.sectionWrap}>
+        <Skeleton width={110} height={14} style={{ marginBottom: 12 }} />
+        <View style={homeStyles.actionCenterRow}>
+          <Skeleton width={180} height={56} borderRadius={16} />
+          <Skeleton width={180} height={56} borderRadius={16} />
         </View>
       </View>
 
-      {/* Balance Card */}
-      <View style={homeStyles.balanceCard}>
-        <Skeleton width={130} height={14} />
-        <Skeleton width={180} height={36} borderRadius={6} style={{ marginTop: 10 }} />
-        <Skeleton width="100%" height={5} borderRadius={3} style={{ marginTop: 10 }} />
-      </View>
-
-      {/* Chart placeholder */}
-      <Skeleton width={120} height={18} style={{ marginTop: spacing.lg }} />
-      <View style={homeStyles.chartCard}>
-        <Skeleton width="100%" height={160} borderRadius={12} />
+      {/* Monthly Snapshot Grid */}
+      <View style={homeStyles.sectionWrap}>
+        <Skeleton width={130} height={14} style={{ marginBottom: 12 }} />
+        <View style={homeStyles.meshRow}>
+          <Skeleton width="48%" height={88} borderRadius={16} />
+          <Skeleton width="48%" height={88} borderRadius={16} />
+        </View>
+        <Skeleton width="100%" height={96} borderRadius={16} style={{ marginTop: 10 }} />
       </View>
     </View>
   );
@@ -191,33 +187,24 @@ const listStyles = StyleSheet.create({
 });
 
 const homeStyles = StyleSheet.create({
-  container: { gap: spacing.md },
+  container: { gap: spacing.lg, paddingBottom: spacing.xxl },
   hero: { alignItems: "center", paddingVertical: spacing.lg },
-  panel: {
+  quickActions: {
     flexDirection: "row",
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.md,
-    justifyContent: "space-around",
+    justifyContent: "space-between",
+    gap: spacing.sm,
   },
-  panelCol: { alignItems: "center", gap: 4 },
-  balanceCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
+  sectionWrap: {
+    marginTop: spacing.xs,
   },
-  chartCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    marginTop: spacing.sm,
+  actionCenterRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  meshRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.sm,
   },
 });
 
