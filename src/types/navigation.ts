@@ -8,15 +8,20 @@ export type AuthStackParamList = {
 
 export type TabParamList = {
   Home: undefined;
-  Expenses: { highlightId?: string; deleteId?: string } | undefined;
-  Income: { highlightId?: string; deleteId?: string } | undefined;
+  Activity: { filter?: "ALL" | "EXPENSES" | "INCOME" | "LOANS"; highlightId?: string } | undefined;
+  QuickAdd: undefined;
   Budget: { openCategoryId?: string } | undefined;
-  Settings: undefined;
+  Loans: undefined;
+  // Backwards compatibility
+  Expenses?: { highlightId?: string; deleteId?: string } | undefined;
+  Income?: { highlightId?: string; deleteId?: string } | undefined;
+  Settings?: undefined;
 };
 
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
   Tabs: NavigatorScreenParams<TabParamList>;
+  Settings: undefined;
   ExpenseForm: { expense?: Expense } | undefined;
   IncomeForm: { income?: Income } | undefined;
   Categories: { highlightId?: string; deleteId?: string } | undefined;

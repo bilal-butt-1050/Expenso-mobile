@@ -16,6 +16,7 @@ import { CategoryFormScreen } from "../screens/settings/CategoryFormScreen";
 import { LoansScreen } from "../screens/loans/LoansScreen";
 import { LoanFormScreen } from "../screens/loans/LoanFormScreen";
 import { OnboardingTourScreen } from "../screens/onboarding/OnboardingTourScreen";
+import { SettingsScreen } from "../screens/settings/SettingsScreen";
 import { AnimatedSplash } from "../components/AnimatedSplash";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -75,6 +76,11 @@ export function RootNavigator() {
           {user ? (
             <>
               <Stack.Screen name="Tabs" component={TabNavigator} />
+              <Stack.Screen
+                name="Settings"
+                component={SettingsScreen}
+                options={{ animation: "slide_from_right" }}
+              />
               <Stack.Screen name="Loans" component={LoansScreen} />
               <Stack.Screen name="OnboardingTour" component={OnboardingTourScreen} />
               <Stack.Group screenOptions={{ presentation: "modal", headerShown: true }}>
