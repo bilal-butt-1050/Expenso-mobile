@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 7.0.0"
+    "version": ">= 7.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -13,6 +14,7 @@
     "preview": {
       "channel": "preview",
       "distribution": "internal",
+      "autoIncrement": true,
       "env": {
         "APP_VARIANT": "preview"
       },
@@ -22,12 +24,24 @@
     },
     "production": {
       "channel": "production",
-      "distribution": "store",
+      "distribution": "internal",
+      "autoIncrement": true,
       "env": {
         "APP_VARIANT": "production"
       },
       "android": {
         "buildType": "apk"
+      }
+    },
+    "production-store": {
+      "channel": "production",
+      "distribution": "store",
+      "autoIncrement": true,
+      "env": {
+        "APP_VARIANT": "production"
+      },
+      "android": {
+        "buildType": "app-bundle"
       }
     }
   },
