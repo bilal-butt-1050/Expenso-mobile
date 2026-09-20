@@ -135,3 +135,40 @@ export interface DashboardSummary {
   budgetVsActual: BudgetVsActualItem[];
   trend: TrendPoint[];
 }
+
+export type LoanType = "LENT" | "BORROWED";
+export type LoanStatus = "PENDING" | "PARTIAL" | "SETTLED";
+
+export interface Loan {
+  id: string;
+  userId: string;
+  type: LoanType;
+  personName: string;
+  amount: number;
+  settledAmount: number;
+  dueDate: string | null; // ISO string
+  status: LoanStatus;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LoanInput {
+  type: LoanType;
+  personName: string;
+  amount: number;
+  dueDate?: string | null;
+  notes?: string | null;
+}
+
+export interface LoansSummary {
+  totalLentPending: number;
+  totalBorrowedPending: number;
+  netBalance: number;
+  totalLentOverall: number;
+  totalBorrowedOverall: number;
+  activeLentCount: number;
+  activeBorrowedCount: number;
+  totalActiveCount: number;
+}
+

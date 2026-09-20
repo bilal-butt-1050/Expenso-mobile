@@ -95,16 +95,20 @@ export function HomeScreen() {
             {/* QUICK ACTIONS — Floating Pills */}
             <View style={styles.quickActionsWrap}>
               <TouchableOpacity style={styles.actionPill} activeOpacity={0.7} onPress={() => navigation.navigate("IncomeForm" as any)}>
-                <MaterialCommunityIcons name="plus" size={20} color={colors.success} />
-                <Text style={styles.actionPillText}>Income</Text>
+                <MaterialCommunityIcons name="plus" size={18} color={colors.success} />
+                <Text style={styles.actionPillText} numberOfLines={1}>Income</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.actionPill} activeOpacity={0.7} onPress={() => navigation.navigate("ExpenseForm" as any)}>
-                <MaterialCommunityIcons name="plus" size={20} color={colors.danger} />
-                <Text style={styles.actionPillText}>Expense</Text>
+                <MaterialCommunityIcons name="plus" size={18} color={colors.danger} />
+                <Text style={styles.actionPillText} numberOfLines={1}>Expense</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.actionPill} activeOpacity={0.7} onPress={() => navigation.navigate("Tabs", { screen: "Budget" } as any)}>
-                <MaterialCommunityIcons name="chart-donut" size={20} color={colors.accent} />
-                <Text style={styles.actionPillText}>Budgets</Text>
+                <MaterialCommunityIcons name="chart-donut" size={18} color={colors.accent} />
+                <Text style={styles.actionPillText} numberOfLines={1}>Budgets</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionPill} activeOpacity={0.7} onPress={() => navigation.navigate("Loans" as any)}>
+                <MaterialCommunityIcons name="hand-coin-outline" size={18} color={colors.warning} />
+                <Text style={styles.actionPillText} numberOfLines={1}>Loans</Text>
               </TouchableOpacity>
             </View>
 
@@ -287,8 +291,8 @@ const styles = StyleSheet.create({
   quickActionsWrap: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
     marginBottom: spacing.xl,
   },
   actionPill: {
@@ -296,15 +300,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: 4,
     backgroundColor: colors.surfaceRaised,
-    paddingVertical: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 2,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.border,
   },
   actionPillText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "700",
     color: colors.textPrimary,
   },

@@ -107,7 +107,15 @@ export async function clearToken(): Promise<void> {
 // so every screen can just do `catch (e) { showError(getErrorMessage(e)) }`.
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    const data = error.response?.data as { error?: string } | undefined;
+    const data = error.response?.data as
+      | { error?: string; details?: { path?: string; message: string }[] }
+      | undefined;
+    if (data?.details && Array.isArray(data.details) && data.details.length > 0) {
+      const messages = data.details.map((d) => d.message).filter(Boolean);
+      if (messages.length > 0) {
+        return messages.join(". ");
+      }
+    }
     if (data?.error) return data.error;
     if (error.message === "Network Error") return "Can't reach the server — check your connection.";
   }

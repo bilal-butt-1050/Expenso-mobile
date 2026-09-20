@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Image, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import md5 from "md5";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -190,80 +190,82 @@ export function SettingsScreen() {
 
   return (
     <ScreenContainer>
-      <View style={styles.header}>
-        <Text style={styles.title}>Settings</Text>
-      </View>
-
-      <Card style={styles.profileCard}>
-        <View style={styles.avatar}>
-          {avatarUrl && !imageError ? (
-            <Image
-              source={{ uri: avatarUrl }}
-              style={styles.avatarImage}
-              onError={() => setImageError(true)}
-            />
-          ) : (
-            <Text style={styles.avatarFallbackText}>
-              {(displayName || "E")[0].toUpperCase()}
-            </Text>
-          )}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 140 }}
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>Settings</Text>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.name}>{displayName}</Text>
-          <Text style={styles.email}>{email}</Text>
-        </View>
-      </Card>
 
-      <Text style={styles.sectionTitle}>Account</Text>
-      <SettingsRow
-        icon="account-edit-outline"
-        label="Edit Profile"
-        subtitle="Change your display name"
-        onPress={() => {
-          setNameInput(displayName);
-          setNameError(null);
-          setIsEditNameOpen(true);
-        }}
-      />
-      {/* 
-      <SettingsRow
-        icon="lock-reset"
-        label="Change Password"
-        subtitle="Update your account password"
-        onPress={() => {
-          setCurrentPassword("");
-          setNewPassword("");
-          setConfirmNewPassword("");
-          setShowCurrentPassword(false);
-          setShowNewPassword(false);
-          setShowConfirmPassword(false);
-          setCurrentPasswordError(null);
-          setNewPasswordError(null);
-          setConfirmPasswordError(null);
-          setIsChangePasswordOpen(true);
-        }}
-      />
-      */}
+        <Card style={styles.profileCard}>
+          <View style={styles.avatar}>
+            {avatarUrl && !imageError ? (
+              <Image
+                source={{ uri: avatarUrl }}
+                style={styles.avatarImage}
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <Text style={styles.avatarFallbackText}>
+                {(displayName || "E")[0].toUpperCase()}
+              </Text>
+            )}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.name}>{displayName}</Text>
+            <Text style={styles.email}>{email}</Text>
+          </View>
+        </Card>
 
-      <Text style={styles.sectionTitle}>Preferences</Text>
-      <SettingsRow
-        icon="shape-outline"
-        label="Customize Categories"
-        subtitle="Add, edit or remove spending categories"
-        onPress={() => navigation.navigate("Categories")}
-      />
+        <Text style={styles.sectionTitle}>Account</Text>
+        <SettingsRow
+          icon="account-edit-outline"
+          label="Edit Profile"
+          subtitle="Change your display name"
+          onPress={() => {
+            setNameInput(displayName);
+            setNameError(null);
+            setIsEditNameOpen(true);
+          }}
+        />
 
-      <Text style={styles.sectionTitle}>App & System</Text>
-      <SettingsRow
-        icon="cloud-sync-outline"
-        label={isCheckingUpdate ? "Checking for Updates..." : "Check for Updates"}
-        subtitle={`Channel: ${Updates.channel || "development"} • v1.0.0`}
-        onPress={handleCheckForUpdates}
-      />
+        <Text style={styles.sectionTitle}>Preferences</Text>
+        <SettingsRow
+          icon="shape-outline"
+          label="Customize Categories"
+          subtitle="Add, edit or remove spending categories"
+          onPress={() => navigation.navigate("Categories")}
+        />
 
-      <TouchableOpacity style={styles.logout} onPress={confirmLogout}>
-        <Text style={styles.logoutText}>Log Out</Text>
-      </TouchableOpacity>
+        <Text style={styles.sectionTitle}>Finance</Text>
+        <SettingsRow
+          icon="hand-coin-outline"
+          label="Lending & Borrowing"
+          subtitle="Track money you lent or borrowed"
+          onPress={() => navigation.navigate("Loans")}
+        />
+
+        <Text style={styles.sectionTitle}>App & System</Text>
+        <SettingsRow
+          icon="cloud-sync-outline"
+          label={isCheckingUpdate ? "Checking for Updates..." : "Check for Updates"}
+          subtitle={`Channel: ${Updates.channel || "development"} • v1.0.0`}
+          onPress={handleCheckForUpdates}
+        />
+
+        <SettingsRow
+          icon="compass-outline"
+          label="App Tour"
+          subtitle="Replay the welcome feature tour"
+          onPress={() => navigation.navigate("OnboardingTour", { fromSettings: true })}
+        />
+
+        <TouchableOpacity style={styles.logout} onPress={confirmLogout} activeOpacity={0.8}>
+          <MaterialCommunityIcons name="logout" size={18} color={colors.danger} />
+          <Text style={styles.logoutText}>Log Out</Text>
+        </TouchableOpacity>
+      </ScrollView>
 
       <BottomSheet visible={isEditNameOpen} onClose={() => setIsEditNameOpen(false)}>
         <View style={styles.modalContent}>
@@ -407,8 +409,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   rowLabel: { ...typography.body, fontWeight: "600" },
-  rowSubtitle: { ...typography.small, marginTop: 2 },
-  logout: { marginTop: spacing.xl, alignItems: "center", paddingVertical: spacing.md },
+  rowSubtitle: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
+  logout: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.xl + 4,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.md,
+    backgroundColor: "rgba(239, 68, 68, 0.08)",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.2)",
+    minHeight: 50,
+  },
   logoutText: { color: colors.danger, fontWeight: "700", fontSize: 15 },
   modalContent: { padding: spacing.xl, gap: spacing.md },
   modalTitle: { ...typography.title, fontSize: 20, marginBottom: spacing.sm },

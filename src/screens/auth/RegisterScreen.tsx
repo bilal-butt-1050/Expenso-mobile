@@ -61,7 +61,7 @@ export function RegisterScreen({ navigation }: Props) {
 
     setIsLoading(true);
     try {
-      await register(email.trim(), password, name.trim());
+      await register(email.trim().toLowerCase(), password, name.trim());
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {

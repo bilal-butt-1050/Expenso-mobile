@@ -21,6 +21,9 @@ export type RootStackParamList = {
   IncomeForm: { income?: Income } | undefined;
   Categories: { highlightId?: string; deleteId?: string } | undefined;
   CategoryForm: { category?: Category } | undefined;
+  Loans: undefined;
+  LoanForm: undefined;
+  OnboardingTour: { fromSettings?: boolean } | undefined;
 };
 
 declare global {

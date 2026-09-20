@@ -8,7 +8,7 @@ import { getErrorMessage } from "../../api/client";
 import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
 import { CategoryPill } from "../../components/CategoryPill";
-import { ColorPicker, IconPicker } from "../../components/CategoryPickers";
+import { IconPicker } from "../../components/CategoryPickers";
 import { colors } from "../../theme/colors";
 import { spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
@@ -24,7 +24,7 @@ export function CategoryFormScreen({ route, navigation }: Props) {
 
   const [name, setName] = useState(editing?.name ?? "");
   const [icon, setIcon] = useState(editing?.icon ?? "shape-outline");
-  const [color, setColor] = useState(editing?.color ?? colors.categoryPalette[0]);
+  const color = colors.accent;
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -69,7 +69,6 @@ export function CategoryFormScreen({ route, navigation }: Props) {
 
       <TextField label="Name" value={name} onChangeText={setName} placeholder="e.g. Pet Care" maxLength={30} />
 
-      <ColorPicker value={color} onChange={setColor} />
       <IconPicker value={icon} color={color} onChange={setIcon} />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}

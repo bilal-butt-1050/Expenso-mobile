@@ -161,7 +161,7 @@ export function BudgetScreen() {
                         styles.progressBarFill,
                         {
                           width: `${Math.min(100, progress * 100)}%`,
-                          backgroundColor: isOver ? colors.danger : (item.category.color || colors.accent),
+                          backgroundColor: isOver ? colors.danger : colors.accent,
                         },
                       ]}
                     />
