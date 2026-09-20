@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -6,14 +6,16 @@ import {
   StyleSheet,
   Modal,
   TouchableWithoutFeedback,
+  PanResponder,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
-  FadeIn,
-  FadeOut,
-  SlideInDown,
-  SlideOutDown,
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
 } from "react-native-reanimated";
 import { colors } from "../theme/colors";
 import { radius, spacing } from "../theme/spacing";
@@ -39,49 +41,117 @@ export function QuickActionSheet({
   onSelectLoan,
 }: QuickActionSheetProps) {
   const insets = useSafeAreaInsets();
-  if (!visible) return null;
+  const [modalVisible, setModalVisible] = useState(visible);
+  const isClosingRef = useRef(false);
+
+  const translateY = useSharedValue(600);
+  const backdropOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (visible) {
+      isClosingRef.current = false;
+      setModalVisible(true);
+      translateY.value = 600;
+      backdropOpacity.value = 0;
+      translateY.value = withSpring(0, {
+        damping: 24,
+        stiffness: 240,
+        mass: 0.8,
+      });
+      backdropOpacity.value = withTiming(1, { duration: 200 });
+    } else if (modalVisible && !isClosingRef.current) {
+      dismissSheet();
+    }
+  }, [visible]);
+
+  const finalizeClose = (callback?: () => void) => {
+    isClosingRef.current = false;
+    setModalVisible(false);
+    onClose();
+    if (callback) {
+      callback();
+    }
+  };
+
+  const dismissSheet = (callback?: () => void) => {
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
+    backdropOpacity.value = withTiming(0, { duration: 180 });
+    translateY.value = withTiming(650, { duration: 200 }, (finished) => {
+      if (finished) {
+        runOnJS(finalizeClose)(callback);
+      }
+    });
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          translateY.value = gestureState.dy;
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 70 || gestureState.vy > 0.5) {
+          dismissSheet();
+        } else {
+          translateY.value = withSpring(0, { damping: 22, stiffness: 260 });
+        }
+      },
+    })
+  ).current;
+
+  const animatedSheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  const animatedBackdropStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
+
+  if (!modalVisible && !visible) return null;
 
   const handleLend = () => {
     hapticLight();
-    onClose();
-    if (onSelectLend) onSelectLend();
-    else if (onSelectLoan) onSelectLoan("LENT");
+    dismissSheet(() => {
+      if (onSelectLend) onSelectLend();
+      else if (onSelectLoan) onSelectLoan("LENT");
+    });
   };
 
   const handleBorrow = () => {
     hapticLight();
-    onClose();
-    if (onSelectBorrow) onSelectBorrow();
-    else if (onSelectLoan) onSelectLoan("BORROWED");
+    dismissSheet(() => {
+      if (onSelectBorrow) onSelectBorrow();
+      else if (onSelectLoan) onSelectLoan("BORROWED");
+    });
   };
 
   return (
     <Modal
       transparent
-      visible={visible}
+      visible={modalVisible}
       animationType="none"
-      onRequestClose={onClose}
+      onRequestClose={() => dismissSheet()}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <Animated.View
-          entering={FadeIn.duration(200)}
-          exiting={FadeOut.duration(150)}
-          style={styles.backdrop}
-        >
+      <TouchableWithoutFeedback onPress={() => dismissSheet()}>
+        <Animated.View style={[styles.backdrop, animatedBackdropStyle]}>
           <TouchableWithoutFeedback>
             <Animated.View
-              entering={SlideInDown.springify().damping(24).stiffness(220)}
-              exiting={SlideOutDown.duration(200)}
               style={[
                 styles.sheetContainer,
+                animatedSheetStyle,
                 { paddingBottom: Math.max(insets.bottom + 12, 28) + spacing.md },
               ]}
             >
-              {/* Handle Bar */}
-              <View style={styles.handle} />
-
-              <View style={styles.header}>
-                <Text style={styles.title}>Add New</Text>
+              {/* Draggable Handle Header Area */}
+              <View style={styles.dragHandleArea} {...panResponder.panHandlers}>
+                <View style={styles.handle} />
+                <View style={styles.header}>
+                  <Text style={styles.title}>Add New</Text>
+                </View>
               </View>
 
               <View style={styles.actionsList}>
@@ -94,8 +164,7 @@ export function QuickActionSheet({
                   activeOpacity={0.7}
                   onPress={() => {
                     hapticLight();
-                    onClose();
-                    onSelectExpense();
+                    dismissSheet(() => onSelectExpense());
                   }}
                   accessibilityRole="button"
                   accessibilityLabel="Add Expense"
@@ -126,8 +195,7 @@ export function QuickActionSheet({
                   activeOpacity={0.7}
                   onPress={() => {
                     hapticLight();
-                    onClose();
-                    onSelectIncome();
+                    dismissSheet(() => onSelectIncome());
                   }}
                   accessibilityRole="button"
                   accessibilityLabel="Log Income"
@@ -219,7 +287,7 @@ export function QuickActionSheet({
                 activeOpacity={0.7}
                 onPress={() => {
                   hapticLight();
-                  onClose();
+                  dismissSheet();
                 }}
                 accessibilityRole="button"
                 accessibilityLabel="Cancel"
@@ -244,22 +312,25 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingTop: spacing.sm,
     paddingHorizontal: spacing.lg,
     borderTopWidth: 1,
     borderColor: colors.borderLight,
   },
+  dragHandleArea: {
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xs,
+    alignItems: "center",
+  },
   handle: {
-    width: 36,
+    width: 38,
     height: 4,
     borderRadius: radius.pill,
     backgroundColor: colors.border,
-    alignSelf: "center",
     marginBottom: spacing.md,
   },
   header: {
     alignItems: "center",
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   title: {
     fontSize: 18,

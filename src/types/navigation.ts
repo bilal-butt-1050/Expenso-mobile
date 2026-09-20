@@ -11,7 +11,7 @@ export type TabParamList = {
   Activity: { filter?: "ALL" | "EXPENSES" | "INCOME" | "LOANS"; highlightId?: string } | undefined;
   QuickAdd: undefined;
   Budget: { openCategoryId?: string } | undefined;
-  Loans: undefined;
+  Loans: { filter?: "ALL" | "EXPENSES" | "INCOME" | "LOANS" } | undefined;
   // Backwards compatibility
   Expenses?: { highlightId?: string; deleteId?: string } | undefined;
   Income?: { highlightId?: string; deleteId?: string } | undefined;
@@ -26,7 +26,7 @@ export type RootStackParamList = {
   IncomeForm: { income?: Income } | undefined;
   Categories: { highlightId?: string; deleteId?: string } | undefined;
   CategoryForm: { category?: Category } | undefined;
-  Loans: undefined;
+  Loans: { filter?: "ALL" | "EXPENSES" | "INCOME" | "LOANS" } | undefined;
   LoanForm: { initialType?: LoanType } | undefined;
   OnboardingTour: { fromSettings?: boolean } | undefined;
 };

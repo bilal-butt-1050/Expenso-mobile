@@ -43,20 +43,23 @@ export function AnimatedSegmentedControl<T extends string = string>({
   const activeIndex = selectedIndex >= 0 ? selectedIndex : 0;
 
   const segmentWidth = containerWidth > 0 ? (containerWidth - 6) / options.length : 0;
+  const maxTranslate = Math.max(0, (options.length - 1) * segmentWidth);
   const translateX = useSharedValue(0);
 
   useEffect(() => {
     if (segmentWidth > 0) {
       translateX.value = withSpring(activeIndex * segmentWidth, {
-        damping: 20,
-        stiffness: 180,
+        damping: 19,
+        stiffness: 190,
       });
     }
   }, [activeIndex, segmentWidth]);
 
   const indicatorStyle = useAnimatedStyle(() => {
+    // Natural elastic boundary: never bleeds outside the container edge
+    const clampedPos = Math.max(0, Math.min(translateX.value, maxTranslate));
     return {
-      transform: [{ translateX: translateX.value }],
+      transform: [{ translateX: clampedPos }],
       width: segmentWidth,
     };
   });
@@ -129,6 +132,7 @@ const styles = StyleSheet.create({
     position: "relative",
     borderWidth: 1,
     borderColor: colors.borderLight,
+    overflow: "hidden",
   },
   indicator: {
     position: "absolute",

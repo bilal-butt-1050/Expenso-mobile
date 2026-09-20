@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getErrorMessage } from "../api/client";
+import { syncService } from "../services/syncService";
 
 interface PaginatedResponse<T> {
   items: T[];
@@ -19,13 +20,26 @@ interface InfiniteState<T> {
 export function useInfiniteData<T>(
   fetcher: (skip: number, take: number) => Promise<PaginatedResponse<T>>,
   deps: unknown[],
-  take: number = 20
+  take: number = 20,
+  cacheKey?: string
 ): InfiniteState<T> {
   const [data, setData] = useState<T[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Restore cached list on mount
+  useEffect(() => {
+    if (cacheKey) {
+      syncService.getCache<T[]>(cacheKey).then((cached) => {
+        if (cached && cached.length > 0) {
+          setData(cached);
+          setIsLoading(false);
+        }
+      });
+    }
+  }, [cacheKey]);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -34,8 +48,16 @@ export function useInfiniteData<T>(
       const response = await fetcher(0, take);
       setData(response.items);
       setHasMore(response.hasMore);
-    } catch (err) {
-      setError(getErrorMessage(err));
+      if (cacheKey && response.items) {
+        syncService.setCache(cacheKey, response.items);
+      }
+    } catch (err: any) {
+      // If offline, silently retain existing cached items
+      if (!err.response) {
+        // Keep cached data
+      } else {
+        setError(getErrorMessage(err));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -47,15 +69,18 @@ export function useInfiniteData<T>(
     setIsFetchingMore(true);
     try {
       const response = await fetcher(data.length, take);
-      setData((prev) => [...prev, ...response.items]);
+      setData((prev) => {
+        const next = [...prev, ...response.items];
+        if (cacheKey) syncService.setCache(cacheKey, next);
+        return next;
+      });
       setHasMore(response.hasMore);
     } catch (err) {
-      // Don't overwrite the main error state, just log for infinite scroll
       console.error(getErrorMessage(err));
     } finally {
       setIsFetchingMore(false);
     }
-  }, [fetcher, data.length, take, isFetchingMore, hasMore]);
+  }, [fetcher, data.length, take, isFetchingMore, hasMore, cacheKey]);
 
   useEffect(() => {
     load();

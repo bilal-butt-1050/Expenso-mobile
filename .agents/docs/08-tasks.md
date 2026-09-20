@@ -45,3 +45,18 @@ Live task plan for active work on the mobile app. Update checkboxes as steps are
 - [x] Safe Area & Gesture Ergonomics: QuickActionSheet cancel button and sheet container have generous bottom insets preventing Android/iOS gesture bar collisions.
 - [x] Automated Verification: `npm run typecheck` passes with 0 errors across both mobile and backend.
 
+## UI Polish, Micro-Interactions & Activity Hub Consolidation
+**Goal:** Perfect app micro-interactions, fold loan management into Activity, declutter Home & Budgets with primary progress animations, and overhaul Onboarding Tour.
+
+**Acceptance criteria:**
+- [x] 1. Activity Segmented Control: Spring bounce clamped to container borders without edge overflow.
+- [x] 2. Activity Hub & Loans: Loans dashboard integrated directly into Activity tab (with top capsule & settlement action); Loans row removed from Settings and standalone screen removed.
+- [x] 3. Swipe-to-Delete & Highlights: All items (Expenses, Income, Loans) in Activity support highlight glow on add, and swipe-to-delete with red background and confirmation dialog.
+- [x] 4. Pixel-Perfect QuickActionSheet: Fluid opening/closing spring transitions and interactive handle drag-down dismiss.
+- [x] 5. Home Dashboard Stats: Display safe daily allowance, monthly cashflow, and recent activity in clean, non-overwhelming cards.
+- [x] 6. Budget Progress Bars: Primary theme color, smooth 0-to-target entrance animation, interactive tap detail, and decluttered layout.
+- [x] 7. Onboarding Tour Overhaul: Modern SVG artwork, 1-2 line crisp capsules, and automatic trigger on first login for new users.
+- [x] 8. Haptic Feedback Discipline: Meaningful, delicate haptic cues for record creation, heavy mechanical feedback for deletion, no noise.
+- [ ] 9. Verification: `npm run typecheck` passes with 0 errors and EAS preview update published.
+
+

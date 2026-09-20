@@ -32,7 +32,7 @@ import { NeedWant, PaymentMethod } from "../../types/models";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatCurrency, formatAmountInput } from "../../utils/currency";
 import { RootStackParamList } from "../../types/navigation";
-import { hapticSuccess, hapticError, hapticWarning, hapticHeavy } from "../../utils/haptics";
+import { hapticRecordCreated, hapticDelete, hapticError, hapticWarning } from "../../utils/haptics";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ExpenseForm">;
 
@@ -211,14 +211,14 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         newExpenseId = result.id;
       }
 
-      hapticSuccess();
+      hapticRecordCreated();
       setBudgetAlert(null);
       
       // Switch to the month of the new expense so the user can see it
       const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`;
       setSelectedMonth(monthKey);
 
-      navigation.dispatch(TabActions.jumpTo("Expenses", { highlightId: editing ? editing.id : newExpenseId }));
+      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: editing ? editing.id : newExpenseId, filter: "EXPENSES" }));
       navigation.goBack();
     } catch (err) {
       hapticError();
@@ -236,9 +236,9 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       confirmText: "Delete",
       destructive: true,
       icon: "trash-can-outline",
-      onConfirm: () => {
-        hapticHeavy();
-        navigation.dispatch(TabActions.jumpTo("Expenses", { deleteId: editing.id }));
+      onConfirm: async () => {
+        hapticDelete();
+        await removeExpense(editing.id);
         navigation.goBack();
       },
     });

@@ -11,6 +11,7 @@ import {
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { TabActions } from "@react-navigation/native";
 import { RootStackParamList } from "../../types/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { useLoans } from "../../hooks/useLoans";
@@ -23,7 +24,7 @@ import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { formatAmountInput } from "../../utils/currency";
 import { getErrorMessage } from "../../api/client";
-import { hapticSuccess, hapticError, hapticLight } from "../../utils/haptics";
+import { hapticRecordCreated, hapticError, hapticLight } from "../../utils/haptics";
 
 type Props = NativeStackScreenProps<RootStackParamList, "LoanForm">;
 
@@ -66,7 +67,7 @@ export function LoanFormScreen({ route, navigation }: Props) {
 
     setIsSubmitting(true);
     try {
-      await addLoan({
+      const created = await addLoan({
         type,
         personName: cleanName,
         amount: numericAmount,
@@ -74,7 +75,8 @@ export function LoanFormScreen({ route, navigation }: Props) {
         notes: notes.trim() || undefined,
       });
 
-      hapticSuccess();
+      hapticRecordCreated();
+      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: created.id, filter: "LOANS" }));
       navigation.goBack();
     } catch (err) {
       hapticError();

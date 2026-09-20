@@ -9,7 +9,6 @@ import { colors } from "../theme/colors";
 import { HomeScreen } from "../screens/home/HomeScreen";
 import { ActivityScreen } from "../screens/activity/ActivityScreen";
 import { BudgetScreen } from "../screens/budget/BudgetScreen";
-import { LoansScreen } from "../screens/loans/LoansScreen";
 import { SettingsScreen } from "../screens/settings/SettingsScreen";
 import { ExpensesListScreen } from "../screens/expenses/ExpensesListScreen";
 import { IncomeListScreen } from "../screens/income/IncomeListScreen";
@@ -144,7 +143,8 @@ export function TabNavigator() {
         {/* Backwards-Compatibility Hidden Tabs */}
         <Tab.Screen
           name="Loans"
-          component={LoansScreen}
+          component={ActivityScreen}
+          initialParams={{ filter: "LOANS" }}
           options={{ tabBarButton: () => null }}
         />
         <Tab.Screen

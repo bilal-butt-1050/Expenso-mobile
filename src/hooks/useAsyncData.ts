@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getErrorMessage } from "../api/client";
+import { syncService } from "../services/syncService";
 
 interface AsyncState<T> {
   data: T | null;
@@ -8,22 +9,43 @@ interface AsyncState<T> {
   refetch: () => Promise<void>;
 }
 
-// Every hook in this folder (useDashboard, useExpenses, ...) follows the
-// same shape, so screens handle loading/error/data identically everywhere.
-// `deps` lets a hook re-fetch automatically when e.g. the selected month
-// changes, without each hook re-implementing its own useEffect.
-export function useAsyncData<T>(fetcher: () => Promise<T>, deps: unknown[]): AsyncState<T> {
+export function useAsyncData<T>(
+  fetcher: () => Promise<T>,
+  deps: unknown[],
+  cacheKey?: string
+): AsyncState<T> {
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Load from offline cache immediately on mount
+  useEffect(() => {
+    if (cacheKey) {
+      syncService.getCache<T>(cacheKey).then((cached) => {
+        if (cached !== null) {
+          setData(cached);
+          setIsLoading(false);
+        }
+      });
+    }
+  }, [cacheKey]);
 
   const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      setData(await fetcher());
-    } catch (err) {
-      setError(getErrorMessage(err));
+      const result = await fetcher();
+      setData(result);
+      if (cacheKey) {
+        syncService.setCache(cacheKey, result);
+      }
+    } catch (err: any) {
+      // If network error, preserve cached data silently
+      if (!err.response) {
+        // Keep existing cached data
+      } else {
+        setError(getErrorMessage(err));
+      }
     } finally {
       setIsLoading(false);
     }

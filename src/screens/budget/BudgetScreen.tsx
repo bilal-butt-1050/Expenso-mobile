@@ -167,7 +167,6 @@ export function BudgetScreen() {
                 {item.hasBudget && item.budget > 0 && (
                   <AnimatedProgressBar
                     progress={progress}
-                    autoColor
                     height={6}
                     style={{ marginTop: spacing.sm }}
                   />

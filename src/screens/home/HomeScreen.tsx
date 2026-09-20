@@ -15,6 +15,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useLoans } from "../../hooks/useLoans";
+import { useExpenses } from "../../hooks/useExpenses";
 import { useAppData } from "../../context/AppDataContext";
 import { useAuth } from "../../context/AuthContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
@@ -33,9 +34,17 @@ export function HomeScreen() {
   const { selectedMonth, setSelectedMonth } = useAppData();
   const { data, isLoading, refetch } = useDashboard();
   const { loans, summary: loansSummary, refresh: refreshLoans } = useLoans();
+  const { data: recentExpenses, refetch: refetchExpenses } = useExpenses();
 
   const handleRefresh = async () => {
-    await Promise.all([refetch(), refreshLoans()]);
+    await Promise.all([refetch(), refreshLoans(), refetchExpenses()]);
+  };
+
+  const navigateToLoans = () => {
+    navigation.navigate("Tabs" as any, {
+      screen: "Activity",
+      params: { filter: "LOANS" },
+    });
   };
 
   const overdueLoans = (loans ?? []).filter((l) => {
@@ -124,6 +133,20 @@ export function HomeScreen() {
                 {formatCurrency(data.savingsAllTime)}
               </Text>
               <Text style={styles.heroLabel}>Total Balance</Text>
+
+              {data.dailyAllowance != null && data.dailyAllowance > 0 && (
+                <View style={styles.allowancePill}>
+                  <MaterialCommunityIcons
+                    name="shield-check-outline"
+                    size={14}
+                    color={colors.accent}
+                  />
+                  <Text style={styles.allowanceText}>
+                    {formatCurrency(data.dailyAllowance)}/day safe to spend
+                    {data.daysRemaining ? ` • ${data.daysRemaining}d left` : ""}
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* QUIET ALERTS (Only shown when action is needed) */}
@@ -131,7 +154,7 @@ export function HomeScreen() {
               <View style={styles.alertsContainer}>
                 <TouchableOpacity
                   style={[styles.alertCard, styles.alertCardDanger]}
-                  onPress={() => navigation.navigate("Loans" as any)}
+                  onPress={navigateToLoans}
                   activeOpacity={0.75}
                   accessibilityRole="button"
                   accessibilityLabel={`${overdueLoans.length} loans overdue`}
@@ -223,7 +246,7 @@ export function HomeScreen() {
             {loansSummary && (loansSummary.totalLentPending > 0 || loansSummary.totalBorrowedPending > 0) && (
               <TouchableOpacity
                 style={styles.card}
-                onPress={() => navigation.navigate("Loans" as any)}
+                onPress={navigateToLoans}
                 activeOpacity={0.75}
                 accessibilityRole="button"
                 accessibilityLabel="Open debt and loans"
@@ -256,6 +279,68 @@ export function HomeScreen() {
                 </View>
               </TouchableOpacity>
             )}
+
+            {/* RECENT ACTIVITY PREVIEW */}
+            <View style={styles.card}>
+              <View style={styles.cardHeaderRow}>
+                <Text style={styles.cardHeaderTitle}>Recent Activity</Text>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate("Tabs" as any, { screen: "Activity" })}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.seeAllText}>See All →</Text>
+                </TouchableOpacity>
+              </View>
+
+              {(!recentExpenses || recentExpenses.length === 0) ? (
+                <Text style={styles.emptyRecentText}>No recent activity logged this month</Text>
+              ) : (
+                <View style={styles.recentList}>
+                  {(recentExpenses ?? []).slice(0, 3).map((item, idx: number) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[
+                        styles.recentRow,
+                        idx > 0 && styles.recentRowBorder,
+                      ]}
+                      activeOpacity={0.7}
+                      onPress={() => navigation.navigate("Tabs" as any, { screen: "Activity" })}
+                    >
+                      <View
+                        style={[
+                          styles.recentIconBox,
+                          {
+                            backgroundColor: item.category?.color
+                              ? `${item.category.color}1F`
+                              : "rgba(99, 102, 241, 0.12)",
+                          },
+                        ]}
+                      >
+                        <MaterialCommunityIcons
+                          name={(item.category?.icon as any) || "credit-card-outline"}
+                          size={18}
+                          color={item.category?.color || colors.accent}
+                        />
+                      </View>
+                      <View style={styles.recentInfo}>
+                        <Text style={styles.recentTitle} numberOfLines={1}>
+                          {item.description || item.category?.name || "Expense"}
+                        </Text>
+                        <Text style={styles.recentSubtitle}>
+                          {new Date(item.date).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                          })} • {item.category?.name || "Uncategorized"}
+                        </Text>
+                      </View>
+                      <Text style={styles.recentAmount}>
+                        -{formatCurrency(item.amount)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
           </>
         )}
       </ScrollView>
@@ -438,5 +523,71 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: colors.textMuted,
     marginBottom: 4,
+  },
+  allowancePill: {
+    marginTop: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(99, 102, 241, 0.08)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: "rgba(99, 102, 241, 0.2)",
+  },
+  allowanceText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.textSecondary,
+  },
+  seeAllText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.accent,
+  },
+  emptyRecentText: {
+    fontSize: 13,
+    color: colors.textMuted,
+    paddingVertical: spacing.sm,
+  },
+  recentList: {
+    marginTop: -spacing.xs,
+  },
+  recentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  recentRowBorder: {
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  recentIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: spacing.md,
+  },
+  recentInfo: {
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  recentTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  recentSubtitle: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  recentAmount: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.textPrimary,
   },
 });
