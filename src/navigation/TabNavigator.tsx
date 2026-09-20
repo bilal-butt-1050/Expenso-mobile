@@ -81,6 +81,9 @@ export function TabNavigator() {
               case "Budget":
                 iconName = focused ? "chart-donut" : "chart-arc";
                 break;
+              case "Settings":
+                iconName = focused ? "cog" : "cog-outline";
+                break;
               case "Loans":
                 iconName = focused ? "hand-coin" : "hand-coin-outline";
                 break;
@@ -98,7 +101,7 @@ export function TabNavigator() {
           },
         })}
       >
-        {/* Primary 4 Tabs */}
+        {/* Primary 5 Tabs (with center elevated + button) */}
         <Tab.Screen
           name="Home"
           component={HomeScreen}
@@ -132,6 +135,12 @@ export function TabNavigator() {
           options={{ tabBarLabel: "Budgets" }}
         />
 
+        <Tab.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{ tabBarLabel: "Settings" }}
+        />
+
         {/* Backwards-Compatibility Hidden Tabs */}
         <Tab.Screen
           name="Loans"
@@ -146,11 +155,6 @@ export function TabNavigator() {
         <Tab.Screen
           name="Income"
           component={IncomeListScreen}
-          options={{ tabBarButton: () => null }}
-        />
-        <Tab.Screen
-          name="Settings"
-          component={SettingsScreen}
           options={{ tabBarButton: () => null }}
         />
       </Tab.Navigator>
