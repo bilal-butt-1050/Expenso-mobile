@@ -8,7 +8,8 @@ import { useAuth } from "../../context/AuthContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { Card } from "../../components/Card";
 import { MonthPicker } from "../../components/MonthPicker";
-import { ProgressBar } from "../../components/ProgressBar";
+import { AnimatedProgressBar } from "../../components/AnimatedProgressBar";
+import { NeedWantAnalyticsCard } from "../../components/NeedWantAnalyticsCard";
 import { CategoryPill } from "../../components/CategoryPill";
 import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
@@ -80,7 +81,7 @@ export function BudgetScreen() {
           data={rows}
           keyExtractor={(item) => item.category.id}
           refreshing={isLoading}
-          contentContainerStyle={{ paddingBottom: spacing.xxl + 32 }}
+          contentContainerStyle={{ paddingBottom: 140 }}
           ListHeaderComponent={
             <>
               <View style={styles.topRow}>
@@ -123,6 +124,15 @@ export function BudgetScreen() {
                 )}
               </View>
 
+              {/* 50/30/20 Financial Health Analytics */}
+              <NeedWantAnalyticsCard
+                income={monthlyIncome}
+                needsTotal={summary?.needsTotal ?? 0}
+                wantsTotal={summary?.wantsTotal ?? 0}
+                savingsTotal={monthlyIncome > 0 ? Math.max(0, monthlyIncome - (summary?.totalExpenses ?? 0)) : 0}
+                style={{ marginTop: spacing.md }}
+              />
+
               <Text style={styles.sectionTitle}>Categories</Text>
             </>
           }
@@ -155,17 +165,12 @@ export function BudgetScreen() {
                 </View>
 
                 {item.hasBudget && item.budget > 0 && (
-                  <View style={styles.progressBarBg}>
-                    <View
-                      style={[
-                        styles.progressBarFill,
-                        {
-                          width: `${Math.min(100, progress * 100)}%`,
-                          backgroundColor: isOver ? colors.danger : colors.accent,
-                        },
-                      ]}
-                    />
-                  </View>
+                  <AnimatedProgressBar
+                    progress={progress}
+                    autoColor
+                    height={6}
+                    style={{ marginTop: spacing.sm }}
+                  />
                 )}
               </TouchableOpacity>
             );
