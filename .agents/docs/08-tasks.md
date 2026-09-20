@@ -22,3 +22,14 @@ Live task plan for active work on the mobile app. Update checkboxes as steps are
 - [x] 5. **Loans & Dashboard Integration**: Connect loan alerts to Home Action Center, add Net Debt position widget, and wire loan settlement cashflow hooks. — verify: debt balance & settle flow
 - [x] 6. **Animation & Transition Polish**: Polish screen entrance transitions, number tickers, and haptic feedback across all main interactions. — verify: 60fps animations on device
 - [x] 7. **Quality Gate & Verification**: Run typecheck, linting, and publish EAS update for user testing. — verify: `npm run typecheck` passes with 0 errors
+
+## "Feel Like Home" Minimalist Redesign & Decluttering
+**Goal:** Make the app feel cozy, uncluttered, and comfortable, with proper safe areas, minimal cognitive load, and zero gesture collisions.
+
+**Acceptance criteria:**
+- [x] QuickActionSheet: safe area insets respected (`paddingBottom: insets.bottom + ...`), no gesture bar collision, stripped noisy descriptions.
+- [x] HomeScreen: removed redundant floating action pills, warm personalized greeting, serene hero balance, unified monthly cashflow card, calm alerts.
+- [x] ActivityScreen: removed 10-category chip carousel and 3-box summary card, quiet minimalist segmented controls, Apple-Wallet-style calm transaction feed.
+- [x] Safe area tab bar clearance: all scrollable lists have `paddingBottom: 140` to avoid clipping.
+- [x] 0 TypeScript compiler errors.
+- [x] EAS preview update published.
