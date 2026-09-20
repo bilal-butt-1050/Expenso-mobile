@@ -37,22 +37,23 @@ export function CategoryPill({ icon, color, size = 38 }: Props) {
   );
 }
 
-export function StatusBadge({ status }: { status: "Paid" | "Unpaid" }) {
-  const isPaid = status === "Paid";
+/**
+ * @deprecated Expenses are strictly settled cashflows ("Paid"). Retained for
+ * backward compatibility with screens that still import it.
+ */
+export function StatusBadge({ status }: { status: "Paid" }) {
   return (
     <View
       style={[
         styles.badge,
-        isPaid ? styles.badgePaid : styles.badgeUnpaid,
+        styles.badgePaid,
       ]}
     >
-      {isPaid && (
-        <MaterialCommunityIcons name="check" size={11} color={colors.textPrimary} />
-      )}
+      <MaterialCommunityIcons name="check" size={11} color={colors.textPrimary} />
       <Text
         style={[
           styles.badgeText,
-          { color: isPaid ? colors.textPrimary : colors.danger },
+          { color: colors.textPrimary },
         ]}
       >
         {status}
@@ -82,10 +83,6 @@ const styles = StyleSheet.create({
   badgePaid: {
     backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderColor: "rgba(255, 255, 255, 0.14)",
-  },
-  badgeUnpaid: {
-    backgroundColor: colors.dangerMuted,
-    borderColor: "rgba(239, 68, 68, 0.28)",
   },
   badgeText: { fontSize: 11, fontWeight: "700" },
 });

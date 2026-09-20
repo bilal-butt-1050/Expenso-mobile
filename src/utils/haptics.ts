@@ -33,11 +33,29 @@ export const hapticHeavy = () => {
 
 /**
  * Trigger a success haptic notification.
- * Use when a task completes successfully (e.g. saving an expense).
+ * Use when a task completes successfully.
  */
 export const hapticSuccess = () => {
   if (Platform.OS !== 'web') {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }
+};
+
+/**
+ * Trigger delicate tactile confirmation when an expense, income, or loan record is created.
+ */
+export const hapticRecordCreated = () => {
+  if (Platform.OS !== 'web') {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }
+};
+
+/**
+ * Trigger heavy mechanical impact specifically on record deletion.
+ */
+export const hapticDelete = () => {
+  if (Platform.OS !== 'web') {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
   }
 };
 

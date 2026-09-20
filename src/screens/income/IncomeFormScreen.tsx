@@ -28,6 +28,7 @@ import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { PaymentMethod } from "../../types/models";
 import { RootStackParamList } from "../../types/navigation";
+import { hapticRecordCreated, hapticDelete, hapticError } from "../../utils/haptics";
 
 type Props = NativeStackScreenProps<RootStackParamList, "IncomeForm">;
 
@@ -116,13 +117,16 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         newIncomeId = result.id;
       }
 
+      hapticRecordCreated();
+
       // Switch to the month of the new income so the user can see it
       const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`;
       setSelectedMonth(monthKey);
 
-      navigation.dispatch(TabActions.jumpTo("Income", { highlightId: editing ? editing.id : newIncomeId }));
+      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: editing ? editing.id : newIncomeId, filter: "INCOME" }));
       navigation.goBack();
     } catch (err) {
+      hapticError();
       setError(getErrorMessage(err));
     } finally {
       setIsSaving(false);
@@ -137,8 +141,9 @@ export function IncomeFormScreen({ route, navigation }: Props) {
       confirmText: "Delete",
       destructive: true,
       icon: "trash-can-outline",
-      onConfirm: () => {
-        navigation.dispatch(TabActions.jumpTo("Income", { deleteId: editing.id }));
+      onConfirm: async () => {
+        hapticDelete();
+        await removeIncome(editing.id);
         navigation.goBack();
       },
     });

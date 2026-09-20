@@ -13,9 +13,9 @@ import { ExpenseFormScreen } from "../screens/expenses/ExpenseFormScreen";
 import { IncomeFormScreen } from "../screens/income/IncomeFormScreen";
 import { CategoriesScreen } from "../screens/settings/CategoriesScreen";
 import { CategoryFormScreen } from "../screens/settings/CategoryFormScreen";
-import { LoansScreen } from "../screens/loans/LoansScreen";
 import { LoanFormScreen } from "../screens/loans/LoanFormScreen";
 import { OnboardingTourScreen } from "../screens/onboarding/OnboardingTourScreen";
+import { SettingsScreen } from "../screens/settings/SettingsScreen";
 import { AnimatedSplash } from "../components/AnimatedSplash";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -37,24 +37,19 @@ const navigationTheme = {
 export function RootNavigator() {
   const { user, isLoading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
-  const [initialRoute, setInitialRoute] = useState<"Tabs" | "OnboardingTour">("Tabs");
-  const [tourCheckDone, setTourCheckDone] = useState(false);
+  const [needsTour, setNeedsTour] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (user?.id) {
       AsyncStorage.getItem(`@expenso_tour_completed_${user.id}`)
         .then((val) => {
-          if (!val) {
-            setInitialRoute("OnboardingTour");
-          } else {
-            setInitialRoute("Tabs");
-          }
+          setNeedsTour(val !== "true");
         })
-        .finally(() => {
-          setTourCheckDone(true);
+        .catch(() => {
+          setNeedsTour(false);
         });
     } else {
-      setTourCheckDone(true);
+      setNeedsTour(false);
     }
   }, [user?.id]);
 
@@ -68,40 +63,52 @@ export function RootNavigator() {
     setShowSplash(false);
   }, []);
 
+  const isNavigatorReady = !isLoading && needsTour !== null;
+
   return (
     <View style={styles.root}>
       <NavigationContainer theme={navigationTheme}>
-        <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRoute}>
-          {user ? (
-            <>
-              <Stack.Screen name="Tabs" component={TabNavigator} />
-              <Stack.Screen name="Loans" component={LoansScreen} />
-              <Stack.Screen name="OnboardingTour" component={OnboardingTourScreen} />
-              <Stack.Group screenOptions={{ presentation: "modal", headerShown: true }}>
-                <Stack.Screen name="ExpenseForm" component={ExpenseFormScreen} options={{ title: "Expense" }} />
-                <Stack.Screen name="IncomeForm" component={IncomeFormScreen} options={{ title: "Log Income" }} />
-                <Stack.Screen name="Categories" component={CategoriesScreen} options={{ title: "Categories" }} />
+        {isNavigatorReady && (
+          <Stack.Navigator
+            key={user ? (needsTour ? "tour-stack" : "tabs-stack") : "auth-stack"}
+            screenOptions={{ headerShown: false }}
+            initialRouteName={needsTour ? "OnboardingTour" : "Tabs"}
+          >
+            {user ? (
+              <>
+                <Stack.Screen name="Tabs" component={TabNavigator} />
                 <Stack.Screen
-                  name="CategoryForm"
-                  component={CategoryFormScreen}
-                  options={{ title: "Category" }}
+                  name="Settings"
+                  component={SettingsScreen}
+                  options={{ animation: "slide_from_right" }}
                 />
-                <Stack.Screen
-                  name="LoanForm"
-                  component={LoanFormScreen}
-                  options={{ title: "Record Loan" }}
-                />
-              </Stack.Group>
-            </>
-          ) : (
-            <Stack.Screen name="Auth" component={AuthNavigator} />
-          )}
-        </Stack.Navigator>
+                <Stack.Screen name="OnboardingTour" component={OnboardingTourScreen} />
+                <Stack.Group screenOptions={{ presentation: "modal", headerShown: true }}>
+                  <Stack.Screen name="ExpenseForm" component={ExpenseFormScreen} options={{ title: "Expense" }} />
+                  <Stack.Screen name="IncomeForm" component={IncomeFormScreen} options={{ title: "Log Income" }} />
+                  <Stack.Screen name="Categories" component={CategoriesScreen} options={{ title: "Categories" }} />
+                  <Stack.Screen
+                    name="CategoryForm"
+                    component={CategoryFormScreen}
+                    options={{ title: "Category" }}
+                  />
+                  <Stack.Screen
+                    name="LoanForm"
+                    component={LoanFormScreen}
+                    options={{ title: "Record Loan" }}
+                  />
+                </Stack.Group>
+              </>
+            ) : (
+              <Stack.Screen name="Auth" component={AuthNavigator} />
+            )}
+          </Stack.Navigator>
+        )}
       </NavigationContainer>
 
       {showSplash && (
         <AnimatedSplash
-          ready={!isLoading}
+          ready={isNavigatorReady}
           onComplete={handleSplashComplete}
         />
       )}

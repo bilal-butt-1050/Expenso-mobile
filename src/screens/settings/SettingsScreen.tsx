@@ -238,14 +238,6 @@ export function SettingsScreen() {
           onPress={() => navigation.navigate("Categories")}
         />
 
-        <Text style={styles.sectionTitle}>Finance</Text>
-        <SettingsRow
-          icon="hand-coin-outline"
-          label="Lending & Borrowing"
-          subtitle="Track money you lent or borrowed"
-          onPress={() => navigation.navigate("Loans")}
-        />
-
         <Text style={styles.sectionTitle}>App & System</Text>
         <SettingsRow
           icon="cloud-sync-outline"

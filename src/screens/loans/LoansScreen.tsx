@@ -150,7 +150,7 @@ export function LoansScreen({ navigation }: Props) {
         refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refresh} tintColor={colors.accent} />}
         contentContainerStyle={[
           styles.listContent,
-          { paddingBottom: Math.max(insets.bottom, 24) + spacing.xl },
+          { paddingBottom: Math.max(insets.bottom, 24) + 120 },
         ]}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={

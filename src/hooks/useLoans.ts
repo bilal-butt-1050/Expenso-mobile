@@ -2,12 +2,25 @@ import { useState, useEffect, useCallback } from "react";
 import * as loansApi from "../api/loans";
 import { Loan, LoanInput, LoansSummary, LoanType, LoanStatus } from "../types/models";
 import { getErrorMessage } from "../api/client";
+import { useAppData } from "../context/AppDataContext";
+import { syncService } from "../services/syncService";
 
 export function useLoans(filterType?: LoanType, filterStatus?: LoanStatus) {
+  const { notifyDataChanged } = useAppData();
   const [loans, setLoans] = useState<Loan[]>([]);
   const [summary, setSummary] = useState<LoansSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Load from offline cache initially
+  useEffect(() => {
+    syncService.getCache<Loan[]>("loans").then((cachedLoans) => {
+      if (cachedLoans) setLoans(cachedLoans);
+    });
+    syncService.getCache<LoansSummary>("loans_summary").then((cachedSummary) => {
+      if (cachedSummary) setSummary(cachedSummary);
+    });
+  }, []);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
@@ -19,8 +32,14 @@ export function useLoans(filterType?: LoanType, filterStatus?: LoanStatus) {
       ]);
       setLoans(loansData);
       setSummary(summaryData);
-    } catch (err) {
-      setError(getErrorMessage(err));
+      syncService.setCache("loans", loansData);
+      syncService.setCache("loans_summary", summaryData);
+    } catch (err: any) {
+      if (!err.response) {
+        // Silently preserve offline cached loans
+      } else {
+        setError(getErrorMessage(err));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -30,21 +49,86 @@ export function useLoans(filterType?: LoanType, filterStatus?: LoanStatus) {
     refresh();
   }, [refresh]);
 
-  const addLoan = async (input: LoanInput) => {
-    const created = await loansApi.createLoan(input);
-    await refresh();
-    return created;
+  const addLoan = async (input: LoanInput): Promise<Loan> => {
+    try {
+      const created = await loansApi.createLoan(input);
+      await refresh();
+      notifyDataChanged();
+      return created;
+    } catch (err: any) {
+      if (!err.response) {
+        const localItem: Loan = {
+          id: `temp-${Date.now()}`,
+          userId: "offline",
+          type: input.type,
+          personName: input.personName,
+          amount: input.amount,
+          settledAmount: 0,
+          status: "PENDING",
+          dueDate: input.dueDate || null,
+          notes: input.notes || null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        await syncService.queueAction("CREATE_LOAN", input);
+        const cached = (await syncService.getCache<Loan[]>("loans")) || [];
+        const next = [localItem, ...cached];
+        await syncService.setCache("loans", next);
+        setLoans(next);
+        notifyDataChanged();
+        return localItem;
+      }
+      throw err;
+    }
   };
 
   const recordPayment = async (id: string, paymentAmount?: number) => {
-    const updated = await loansApi.settleLoan(id, paymentAmount);
-    await refresh();
-    return updated;
+    try {
+      const updated = await loansApi.settleLoan(id, paymentAmount);
+      await refresh();
+      notifyDataChanged();
+      return updated;
+    } catch (err: any) {
+      if (!err.response) {
+        await syncService.queueAction("SETTLE_LOAN", { id, amount: paymentAmount });
+        const cached = (await syncService.getCache<Loan[]>("loans")) || [];
+        const updatedList = cached.map((l) => {
+          if (l.id === id) {
+            const newSettled = paymentAmount ? Math.min(l.amount, l.settledAmount + paymentAmount) : l.amount;
+            return {
+              ...l,
+              settledAmount: newSettled,
+              status: (newSettled >= l.amount ? "SETTLED" : "PARTIAL") as LoanStatus,
+            };
+          }
+          return l;
+        });
+        await syncService.setCache("loans", updatedList);
+        setLoans(updatedList);
+        notifyDataChanged();
+        return updatedList.find((l) => l.id === id);
+      }
+      throw err;
+    }
   };
 
   const removeLoan = async (id: string) => {
-    await loansApi.deleteLoan(id);
-    await refresh();
+    try {
+      await loansApi.deleteLoan(id);
+      await refresh();
+      notifyDataChanged();
+    } catch (err: any) {
+      if (!err.response) {
+        await syncService.queueAction("DELETE_LOAN", { id });
+        const cached = (await syncService.getCache<Loan[]>("loans")) || [];
+        const next = cached.filter((l) => l.id !== id);
+        await syncService.setCache("loans", next);
+        setLoans(next);
+        notifyDataChanged();
+      } else {
+        throw err;
+      }
+    }
   };
 
   return {
