@@ -25,7 +25,7 @@ import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
-import { hapticLight, hapticSuccess } from "../../utils/haptics";
+import { hapticLight } from "../../utils/haptics";
 import { RootStackParamList } from "../../types/navigation";
 import { Expense, Income, Loan } from "../../types/models";
 
@@ -40,7 +40,6 @@ interface UnifiedItem {
   amount: number;
   date: string | Date;
   icon: string;
-  isUnpaid?: boolean;
   raw: Expense | Income | Loan;
 }
 
@@ -61,7 +60,6 @@ export function ActivityScreen() {
     data: expensesData,
     isLoading: expensesLoading,
     refetch: refetchExpenses,
-    toggleStatus,
   } = useExpenses();
 
   const {
@@ -101,7 +99,6 @@ export function ActivityScreen() {
           amount: exp.amount,
           date: exp.date,
           icon: exp.category?.icon || "credit-card-outline",
-          isUnpaid: exp.status === "Unpaid",
           raw: exp,
         });
       });
@@ -199,13 +196,6 @@ export function ActivityScreen() {
       navigation.navigate("IncomeForm", { income: item.raw as Income });
     } else if (item.type === "LOAN") {
       navigation.navigate("Loans");
-    }
-  };
-
-  const handleToggleStatus = async (item: UnifiedItem) => {
-    if (item.type === "EXPENSE") {
-      hapticSuccess();
-      await toggleStatus((item.raw as Expense).id);
     }
   };
 
@@ -332,19 +322,6 @@ export function ActivityScreen() {
                     {isIncome ? "+" : ""}
                     {formatCurrency(item.amount)}
                   </Text>
-
-                  {item.isUnpaid && (
-                    <TouchableOpacity
-                      style={styles.unpaidPill}
-                      onPress={() => handleToggleStatus(item)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      accessibilityRole="button"
-                      accessibilityLabel="Mark as paid"
-                    >
-                      <View style={styles.unpaidDot} />
-                      <Text style={styles.unpaidText}>Unpaid</Text>
-                    </TouchableOpacity>
-                  )}
                 </View>
               </TouchableOpacity>
             );
@@ -467,26 +444,5 @@ const styles = StyleSheet.create({
   },
   amountDefault: {
     color: colors.textPrimary,
-  },
-  unpaidPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(245, 158, 11, 0.12)",
-    paddingVertical: 3,
-    paddingHorizontal: 7,
-    borderRadius: 10,
-    marginTop: 4,
-    gap: 4,
-  },
-  unpaidDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: colors.warning,
-  },
-  unpaidText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: colors.warning,
   },
 });

@@ -11,21 +11,19 @@ import { useDialog } from "../../context/DialogContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { EmptyState } from "../../components/EmptyState";
 import { ListScreenSkeleton } from "../../components/Skeleton";
-import { CategoryPill, StatusBadge } from "../../components/CategoryPill";
-import { CustomSwitch } from "../../components/CustomSwitch";
+import { CategoryPill } from "../../components/CategoryPill";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
-import { Expense, ExpenseStatus } from "../../types/models";
+import { Expense } from "../../types/models";
 import { RootStackParamList } from "../../types/navigation";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SwipeableExpenseRow } from "../../components/SwipeableExpenseRow";
 import { hapticLight } from "../../utils/haptics";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-type Filter = ExpenseStatus | "All";
 
 export function ExpensesListScreen() {
   const navigation = useNavigation<Nav>();
@@ -35,13 +33,9 @@ export function ExpensesListScreen() {
   const insets = useSafeAreaInsets();
   
   const { confirm } = useDialog();
-  const [filter, setFilter] = useState<Filter>("All");
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [highlightingId, setHighlightingId] = useState<string | null>(null);
-  const { data, isLoading, isFetchingMore, loadMore, removeExpense, toggleStatus } = useExpenses(
-    filter === "All" ? {} : { status: filter }
-  );
+  const { data, isLoading, isFetchingMore, loadMore, removeExpense } = useExpenses();
 
   React.useEffect(() => {
     if (deleteId && deleteId !== deletingId) {
@@ -90,11 +84,6 @@ export function ExpensesListScreen() {
     });
   };
 
-  const handleToggleStatus = async (expense: Expense) => {
-    hapticLight();
-    await toggleStatus(expense.id);
-  };
-
   return (
     <ScreenContainer style={styles.noPad}>
       {isLoading && (!data || data.length === 0) ? (
@@ -110,12 +99,7 @@ export function ExpensesListScreen() {
         stickySectionHeadersEnabled={false}
         ListHeaderComponent={
           <View style={styles.top}>
-            <View style={styles.headerRow}>
-              <Text style={styles.title}>Expenses</Text>
-              <TouchableOpacity onPress={() => setIsFilterOpen(true)} hitSlop={10}>
-                <MaterialCommunityIcons name="filter-variant" size={24} color={filter !== "All" ? colors.accent : colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.title}>Expenses</Text>
           </View>
         }
         ListEmptyComponent={
@@ -138,7 +122,6 @@ export function ExpensesListScreen() {
             }}
             onPress={() => navigation.navigate("ExpenseForm", { expense: item })}
             onLongPress={() => confirmDelete(item)}
-            onToggleStatus={() => handleToggleStatus(item)}
             onDelete={() => confirmDelete(item)}
           />
         )}
@@ -162,87 +145,7 @@ export function ExpensesListScreen() {
       >
         <MaterialCommunityIcons name="plus" size={28} color={colors.accentForeground} />
       </TouchableOpacity>
-      {isFilterOpen && (
-        <FilterSheet
-          options={["All", "Unpaid", "Paid"]}
-          selected={filter}
-          title="Filter Expenses"
-          insets={insets}
-          onClose={() => setIsFilterOpen(false)}
-          onSelect={(f: any) => {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            setFilter(f as Filter);
-          }}
-        />
-      )}
     </ScreenContainer>
-  );
-}
-
-
-function FilterSheet({ options, selected, title, insets, onClose, onSelect }: any) {
-  const anim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.spring(anim, {
-      toValue: 1,
-      useNativeDriver: true,
-      tension: 250,
-      friction: 20,
-    }).start();
-  }, [anim]);
-
-  const handleClose = (option?: string) => {
-    Animated.timing(anim, {
-      toValue: 0,
-      duration: 150,
-      useNativeDriver: true,
-    }).start(() => {
-      onClose();
-      if (option !== undefined) onSelect(option);
-    });
-  };
-
-  return (
-    <Modal visible transparent animationType="none" onRequestClose={() => handleClose()}>
-      <View style={[StyleSheet.absoluteFill, { zIndex: 999 }]}>
-        <Animated.View style={[styles.sheetBackdrop, { opacity: anim, position: "absolute", top: 0, bottom: 0, left: 0, right: 0 }]}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => handleClose()} />
-        </Animated.View>
-        <Animated.View
-          style={[
-            styles.sheetContent,
-            {
-              position: "absolute", bottom: 0, left: 0, right: 0,
-              paddingBottom: Math.max(insets.bottom, 16) + spacing.md,
-              transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [400, 0] }) }]
-            }
-          ]}
-        >
-          <View style={styles.sheetDragHandle} />
-          <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>{title}</Text>
-            <TouchableOpacity onPress={() => handleClose()} hitSlop={12}>
-              <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-          {options.map((f: string) => {
-            const isSelected = selected === f;
-            return (
-              <TouchableOpacity
-                key={f}
-                style={[styles.optionRow, isSelected && styles.optionRowSelected]}
-                onPress={() => handleClose(f)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>{f}</Text>
-                {isSelected && <MaterialCommunityIcons name="check" size={20} color={colors.textPrimary} />}
-              </TouchableOpacity>
-            );
-          })}
-        </Animated.View>
-      </View>
-    </Modal>
   );
 }
 
@@ -253,26 +156,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingBottom: spacing.sm,
   },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: { ...typography.title },
-
-  hero: {
-    alignItems: "center",
-    paddingVertical: spacing.sm,
-    gap: 4,
-  },
-  heroLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.textMuted,
-    letterSpacing: 1,
-  },
-  heroAmount: {
-    fontSize: 36,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    letterSpacing: -0.5,
-  },
 
   list: { paddingHorizontal: spacing.lg, paddingBottom: 100, flexGrow: 1 },
   sectionHeader: {
@@ -324,40 +208,5 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 6,
   },
-
-  sheetBackdrop: {
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-  },
-  sheetContent: {
-    backgroundColor: colors.surfaceRaised,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
-  sheetDragHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.border,
-    alignSelf: "center",
-    marginBottom: spacing.md,
-  },
-  sheetHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: spacing.md,
-  },
-  sheetTitle: { fontSize: 18, fontWeight: "700", color: colors.textPrimary },
-  optionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  optionRowSelected: { backgroundColor: "rgba(255,255,255,0.03)" },
-  optionText: { flex: 1, fontSize: 16, color: colors.textSecondary, fontWeight: "500" },
-  optionTextSelected: { color: colors.textPrimary, fontWeight: "700" },
 });
+

@@ -20,7 +20,7 @@ export interface Category {
 
 export type PaymentMethod = "Card" | "Bank Transfer" | "Cash" | "Cheque";
 export type NeedWant = "Need" | "Want";
-export type ExpenseStatus = "Paid" | "Unpaid";
+export type ExpenseStatus = "Paid";
 
 export interface Expense {
   id: string;
@@ -32,7 +32,7 @@ export interface Expense {
   amount: number;
   paymentMethod: PaymentMethod;
   needWant: NeedWant;
-  status: ExpenseStatus;
+  status?: ExpenseStatus;
 }
 
 export interface ExpenseInput {
@@ -42,7 +42,7 @@ export interface ExpenseInput {
   amount: number;
   paymentMethod: PaymentMethod;
   needWant: NeedWant;
-  status: ExpenseStatus;
+  status?: ExpenseStatus;
 }
 
 
@@ -97,7 +97,6 @@ export interface BudgetVsActualItem {
   icon: string;
   budget: number;
   actual: number;
-  unpaid: number;
   remaining: number;
   status: "On Track" | "Over Budget";
 }
@@ -115,7 +114,7 @@ export interface DashboardSummary {
 
   totalExpenses: number;
   paidExpenses: number;
-  unpaidExpenses: number;
+  unpaidExpenses?: number;
   remainingBalance: number;
   cashInHand?: number;
   projectedBalance: number;

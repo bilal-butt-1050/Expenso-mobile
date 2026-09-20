@@ -24,7 +24,9 @@ interface QuickActionSheetProps {
   onClose: () => void;
   onSelectExpense: () => void;
   onSelectIncome: () => void;
-  onSelectLoan: () => void;
+  onSelectLend: () => void;
+  onSelectBorrow: () => void;
+  onSelectLoan?: (type?: "LENT" | "BORROWED") => void;
 }
 
 export function QuickActionSheet({
@@ -32,10 +34,26 @@ export function QuickActionSheet({
   onClose,
   onSelectExpense,
   onSelectIncome,
+  onSelectLend,
+  onSelectBorrow,
   onSelectLoan,
 }: QuickActionSheetProps) {
   const insets = useSafeAreaInsets();
   if (!visible) return null;
+
+  const handleLend = () => {
+    hapticLight();
+    onClose();
+    if (onSelectLend) onSelectLend();
+    else if (onSelectLoan) onSelectLoan("LENT");
+  };
+
+  const handleBorrow = () => {
+    hapticLight();
+    onClose();
+    if (onSelectBorrow) onSelectBorrow();
+    else if (onSelectLoan) onSelectLoan("BORROWED");
+  };
 
   return (
     <Modal
@@ -56,7 +74,7 @@ export function QuickActionSheet({
               exiting={SlideOutDown.duration(200)}
               style={[
                 styles.sheetContainer,
-                { paddingBottom: Math.max(insets.bottom, 20) + spacing.md },
+                { paddingBottom: Math.max(insets.bottom + 12, 28) + spacing.md },
               ]}
             >
               {/* Handle Bar */}
@@ -67,6 +85,9 @@ export function QuickActionSheet({
               </View>
 
               <View style={styles.actionsList}>
+                {/* Section: Settled Cashflow */}
+                <Text style={styles.sectionHeader}>Cashflow</Text>
+
                 {/* Add Expense */}
                 <TouchableOpacity
                   style={styles.actionCard}
@@ -131,17 +152,46 @@ export function QuickActionSheet({
                   />
                 </TouchableOpacity>
 
-                {/* Record Loan */}
+                {/* Section: Deferred Obligations */}
+                <Text style={[styles.sectionHeader, { marginTop: spacing.xs }]}>
+                  Loans & Debts
+                </Text>
+
+                {/* Lend */}
                 <TouchableOpacity
                   style={styles.actionCard}
                   activeOpacity={0.7}
-                  onPress={() => {
-                    hapticLight();
-                    onClose();
-                    onSelectLoan();
-                  }}
+                  onPress={handleLend}
                   accessibilityRole="button"
-                  accessibilityLabel="Record Loan"
+                  accessibilityLabel="Lend Money"
+                >
+                  <View
+                    style={[
+                      styles.iconCircle,
+                      { backgroundColor: "rgba(59, 130, 246, 0.12)" },
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name="hand-coin-outline"
+                      size={22}
+                      color="#60A5FA"
+                    />
+                  </View>
+                  <Text style={styles.actionTitle}>Lend Money</Text>
+                  <MaterialCommunityIcons
+                    name="chevron-right"
+                    size={20}
+                    color={colors.textMuted}
+                  />
+                </TouchableOpacity>
+
+                {/* Borrow */}
+                <TouchableOpacity
+                  style={styles.actionCard}
+                  activeOpacity={0.7}
+                  onPress={handleBorrow}
+                  accessibilityRole="button"
+                  accessibilityLabel="Borrow Money"
                 >
                   <View
                     style={[
@@ -150,12 +200,12 @@ export function QuickActionSheet({
                     ]}
                   >
                     <MaterialCommunityIcons
-                      name="hand-coin-outline"
+                      name="account-cash-outline"
                       size={22}
                       color={colors.warning}
                     />
                   </View>
-                  <Text style={styles.actionTitle}>Loan / Debt</Text>
+                  <Text style={styles.actionTitle}>Borrow Money</Text>
                   <MaterialCommunityIcons
                     name="chevron-right"
                     size={20}
@@ -219,6 +269,14 @@ const styles = StyleSheet.create({
   },
   actionsList: {
     gap: spacing.sm + 2,
+  },
+  sectionHeader: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    color: colors.textMuted,
+    marginLeft: spacing.xs,
   },
   actionCard: {
     flexDirection: "row",

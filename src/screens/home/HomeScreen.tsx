@@ -127,57 +127,31 @@ export function HomeScreen() {
             </View>
 
             {/* QUIET ALERTS (Only shown when action is needed) */}
-            {(overdueLoans.length > 0 || data.unpaidExpenses > 0) && (
+            {overdueLoans.length > 0 && (
               <View style={styles.alertsContainer}>
-                {overdueLoans.length > 0 && (
-                  <TouchableOpacity
-                    style={[styles.alertCard, styles.alertCardDanger]}
-                    onPress={() => navigation.navigate("Loans" as any)}
-                    activeOpacity={0.75}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${overdueLoans.length} loans overdue`}
-                  >
-                    <MaterialCommunityIcons
-                      name="alert-circle-outline"
-                      size={18}
-                      color={colors.danger}
-                    />
-                    <Text style={styles.alertText}>
-                      {overdueLoans.length}{" "}
-                      {overdueLoans.length === 1 ? "overdue loan requires" : "overdue loans require"}{" "}
-                      attention
-                    </Text>
-                    <MaterialCommunityIcons
-                      name="chevron-right"
-                      size={18}
-                      color={colors.textMuted}
-                    />
-                  </TouchableOpacity>
-                )}
-
-                {data.unpaidExpenses > 0 && (
-                  <TouchableOpacity
-                    style={styles.alertCard}
-                    onPress={() => navigation.navigate("Tabs", { screen: "Activity" } as any)}
-                    activeOpacity={0.75}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${formatCurrency(data.unpaidExpenses)} unpaid expenses`}
-                  >
-                    <MaterialCommunityIcons
-                      name="clock-outline"
-                      size={18}
-                      color={colors.warning}
-                    />
-                    <Text style={styles.alertText}>
-                      {formatCurrency(data.unpaidExpenses)} in unpaid bills
-                    </Text>
-                    <MaterialCommunityIcons
-                      name="chevron-right"
-                      size={18}
-                      color={colors.textMuted}
-                    />
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity
+                  style={[styles.alertCard, styles.alertCardDanger]}
+                  onPress={() => navigation.navigate("Loans" as any)}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${overdueLoans.length} loans overdue`}
+                >
+                  <MaterialCommunityIcons
+                    name="alert-circle-outline"
+                    size={18}
+                    color={colors.danger}
+                  />
+                  <Text style={styles.alertText}>
+                    {overdueLoans.length}{" "}
+                    {overdueLoans.length === 1 ? "overdue loan requires" : "overdue loans require"}{" "}
+                    attention
+                  </Text>
+                  <MaterialCommunityIcons
+                    name="chevron-right"
+                    size={18}
+                    color={colors.textMuted}
+                  />
+                </TouchableOpacity>
               </View>
             )}
 
@@ -213,7 +187,7 @@ export function HomeScreen() {
                     <Text style={styles.flowLabel}>Spent</Text>
                   </View>
                   <Text style={styles.flowAmount}>
-                    {formatCurrency(data.paidExpenses)}
+                    {formatCurrency(data.totalExpenses)}
                   </Text>
                 </View>
               </View>
@@ -222,7 +196,7 @@ export function HomeScreen() {
               <View style={styles.savingsRow}>
                 <Text style={styles.savingsLabel}>Net Saved</Text>
                 <Text style={styles.savingsValue}>
-                  {formatCurrency(Math.max(0, data.monthlyIncome - data.paidExpenses))}
+                  {formatCurrency(Math.max(0, data.monthlyIncome - data.totalExpenses))}
                   <Text style={styles.savingsRate}>
                     {" "}({Math.round(data.savingsPercentage * 100)}%)
                   </Text>

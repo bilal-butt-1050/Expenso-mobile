@@ -1,15 +1,14 @@
 import React, { useRef, useEffect } from 'react';
-import { Animated, View, Text, TouchableOpacity, StyleSheet, LayoutAnimation, Easing, Dimensions } from 'react-native';
+import { Animated, View, Text, TouchableOpacity, StyleSheet, Easing, Dimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { CategoryPill } from './CategoryPill';
-import { CustomSwitch } from './CustomSwitch';
 import { formatCurrency } from '../utils/currency';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { Expense } from '../types/models';
-import { hapticMedium, hapticHeavy, hapticLight } from '../utils/haptics';
+import { hapticHeavy } from '../utils/haptics';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -19,7 +18,6 @@ interface SwipeableExpenseRowProps {
   isDeleting?: boolean;
   onPress: () => void;
   onLongPress: () => void;
-  onToggleStatus: () => void;
   onDeleteAnimFinish?: () => void;
   onDelete: () => void;
 }
@@ -30,18 +28,12 @@ export function SwipeableExpenseRow({
   isDeleting,
   onPress,
   onLongPress,
-  onToggleStatus,
   onDeleteAnimFinish,
   onDelete
 }: SwipeableExpenseRowProps) {
-  const [isPaid, setIsPaid] = React.useState(item.status === 'Paid');
   const highlightAnim = useRef(new Animated.Value(isNewlyAdded ? 1 : 0)).current;
   const deleteAnim = useRef(new Animated.Value(0)).current;
   const swipeableRef = useRef<any>(null);
-
-  useEffect(() => {
-    setIsPaid(item.status === 'Paid');
-  }, [item.status]);
 
   useEffect(() => {
     if (isNewlyAdded) {
@@ -67,24 +59,10 @@ export function SwipeableExpenseRow({
     }
   }, [isDeleting]);
 
-  const handleToggle = () => {
-    hapticLight();
-    setIsPaid(!isPaid);
-    onToggleStatus();
-  };
-
   const renderRightActions = () => {
     return (
       <View style={styles.rightAction}>
         <MaterialCommunityIcons name="trash-can-outline" size={26} color="#FFFFFF" />
-      </View>
-    );
-  };
-
-  const renderLeftActions = () => {
-    return (
-      <View style={styles.leftAction}>
-        <MaterialCommunityIcons name={isPaid ? 'close' : 'check'} size={26} color="#FFFFFF" />
       </View>
     );
   };
@@ -94,10 +72,6 @@ export function SwipeableExpenseRow({
       hapticHeavy();
       swipeableRef.current?.close();
       onDelete();
-    } else if (direction === 'left') {
-      hapticMedium();
-      swipeableRef.current?.close();
-      handleToggle();
     }
   };
 
@@ -114,11 +88,9 @@ export function SwipeableExpenseRow({
         <Swipeable
           ref={swipeableRef}
           renderRightActions={renderRightActions}
-          renderLeftActions={renderLeftActions}
           onSwipeableOpen={onSwipeableOpen}
           friction={2}
           rightThreshold={60}
-          leftThreshold={60}
           containerStyle={{ borderRadius: 16 }}
         >
           <Animated.View style={[
@@ -137,7 +109,7 @@ export function SwipeableExpenseRow({
               onLongPress={onLongPress}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel={`${item.category.name}, ${formatCurrency(item.amount)}, ${isPaid ? "Paid" : "Unpaid"}`}
+              accessibilityLabel={`${item.category.name}, ${formatCurrency(item.amount)}`}
             >
               <CategoryPill icon={item.category.icon} size={48} />
               <View style={styles.rowMiddle}>
@@ -148,15 +120,6 @@ export function SwipeableExpenseRow({
             </TouchableOpacity>
             <View style={styles.rowEnd}>
               <Text style={styles.rowAmount}>{formatCurrency(item.amount)}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                <Text style={{ fontSize: 15, fontWeight: '600', color: isPaid ? colors.textPrimary : colors.textSecondary }}>
-                  {isPaid ? "Paid" : "Unpaid"}
-                </Text>
-                <CustomSwitch
-                  value={isPaid}
-                  onValueChange={handleToggle}
-                />
-              </View>
             </View>
           </Animated.View>
         </Swipeable>
@@ -179,14 +142,6 @@ const styles = StyleSheet.create({
     paddingRight: 24,
     borderRadius: 16,
   },
-  leftAction: {
-    flex: 1,
-    backgroundColor: colors.success,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    paddingLeft: 24,
-    borderRadius: 16,
-  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -203,6 +158,6 @@ const styles = StyleSheet.create({
   },
   rowMiddle: { flex: 1 },
   rowTitle: { ...typography.body, fontWeight: '600', fontSize: 18 },
-  rowEnd: { alignItems: 'flex-end', gap: spacing.xs },
+  rowEnd: { alignItems: 'flex-end', justifyContent: 'center' },
   rowAmount: { fontSize: 19, fontWeight: '700', color: colors.textPrimary },
 });

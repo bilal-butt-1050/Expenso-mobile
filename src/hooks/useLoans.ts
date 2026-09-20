@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import * as loansApi from "../api/loans";
 import { Loan, LoanInput, LoansSummary, LoanType, LoanStatus } from "../types/models";
 import { getErrorMessage } from "../api/client";
+import { useAppData } from "../context/AppDataContext";
 
 export function useLoans(filterType?: LoanType, filterStatus?: LoanStatus) {
+  const { notifyDataChanged } = useAppData();
   const [loans, setLoans] = useState<Loan[]>([]);
   const [summary, setSummary] = useState<LoansSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,18 +35,21 @@ export function useLoans(filterType?: LoanType, filterStatus?: LoanStatus) {
   const addLoan = async (input: LoanInput) => {
     const created = await loansApi.createLoan(input);
     await refresh();
+    notifyDataChanged();
     return created;
   };
 
   const recordPayment = async (id: string, paymentAmount?: number) => {
     const updated = await loansApi.settleLoan(id, paymentAmount);
     await refresh();
+    notifyDataChanged();
     return updated;
   };
 
   const removeLoan = async (id: string) => {
     await loansApi.deleteLoan(id);
     await refresh();
+    notifyDataChanged();
   };
 
   return {

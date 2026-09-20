@@ -33,3 +33,15 @@ Live task plan for active work on the mobile app. Update checkboxes as steps are
 - [x] Safe area tab bar clearance: all scrollable lists have `paddingBottom: 140` to avoid clipping.
 - [x] 0 TypeScript compiler errors.
 - [x] EAS preview update published.
+
+## Consolidate Obligations & 4-Tab Navigation
+**Goal:** Consolidate duplicate debt and liability logic so expenses represent strictly settled cashflows, all deferred obligations (debts, loans) live under a unified model, and navigation is streamlined to 4 intuitive tabs (Home, Activity, [+], Budgets).
+
+**Acceptance criteria:**
+- [x] Data Model & Domain Consistency: Expenses strictly represent settled cashflows ("Paid"); "Unpaid" removed from expense schema, API filters, and forms.
+- [x] Obligation Settlement Sync: Settling a loan in backend transaction automatically creates corresponding cashflow records (Expense for borrowed repayment, Income for lent collection).
+- [x] Streamlined 4-Tab Navigation: Bottom tab bar has exactly 4 visible tabs (`Home`, `Activity`, `[+] FAB`, `Budget`), with `Loans` folded cleanly into Home/Activity.
+- [x] Two-Tier Action Sheet: [+] FAB opens clean selection between settled cashflow (`Expense`, `Income`) and deferred counterparty items (`Lend Money`, `Borrow Money`) with generous safe area padding.
+- [x] Safe Area & Gesture Ergonomics: QuickActionSheet cancel button and sheet container have generous bottom insets preventing Android/iOS gesture bar collisions.
+- [x] Automated Verification: `npm run typecheck` passes with 0 errors across both mobile and backend.
+

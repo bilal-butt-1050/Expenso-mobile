@@ -98,7 +98,7 @@ export function TabNavigator() {
           },
         })}
       >
-        {/* Primary 5 Tabs */}
+        {/* Primary 4 Tabs */}
         <Tab.Screen
           name="Home"
           component={HomeScreen}
@@ -132,13 +132,12 @@ export function TabNavigator() {
           options={{ tabBarLabel: "Budgets" }}
         />
 
+        {/* Backwards-Compatibility Hidden Tabs */}
         <Tab.Screen
           name="Loans"
           component={LoansScreen}
-          options={{ tabBarLabel: "Loans" }}
+          options={{ tabBarButton: () => null }}
         />
-
-        {/* Backwards-Compatibility Hidden Tabs */}
         <Tab.Screen
           name="Expenses"
           component={ExpensesListScreen}
@@ -162,7 +161,8 @@ export function TabNavigator() {
         onClose={() => setQuickActionVisible(false)}
         onSelectExpense={() => rootNavigation.navigate("ExpenseForm")}
         onSelectIncome={() => rootNavigation.navigate("IncomeForm")}
-        onSelectLoan={() => rootNavigation.navigate("LoanForm")}
+        onSelectLend={() => rootNavigation.navigate("LoanForm", { initialType: "LENT" })}
+        onSelectBorrow={() => rootNavigation.navigate("LoanForm", { initialType: "BORROWED" })}
       />
     </>
   );

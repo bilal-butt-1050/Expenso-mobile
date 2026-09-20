@@ -1,5 +1,5 @@
 import { NavigatorScreenParams } from "@react-navigation/native";
-import { Category, Expense, Income } from "./models";
+import { Category, Expense, Income, LoanType } from "./models";
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -27,7 +27,7 @@ export type RootStackParamList = {
   Categories: { highlightId?: string; deleteId?: string } | undefined;
   CategoryForm: { category?: Category } | undefined;
   Loans: undefined;
-  LoanForm: undefined;
+  LoanForm: { initialType?: LoanType } | undefined;
   OnboardingTour: { fromSettings?: boolean } | undefined;
 };
 

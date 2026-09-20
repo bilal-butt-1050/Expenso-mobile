@@ -27,12 +27,12 @@ import { hapticSuccess, hapticError, hapticLight } from "../../utils/haptics";
 
 type Props = NativeStackScreenProps<RootStackParamList, "LoanForm">;
 
-export function LoanFormScreen({ navigation }: Props) {
+export function LoanFormScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { addLoan } = useLoans();
 
-  const [type, setType] = useState<LoanType>("LENT");
+  const [type, setType] = useState<LoanType>(route.params?.initialType || "LENT");
   const [personName, setPersonName] = useState("");
   const [rawAmount, setRawAmount] = useState("");
   const [hasDueDate, setHasDueDate] = useState(false);

@@ -28,7 +28,7 @@ import { BottomSheet } from "../../components/BottomSheet";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
-import { NeedWant, PaymentMethod, ExpenseStatus } from "../../types/models";
+import { NeedWant, PaymentMethod } from "../../types/models";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatCurrency, formatAmountInput } from "../../utils/currency";
 import { RootStackParamList } from "../../types/navigation";
@@ -50,7 +50,6 @@ interface BudgetAlertInfo {
 
 const PAYMENT_METHODS: PaymentMethod[] = ["Cash", "Bank Transfer", "Card", "Cheque"];
 const NEED_WANT: NeedWant[] = ["Need", "Want"];
-const STATUSES: ExpenseStatus[] = ["Paid", "Unpaid"];
 
 export function ExpenseFormScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
@@ -73,7 +72,6 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const [amount, setAmount] = useState(editing ? formatAmountInput(String(editing.amount)) : "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(editing?.paymentMethod ?? "Cash");
   const [needWant, setNeedWant] = useState<NeedWant>(editing?.needWant ?? "Need");
-  const [status, setStatus] = useState<ExpenseStatus>(editing?.status ?? "Paid");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -89,10 +87,9 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
     if (!isNaN(parsedAmount) && parsedAmount !== editing.amount) return true;
     if (paymentMethod !== editing.paymentMethod) return true;
     if (needWant !== editing.needWant) return true;
-    if (status !== editing.status) return true;
     if (date.toISOString().split("T")[0] !== new Date(editing.date).toISOString().split("T")[0]) return true;
     return false;
-  }, [editing, categoryId, description, amount, paymentMethod, needWant, status, date]);
+  }, [editing, categoryId, description, amount, paymentMethod, needWant, date]);
 
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -141,7 +138,6 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         amount: parsedAmount,
         paymentMethod,
         needWant,
-        status,
       };
 
       const budgetItem = dashboardData?.budgetVsActual.find((b) => b.categoryId === categoryId);
@@ -311,7 +307,6 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
         <SegmentedControl label="Payment Method" options={PAYMENT_METHODS} value={paymentMethod} onChange={setPaymentMethod} />
         <SegmentedControl label="Need or Want" options={NEED_WANT} value={needWant} onChange={setNeedWant} />
-        <SegmentedControl label="Status" options={STATUSES} value={status} onChange={setStatus} />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
