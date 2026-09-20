@@ -8,6 +8,7 @@ import {
   TouchableWithoutFeedback,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -16,7 +17,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { colors } from "../theme/colors";
 import { radius, spacing } from "../theme/spacing";
-import { typography } from "../theme/typography";
 import { hapticLight } from "../utils/haptics";
 
 interface QuickActionSheetProps {
@@ -34,6 +34,7 @@ export function QuickActionSheet({
   onSelectIncome,
   onSelectLoan,
 }: QuickActionSheetProps) {
+  const insets = useSafeAreaInsets();
   if (!visible) return null;
 
   return (
@@ -51,49 +52,46 @@ export function QuickActionSheet({
         >
           <TouchableWithoutFeedback>
             <Animated.View
-              entering={SlideInDown.springify().damping(22).stiffness(200)}
+              entering={SlideInDown.springify().damping(24).stiffness(220)}
               exiting={SlideOutDown.duration(200)}
-              style={styles.sheetContainer}
+              style={[
+                styles.sheetContainer,
+                { paddingBottom: Math.max(insets.bottom, 20) + spacing.md },
+              ]}
             >
               {/* Handle Bar */}
               <View style={styles.handle} />
 
               <View style={styles.header}>
-                <Text style={styles.title}>Quick Action</Text>
-                <Text style={styles.subtitle}>
-                  Select what you want to log
-                </Text>
+                <Text style={styles.title}>Add New</Text>
               </View>
 
               <View style={styles.actionsList}>
                 {/* Add Expense */}
                 <TouchableOpacity
                   style={styles.actionCard}
-                  activeOpacity={0.75}
+                  activeOpacity={0.7}
                   onPress={() => {
                     hapticLight();
                     onClose();
                     onSelectExpense();
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add Expense"
                 >
                   <View
                     style={[
                       styles.iconCircle,
-                      { backgroundColor: colors.dangerMuted },
+                      { backgroundColor: "rgba(239, 68, 68, 0.12)" },
                     ]}
                   >
                     <MaterialCommunityIcons
                       name="arrow-down"
-                      size={24}
+                      size={22}
                       color={colors.danger}
                     />
                   </View>
-                  <View style={styles.actionInfo}>
-                    <Text style={styles.actionTitle}>Add Expense</Text>
-                    <Text style={styles.actionDesc}>
-                      Track an outflow, category, and paid status
-                    </Text>
-                  </View>
+                  <Text style={styles.actionTitle}>Expense</Text>
                   <MaterialCommunityIcons
                     name="chevron-right"
                     size={20}
@@ -104,31 +102,28 @@ export function QuickActionSheet({
                 {/* Log Income */}
                 <TouchableOpacity
                   style={styles.actionCard}
-                  activeOpacity={0.75}
+                  activeOpacity={0.7}
                   onPress={() => {
                     hapticLight();
                     onClose();
                     onSelectIncome();
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Log Income"
                 >
                   <View
                     style={[
                       styles.iconCircle,
-                      { backgroundColor: colors.successMuted },
+                      { backgroundColor: "rgba(16, 185, 129, 0.12)" },
                     ]}
                   >
                     <MaterialCommunityIcons
                       name="arrow-up"
-                      size={24}
+                      size={22}
                       color={colors.success}
                     />
                   </View>
-                  <View style={styles.actionInfo}>
-                    <Text style={styles.actionTitle}>Log Income</Text>
-                    <Text style={styles.actionDesc}>
-                      Record salary, freelance, bonus, or investment
-                    </Text>
-                  </View>
+                  <Text style={styles.actionTitle}>Income</Text>
                   <MaterialCommunityIcons
                     name="chevron-right"
                     size={20}
@@ -139,31 +134,28 @@ export function QuickActionSheet({
                 {/* Record Loan */}
                 <TouchableOpacity
                   style={styles.actionCard}
-                  activeOpacity={0.75}
+                  activeOpacity={0.7}
                   onPress={() => {
                     hapticLight();
                     onClose();
                     onSelectLoan();
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Record Loan"
                 >
                   <View
                     style={[
                       styles.iconCircle,
-                      { backgroundColor: colors.warningMuted },
+                      { backgroundColor: "rgba(245, 158, 11, 0.12)" },
                     ]}
                   >
                     <MaterialCommunityIcons
                       name="hand-coin-outline"
-                      size={24}
+                      size={22}
                       color={colors.warning}
                     />
                   </View>
-                  <View style={styles.actionInfo}>
-                    <Text style={styles.actionTitle}>Record Loan</Text>
-                    <Text style={styles.actionDesc}>
-                      Track money lent to someone or borrowed
-                    </Text>
-                  </View>
+                  <Text style={styles.actionTitle}>Loan / Debt</Text>
                   <MaterialCommunityIcons
                     name="chevron-right"
                     size={20}
@@ -179,6 +171,8 @@ export function QuickActionSheet({
                   hapticLight();
                   onClose();
                 }}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel"
               >
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
@@ -193,21 +187,20 @@ export function QuickActionSheet({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
     justifyContent: "flex-end",
   },
   sheetContainer: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.xl,
     paddingHorizontal: spacing.lg,
     borderTopWidth: 1,
     borderColor: colors.borderLight,
   },
   handle: {
-    width: 40,
+    width: 36,
     height: 4,
     borderRadius: radius.pill,
     backgroundColor: colors.border,
@@ -215,56 +208,47 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   header: {
+    alignItems: "center",
     marginBottom: spacing.lg,
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
     color: colors.textPrimary,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 2,
+    letterSpacing: -0.2,
   },
   actionsList: {
-    gap: spacing.md,
+    gap: spacing.sm + 2,
   },
   actionCard: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.surfaceRaised,
-    borderRadius: radius.lg,
-    padding: spacing.md,
+    borderRadius: 18,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md + 2,
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
   iconCircle: {
-    width: 46,
-    height: 46,
-    borderRadius: radius.pill,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
     marginRight: spacing.md,
   },
-  actionInfo: {
-    flex: 1,
-  },
   actionTitle: {
+    flex: 1,
     fontSize: 16,
     fontWeight: "600",
     color: colors.textPrimary,
   },
-  actionDesc: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
   cancelButton: {
-    marginTop: spacing.lg,
+    marginTop: spacing.md + 4,
     backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: radius.lg,
-    paddingVertical: spacing.md,
+    borderRadius: 18,
+    paddingVertical: 14,
     alignItems: "center",
   },
   cancelText: {

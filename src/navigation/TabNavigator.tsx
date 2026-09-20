@@ -135,7 +135,7 @@ export function TabNavigator() {
         <Tab.Screen
           name="Loans"
           component={LoansScreen}
-          options={{ tabBarLabel: "Debts" }}
+          options={{ tabBarLabel: "Loans" }}
         />
 
         {/* Backwards-Compatibility Hidden Tabs */}

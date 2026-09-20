@@ -14,7 +14,6 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useExpenses } from "../../hooks/useExpenses";
 import { useIncome } from "../../hooks/useIncome";
 import { useLoans } from "../../hooks/useLoans";
-import { useCategories } from "../../hooks/useCategories";
 import { useAppData } from "../../context/AppDataContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { MonthPicker } from "../../components/MonthPicker";
@@ -41,17 +40,15 @@ interface UnifiedItem {
   amount: number;
   date: string | Date;
   icon: string;
-  color: string;
-  statusText?: string;
-  statusColor?: string;
+  isUnpaid?: boolean;
   raw: Expense | Income | Loan;
 }
 
 const TAB_OPTIONS: SegmentOption<ActivityTab>[] = [
-  { label: "All", value: "ALL", icon: "view-list" },
-  { label: "Expenses", value: "EXPENSES", icon: "arrow-down" },
-  { label: "Income", value: "INCOME", icon: "arrow-up" },
-  { label: "Loans", value: "LOANS", icon: "hand-coin" },
+  { label: "All", value: "ALL" },
+  { label: "Expenses", value: "EXPENSES" },
+  { label: "Income", value: "INCOME" },
+  { label: "Loans", value: "LOANS" },
 ];
 
 export function ActivityScreen() {
@@ -59,7 +56,6 @@ export function ActivityScreen() {
   const { selectedMonth, setSelectedMonth } = useAppData();
   const [activeTab, setActiveTab] = useState<ActivityTab>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const {
     data: expensesData,
@@ -80,9 +76,6 @@ export function ActivityScreen() {
     refresh: refetchLoans,
   } = useLoans();
 
-  const { data: categoriesData } = useCategories();
-  const categories = categoriesData || [];
-
   const isLoading = expensesLoading && incomeLoading && loansLoading;
 
   const handleRefresh = useCallback(async () => {
@@ -93,7 +86,7 @@ export function ActivityScreen() {
     ]);
   }, [refetchExpenses, refetchIncome, refetchLoans]);
 
-  // Normalize all records into UnifiedItem format
+  // Aggregate all transactions calmly into UnifiedItem format
   const unifiedItems = useMemo<UnifiedItem[]>(() => {
     const list: UnifiedItem[] = [];
 
@@ -104,13 +97,11 @@ export function ActivityScreen() {
           id: `exp-${exp.id}`,
           type: "EXPENSE",
           title: exp.description || exp.category?.name || "Expense",
-          subtitle: `${exp.category?.name || "Uncategorized"} • ${exp.paymentMethod || "Cash"} • ${exp.needWant}`,
+          subtitle: exp.category?.name || "Uncategorized",
           amount: exp.amount,
           date: exp.date,
-          icon: exp.category?.icon || "receipt",
-          color: exp.category?.color || colors.accent,
-          statusText: exp.status,
-          statusColor: exp.status === "Paid" ? colors.success : colors.warning,
+          icon: exp.category?.icon || "credit-card-outline",
+          isUnpaid: exp.status === "Unpaid",
           raw: exp,
         });
       });
@@ -123,13 +114,10 @@ export function ActivityScreen() {
           id: `inc-${inc.id}`,
           type: "INCOME",
           title: inc.source || inc.description || "Income",
-          subtitle: `${inc.source} • ${inc.paymentMethod || "Bank"}`,
+          subtitle: inc.paymentMethod || "Direct Deposit",
           amount: inc.amount,
           date: inc.date,
-          icon: inc.sourceIcon || "wallet-plus",
-          color: inc.sourceColor || colors.success,
-          statusText: "Received",
-          statusColor: colors.success,
+          icon: inc.sourceIcon || "wallet-plus-outline",
           raw: inc,
         });
       });
@@ -139,29 +127,20 @@ export function ActivityScreen() {
     if (activeTab === "ALL" || activeTab === "LOANS") {
       (loans || []).forEach((loan) => {
         const isLent = loan.type === "LENT";
-        const remaining = Math.max(0, loan.amount - loan.settledAmount);
         list.push({
           id: `loan-${loan.id}`,
           type: "LOAN",
           title: `${isLent ? "Lent to" : "Borrowed from"} ${loan.personName}`,
-          subtitle: `${loan.status} • Bal: ${formatCurrency(remaining)}`,
+          subtitle: loan.status === "SETTLED" ? "Settled" : "Active loan",
           amount: loan.amount,
           date: loan.createdAt,
-          icon: isLent ? "hand-coin-outline" : "hand-coin",
-          color: isLent ? colors.warning : colors.danger,
-          statusText: loan.status,
-          statusColor:
-            loan.status === "SETTLED"
-              ? colors.success
-              : loan.status === "PARTIAL"
-              ? colors.warning
-              : colors.danger,
+          icon: isLent ? "arrow-up-right" : "arrow-down-left",
           raw: loan,
         });
       });
     }
 
-    // Filter by search query
+    // Filter by live search query
     let filtered = list;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -172,22 +151,13 @@ export function ActivityScreen() {
       );
     }
 
-    // Filter by selected category (for expenses)
-    if (selectedCategory) {
-      filtered = filtered.filter(
-        (item) =>
-          item.type === "EXPENSE" &&
-          (item.raw as Expense).categoryId === selectedCategory
-      );
-    }
-
     // Sort by date descending
     filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return filtered;
-  }, [expensesData, incomeData, loans, activeTab, searchQuery, selectedCategory]);
+  }, [expensesData, incomeData, loans, activeTab, searchQuery]);
 
-  // Group into date sections (Today, Yesterday, or formatted date)
+  // Group into clean date sections
   const sections = useMemo(() => {
     const today = new Date().toDateString();
     const yesterday = new Date(Date.now() - 86400000).toDateString();
@@ -221,17 +191,6 @@ export function ActivityScreen() {
     }));
   }, [unifiedItems]);
 
-  // Aggregate metrics for active view
-  const totals = useMemo(() => {
-    let inflow = 0;
-    let outflow = 0;
-    unifiedItems.forEach((i) => {
-      if (i.type === "INCOME") inflow += i.amount;
-      if (i.type === "EXPENSE") outflow += i.amount;
-    });
-    return { inflow, outflow, net: inflow - outflow };
-  }, [unifiedItems]);
-
   const handleRowPress = (item: UnifiedItem) => {
     hapticLight();
     if (item.type === "EXPENSE") {
@@ -252,7 +211,7 @@ export function ActivityScreen() {
 
   return (
     <ScreenContainer style={styles.noPad}>
-      {/* Top Header */}
+      {/* Calm Header */}
       <View style={styles.header}>
         <View style={styles.monthWrap}>
           <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
@@ -260,33 +219,31 @@ export function ActivityScreen() {
         <Text style={styles.headerTitle}>Activity</Text>
       </View>
 
-      {/* Segmented Control */}
+      {/* Understated Segmented Control */}
       <View style={styles.segmentedWrap}>
         <AnimatedSegmentedControl
           options={TAB_OPTIONS}
           selected={activeTab}
-          onChange={(tab) => {
-            setActiveTab(tab);
-            setSelectedCategory(null);
-          }}
+          onChange={(tab) => setActiveTab(tab)}
         />
       </View>
 
-      {/* Search Bar */}
+      {/* Minimal, Quiet Search Bar */}
       <View style={styles.searchBarWrap}>
         <View style={styles.searchContainer}>
           <MaterialCommunityIcons
             name="magnify"
-            size={20}
+            size={18}
             color={colors.textMuted}
             style={styles.searchIcon}
           />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search transactions, people..."
+            placeholder="Search transactions..."
             placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            autoCorrect={false}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity
@@ -295,7 +252,7 @@ export function ActivityScreen() {
             >
               <MaterialCommunityIcons
                 name="close-circle"
-                size={18}
+                size={16}
                 color={colors.textMuted}
               />
             </TouchableOpacity>
@@ -303,100 +260,16 @@ export function ActivityScreen() {
         </View>
       </View>
 
-      {/* Category Pills (Active on Expenses/All tab) */}
-      {(activeTab === "ALL" || activeTab === "EXPENSES") && categories.length > 0 && (
-        <View style={styles.categoriesScroll}>
-          <TouchableOpacity
-            style={[
-              styles.catChip,
-              !selectedCategory && styles.catChipActive,
-            ]}
-            onPress={() => setSelectedCategory(null)}
-          >
-            <Text
-              style={[
-                styles.catChipText,
-                !selectedCategory && styles.catChipTextActive,
-              ]}
-            >
-              All Categories
-            </Text>
-          </TouchableOpacity>
-          {categories.map((cat: any) => {
-            const isCatActive = selectedCategory === cat.id;
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                style={[
-                  styles.catChip,
-                  isCatActive && {
-                    backgroundColor: cat.color,
-                    borderColor: cat.color,
-                  },
-                ]}
-                onPress={() =>
-                  setSelectedCategory(isCatActive ? null : cat.id)
-                }
-              >
-                <MaterialCommunityIcons
-                  name={cat.icon as any}
-                  size={14}
-                  color={isCatActive ? colors.textPrimary : cat.color}
-                  style={{ marginRight: 4 }}
-                />
-                <Text
-                  style={[
-                    styles.catChipText,
-                    isCatActive && styles.catChipTextActive,
-                  ]}
-                >
-                  {cat.name}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
-
-      {/* Summary Mini-Card */}
-      <View style={styles.summaryBar}>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Outflow</Text>
-          <Text style={[styles.summaryValue, { color: colors.danger }]}>
-            {formatCurrency(totals.outflow)}
-          </Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Inflow</Text>
-          <Text style={[styles.summaryValue, { color: colors.success }]}>
-            {formatCurrency(totals.inflow)}
-          </Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Net</Text>
-          <Text
-            style={[
-              styles.summaryValue,
-              { color: totals.net >= 0 ? colors.accent : colors.danger },
-            ]}
-          >
-            {formatCurrency(totals.net)}
-          </Text>
-        </View>
-      </View>
-
-      {/* Transaction Feed */}
+      {/* Cozy, Peaceful Transaction Feed */}
       {isLoading ? (
         <ListScreenSkeleton />
       ) : sections.length === 0 ? (
         <EmptyState
-          title="No transactions found"
+          title="No transactions"
           subtitle={
             searchQuery
-              ? `No records matching "${searchQuery}"`
-              : "Tap the (+) button below to log your first record."
+              ? `No records found for "${searchQuery}"`
+              : "Transactions you log will appear here."
           }
           icon="receipt-text-outline"
         />
@@ -420,26 +293,21 @@ export function ActivityScreen() {
           )}
           renderItem={({ item }) => {
             const isIncome = item.type === "INCOME";
-            const isLoan = item.type === "LOAN";
-            const isExpense = item.type === "EXPENSE";
 
             return (
               <TouchableOpacity
                 style={styles.rowCard}
                 activeOpacity={0.7}
                 onPress={() => handleRowPress(item)}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.title}, ${formatCurrency(item.amount)}`}
               >
-                {/* Icon Circle */}
-                <View
-                  style={[
-                    styles.iconCircle,
-                    { backgroundColor: `${item.color}20` },
-                  ]}
-                >
+                {/* Minimal Neutral Icon Circle */}
+                <View style={styles.iconCircle}>
                   <MaterialCommunityIcons
                     name={item.icon as any}
-                    size={22}
-                    color={item.color}
+                    size={20}
+                    color={colors.textPrimary}
                   />
                 </View>
 
@@ -453,68 +321,30 @@ export function ActivityScreen() {
                   </Text>
                 </View>
 
-                {/* Amount & Status Action */}
+                {/* Right: Amount & Quiet Unpaid Indicator */}
                 <View style={styles.rightWrap}>
                   <Text
                     style={[
                       styles.amountText,
-                      isIncome
-                        ? { color: colors.success }
-                        : isExpense
-                        ? { color: colors.danger }
-                        : { color: colors.warning },
+                      isIncome ? styles.amountIncome : styles.amountDefault,
                     ]}
                   >
-                    {isIncome ? "+" : isExpense ? "-" : ""}
+                    {isIncome ? "+" : ""}
                     {formatCurrency(item.amount)}
                   </Text>
 
-                  {/* Interactive status badge for expenses, static for others */}
-                  {isExpense ? (
+                  {item.isUnpaid && (
                     <TouchableOpacity
-                      style={[
-                        styles.statusChip,
-                        { backgroundColor: `${item.statusColor}20` },
-                      ]}
+                      style={styles.unpaidPill}
                       onPress={() => handleToggleStatus(item)}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Mark as paid"
                     >
-                      <MaterialCommunityIcons
-                        name={
-                          item.statusText === "Paid"
-                            ? "check-circle"
-                            : "clock-outline"
-                        }
-                        size={12}
-                        color={item.statusColor}
-                        style={{ marginRight: 3 }}
-                      />
-                      <Text
-                        style={[
-                          styles.statusChipText,
-                          { color: item.statusColor },
-                        ]}
-                      >
-                        {item.statusText}
-                      </Text>
+                      <View style={styles.unpaidDot} />
+                      <Text style={styles.unpaidText}>Unpaid</Text>
                     </TouchableOpacity>
-                  ) : item.statusText ? (
-                    <View
-                      style={[
-                        styles.statusChip,
-                        { backgroundColor: `${item.statusColor}20` },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.statusChipText,
-                          { color: item.statusColor },
-                        ]}
-                      >
-                        {item.statusText}
-                      </Text>
-                    </View>
-                  ) : null}
+                  )}
                 </View>
               </TouchableOpacity>
             );
@@ -526,178 +356,137 @@ export function ActivityScreen() {
 }
 
 const styles = StyleSheet.create({
-  noPad: {
-    paddingHorizontal: 0,
-    paddingTop: 0,
-  },
+  noPad: { paddingHorizontal: 0 },
   header: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
     paddingBottom: spacing.xs,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    backgroundColor: colors.background,
   },
   monthWrap: {
-    flex: 1,
-    marginRight: spacing.md,
+    marginBottom: spacing.xs,
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: "800",
+    ...typography.title,
+    fontSize: 26,
+    letterSpacing: -0.4,
     color: colors.textPrimary,
   },
+
   segmentedWrap: {
-    paddingHorizontal: spacing.md,
-    marginVertical: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
   },
+
   searchBarWrap: {
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
   },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    paddingHorizontal: 12,
+    height: 42,
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
   searchIcon: {
-    marginRight: spacing.sm,
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 14,
     color: colors.textPrimary,
-    padding: 0,
+    paddingVertical: 0,
   },
-  categoriesScroll: {
-    flexDirection: "row",
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.sm,
-    gap: spacing.xs,
-  },
-  catChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 5,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceRaised,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  catChipActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  catChipText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: "500",
-  },
-  catChipTextActive: {
-    color: colors.textPrimary,
-    fontWeight: "700",
-  },
-  summaryBar: {
-    flexDirection: "row",
-    backgroundColor: colors.surface,
-    marginHorizontal: spacing.md,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  summaryItem: {
-    flex: 1,
-    alignItems: "center",
-  },
-  summaryDivider: {
-    width: 1,
-    backgroundColor: colors.borderLight,
-  },
-  summaryLabel: {
-    fontSize: 11,
-    color: colors.textMuted,
-    fontWeight: "600",
-    textTransform: "uppercase",
-  },
-  summaryValue: {
-    fontSize: 14,
-    fontWeight: "700",
-    marginTop: 2,
-  },
+
   listContent: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: 140, // Required bottom padding for elevated tab bar
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 140,
   },
   sectionHeader: {
+    paddingTop: spacing.md,
+    paddingBottom: 6,
     backgroundColor: colors.background,
-    paddingVertical: spacing.xs,
-    marginTop: spacing.sm,
   },
   sectionHeaderText: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "600",
     color: colors.textMuted,
     textTransform: "uppercase",
     letterSpacing: 0.8,
   },
+
   rowCard: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.xs,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
   iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.md,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     alignItems: "center",
     justifyContent: "center",
     marginRight: spacing.md,
   },
   detailsWrap: {
     flex: 1,
+    marginRight: spacing.sm,
   },
   itemTitle: {
     fontSize: 15,
     fontWeight: "600",
     color: colors.textPrimary,
+    marginBottom: 2,
   },
   itemSubtitle: {
     fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
+    fontWeight: "400",
+    color: colors.textMuted,
   },
   rightWrap: {
     alignItems: "flex-end",
-    marginLeft: spacing.sm,
   },
   amountText: {
     fontSize: 15,
     fontWeight: "700",
   },
-  statusChip: {
+  amountIncome: {
+    color: colors.success,
+  },
+  amountDefault: {
+    color: colors.textPrimary,
+  },
+  unpaidPill: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "rgba(245, 158, 11, 0.12)",
+    paddingVertical: 3,
     paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
+    borderRadius: 10,
     marginTop: 4,
+    gap: 4,
   },
-  statusChipText: {
+  unpaidDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: colors.warning,
+  },
+  unpaidText: {
     fontSize: 11,
     fontWeight: "600",
+    color: colors.warning,
   },
 });
