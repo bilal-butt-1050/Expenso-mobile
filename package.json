@@ -12,8 +12,8 @@
     "build:preview": "eas build --profile preview --platform android",
     "build:prod": "eas build --profile production --platform android",
     "build:prod:store": "eas build --profile production-store --platform android",
-    "update:preview": "eas update --channel preview",
-    "update:prod": "eas update --channel production"
+    "update:preview": "eas update --channel preview --environment preview",
+    "update:prod": "eas update --channel production --environment production"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.15",
