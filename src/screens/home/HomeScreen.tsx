@@ -6,6 +6,7 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useDashboard } from "../../hooks/useDashboard";
+import { useLoans } from "../../hooks/useLoans";
 import { useAppData } from "../../context/AppDataContext";
 import { useAuth } from "../../context/AuthContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
@@ -23,6 +24,17 @@ export function HomeScreen() {
   const { user } = useAuth();
   const { selectedMonth, setSelectedMonth } = useAppData();
   const { data, isLoading, refetch } = useDashboard();
+  const { loans, summary: loansSummary, refresh: refreshLoans } = useLoans();
+
+  const handleRefresh = async () => {
+    await Promise.all([refetch(), refreshLoans()]);
+  };
+
+  const overdueLoans = (loans ?? []).filter((l) => {
+    if (l.status === "SETTLED" || !l.dueDate) return false;
+    const due = new Date(l.dueDate).getTime();
+    return !isNaN(due) && due < Date.now();
+  });
 
   const [googlePhoto, setGooglePhoto] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
@@ -77,7 +89,7 @@ export function HomeScreen() {
 
       <ScrollView
         contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.accent} />}
+        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleRefresh} tintColor={colors.accent} />}
         showsVerticalScrollIndicator={false}
       >
         {!data ? (
@@ -113,18 +125,43 @@ export function HomeScreen() {
             </View>
 
             {/* ACTION CENTER — Horizontally Scrolling Global Reminders */}
-            {(data.unpaidExpenses > 0 || (data.dailyAllowance ?? 0) > 0 || (data.daysRemaining ?? 0) > 0) && (
+            {(data.unpaidExpenses > 0 || overdueLoans.length > 0 || (data.dailyAllowance ?? 0) > 0 || (data.daysRemaining ?? 0) > 0) && (
               <View style={styles.sectionWrap}>
                 <Text style={styles.sectionTitle}>Action Center</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionCenterScroll}>
+                  {overdueLoans.length > 0 && (
+                    <ActionChip
+                      icon="alert-octagon-outline"
+                      color={colors.danger}
+                      label="Overdue Debt"
+                      value={`${overdueLoans.length} ${overdueLoans.length === 1 ? "loan" : "loans"}`}
+                      onPress={() => navigation.navigate("Loans" as any)}
+                    />
+                  )}
                   {data.unpaidExpenses > 0 && (
-                    <ActionChip icon="clock-alert-outline" color={colors.warning} label="Total Unpaid Bills" value={formatCurrency(data.unpaidExpenses)} />
+                    <ActionChip
+                      icon="clock-alert-outline"
+                      color={colors.warning}
+                      label="Total Unpaid Bills"
+                      value={formatCurrency(data.unpaidExpenses)}
+                      onPress={() => navigation.navigate("Tabs", { screen: "Activity" } as any)}
+                    />
                   )}
                   {(data.dailyAllowance ?? 0) > 0 && (
-                    <ActionChip icon="calendar-check-outline" color={colors.accent} label="Daily Safe Spend" value={formatCurrency(data.dailyAllowance!)} />
+                    <ActionChip
+                      icon="calendar-check-outline"
+                      color={colors.accent}
+                      label="Daily Safe Spend"
+                      value={formatCurrency(data.dailyAllowance!)}
+                    />
                   )}
                   {(data.daysRemaining ?? 0) > 0 && (
-                    <ActionChip icon="timer-sand" color={colors.textSecondary} label="Days Left" value={`${data.daysRemaining} days`} />
+                    <ActionChip
+                      icon="timer-sand"
+                      color={colors.textSecondary}
+                      label="Days Left"
+                      value={`${data.daysRemaining} days`}
+                    />
                   )}
                 </ScrollView>
               </View>
@@ -201,6 +238,74 @@ export function HomeScreen() {
               </View>
             </View>
 
+            {/* NET DEBT POSITION */}
+            {loansSummary && (loansSummary.totalLentPending > 0 || loansSummary.totalBorrowedPending > 0) && (
+              <View style={styles.sectionWrap}>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionTitle}>Net Debt Position</Text>
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate("Loans" as any)}
+                    activeOpacity={0.7}
+                    style={{ paddingRight: spacing.lg }}
+                  >
+                    <Text style={styles.sectionActionText}>View all</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.debtCard}
+                  onPress={() => navigation.navigate("Loans" as any)}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Net Debt Position"
+                >
+                  <View style={styles.debtCardRow}>
+                    <View style={styles.debtCardCol}>
+                      <View style={styles.debtBadgeRow}>
+                        <MaterialCommunityIcons name="arrow-down-left" size={16} color={colors.success} />
+                        <Text style={styles.debtColLabel}>OWED TO YOU</Text>
+                      </View>
+                      <Text style={[styles.debtColValue, { color: colors.success }]}>
+                        {formatCurrency(loansSummary.totalLentPending)}
+                      </Text>
+                    </View>
+
+                    <View style={styles.debtDivider} />
+
+                    <View style={styles.debtCardCol}>
+                      <View style={styles.debtBadgeRow}>
+                        <MaterialCommunityIcons name="arrow-up-right" size={16} color={colors.danger} />
+                        <Text style={styles.debtColLabel}>YOU OWE</Text>
+                      </View>
+                      <Text style={[styles.debtColValue, { color: colors.danger }]}>
+                        {formatCurrency(loansSummary.totalBorrowedPending)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.debtNetFooter}>
+                    <Text style={styles.debtNetLabel}>Net Balance Position</Text>
+                    <Text
+                      style={[
+                        styles.debtNetValue,
+                        {
+                          color:
+                            loansSummary.netBalance > 0
+                              ? colors.success
+                              : loansSummary.netBalance < 0
+                              ? colors.danger
+                              : colors.textSecondary,
+                        },
+                      ]}
+                    >
+                      {loansSummary.netBalance > 0 ? "+" : ""}
+                      {formatCurrency(loansSummary.netBalance)}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
+
           </>
         )}
       </ScrollView>
@@ -208,8 +313,20 @@ export function HomeScreen() {
   );
 }
 
-function ActionChip({ icon, label, value, color }: { icon: any; label: string; value: string; color: string }) {
-  return (
+function ActionChip({
+  icon,
+  label,
+  value,
+  color,
+  onPress,
+}: {
+  icon: any;
+  label: string;
+  value: string;
+  color: string;
+  onPress?: () => void;
+}) {
+  const content = (
     <View style={styles.actionChip}>
       <View style={[styles.chipIconWrap, { backgroundColor: `${color}1A` }]}>
         <MaterialCommunityIcons name={icon} size={20} color={color} />
@@ -220,6 +337,15 @@ function ActionChip({ icon, label, value, color }: { icon: any; label: string; v
       </View>
     </View>
   );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity activeOpacity={0.7} onPress={onPress}>
+        {content}
+      </TouchableOpacity>
+    );
+  }
+  return content;
 }
 
 const styles = StyleSheet.create({
@@ -409,5 +535,72 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: colors.textSecondary,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.xs,
+  },
+  sectionActionText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.accent,
+  },
+  debtCard: {
+    marginHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    padding: spacing.lg,
+  },
+  debtCardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  debtCardCol: {
+    flex: 1,
+  },
+  debtBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: spacing.xs,
+  },
+  debtColLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.textMuted,
+    letterSpacing: 0.8,
+  },
+  debtColValue: {
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  debtDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.md,
+  },
+  debtNetFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  debtNetLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.textSecondary,
+  },
+  debtNetValue: {
+    fontSize: 15,
+    fontWeight: "700",
   },
 });
