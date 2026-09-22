@@ -59,4 +59,14 @@ Live task plan for active work on the mobile app. Update checkboxes as steps are
 - [x] 8. Haptic Feedback Discipline: Meaningful, delicate haptic cues for record creation, heavy mechanical feedback for deletion, no noise.
 - [x] 9. Verification: `npm run typecheck` passes with 0 errors and EAS preview update published (`dca8e984-3c8f-41fb-b461-b5cb1df59a0e`).
 
+## Bubbly & Comfy UI Overhaul, Left-to-Right Swipe Delete & Clean Activity Hub
+**Goal:** Deliver a bubbly, friendly, cozy UI experience devoid of corporate stiffness, with left-to-right swipe-to-delete, title-only records, and no search input in Activity.
+
+**Acceptance criteria:**
+- [x] 1. Left-to-Right Swipe Delete: Records swipe from left to right with a bubbly red action capsule and smooth slide-off exit animation.
+- [x] 2. Title-Only Records: Removed descriptions and subtitle clutter across all records (expenses, income, loans); records feature only clean titles and amounts.
+- [x] 3. Activity Search Removal: Eliminated search bar and text filtering in the Activity tab to keep it minimal, fast, and cozy.
+- [x] 4. Bubbly Geometry & Aesthetic: Rounded pill segmented control, soft pastel icon bubbles, and comfortable padding.
+- [x] 5. Verification: `npm run typecheck` passes with 0 errors.
+
 

@@ -42,15 +42,15 @@ export function AnimatedSegmentedControl<T extends string = string>({
   const selectedIndex = options.findIndex((opt) => opt.value === selected);
   const activeIndex = selectedIndex >= 0 ? selectedIndex : 0;
 
-  const segmentWidth = containerWidth > 0 ? (containerWidth - 6) / options.length : 0;
+  const segmentWidth = containerWidth > 0 ? (containerWidth - 8) / options.length : 0;
   const maxTranslate = Math.max(0, (options.length - 1) * segmentWidth);
   const translateX = useSharedValue(0);
 
   useEffect(() => {
     if (segmentWidth > 0) {
       translateX.value = withSpring(activeIndex * segmentWidth, {
-        damping: 19,
-        stiffness: 190,
+        damping: 17,
+        stiffness: 200,
       });
     }
   }, [activeIndex, segmentWidth]);
@@ -127,8 +127,8 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     backgroundColor: colors.surfaceRaised,
-    borderRadius: radius.md,
-    padding: 3,
+    borderRadius: radius.pill,
+    padding: 4,
     position: "relative",
     borderWidth: 1,
     borderColor: colors.borderLight,
@@ -136,20 +136,20 @@ const styles = StyleSheet.create({
   },
   indicator: {
     position: "absolute",
-    top: 3,
-    bottom: 3,
-    left: 3,
+    top: 4,
+    bottom: 4,
+    left: 4,
     backgroundColor: colors.accent,
-    borderRadius: radius.sm,
+    borderRadius: radius.pill,
     shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 4,
   },
   segment: {
     flex: 1,
-    paddingVertical: spacing.sm,
+    paddingVertical: 10,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1,
@@ -163,8 +163,9 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   label: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
+    letterSpacing: -0.1,
   },
   labelActive: {
     color: colors.textPrimary,

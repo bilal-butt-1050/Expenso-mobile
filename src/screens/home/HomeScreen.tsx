@@ -324,13 +324,7 @@ export function HomeScreen() {
                       </View>
                       <View style={styles.recentInfo}>
                         <Text style={styles.recentTitle} numberOfLines={1}>
-                          {item.description || item.category?.name || "Expense"}
-                        </Text>
-                        <Text style={styles.recentSubtitle}>
-                          {new Date(item.date).toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                          })} • {item.category?.name || "Uncategorized"}
+                          {item.category?.name || item.description || "Expense"}
                         </Text>
                       </View>
                       <Text style={styles.recentAmount}>
@@ -573,20 +567,16 @@ const styles = StyleSheet.create({
   },
   recentInfo: {
     flex: 1,
+    justifyContent: "center",
     paddingRight: spacing.sm,
   },
   recentTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "600",
     color: colors.textPrimary,
-    marginBottom: 2,
-  },
-  recentSubtitle: {
-    fontSize: 12,
-    color: colors.textMuted,
   },
   recentAmount: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
     color: colors.textPrimary,
   },

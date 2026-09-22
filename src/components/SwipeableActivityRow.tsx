@@ -23,7 +23,7 @@ export interface UnifiedActivityItem {
   rawId: string;
   type: "EXPENSE" | "INCOME" | "LOAN";
   title: string;
-  subtitle: string;
+  subtitle?: string;
   amount: number;
   date: string | Date;
   icon: string;
@@ -51,6 +51,7 @@ export function SwipeableActivityRow({
 }: SwipeableActivityRowProps) {
   const highlightAnim = useRef(new Animated.Value(isNewlyAdded ? 1 : 0)).current;
   const deleteAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
   const swipeableRef = useRef<any>(null);
 
   useEffect(() => {
@@ -73,42 +74,84 @@ export function SwipeableActivityRow({
 
   useEffect(() => {
     if (isDeleting) {
-      Animated.timing(deleteAnim, {
-        toValue: 1,
-        duration: 300,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }).start(() => {
+      Animated.parallel([
+        Animated.timing(deleteAnim, {
+          toValue: 1,
+          duration: 250,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
         if (onDeleteAnimFinish) onDeleteAnimFinish();
       });
     }
   }, [isDeleting]);
 
-  const renderRightActions = () => {
+  // Smooth bubbly left action revealed when swiping left-to-right
+  const renderLeftActions = () => {
     return (
-      <View style={styles.rightAction}>
-        <MaterialCommunityIcons name="trash-can-outline" size={24} color="#FFFFFF" />
+      <View style={styles.leftAction}>
+        <View style={styles.deleteIconBubble}>
+          <MaterialCommunityIcons name="trash-can-outline" size={22} color="#FFFFFF" />
+        </View>
       </View>
     );
   };
 
   const onSwipeableOpen = (direction: "left" | "right") => {
-    if (direction === "right") {
+    if (direction === "left") {
       hapticDelete();
       swipeableRef.current?.close();
       onDelete();
     }
   };
 
+  // Vibrant, friendly icon colors & soft background bubbles
+  const getIconBg = () => {
+    if (item.type === "INCOME") return "rgba(16, 185, 129, 0.14)";
+    if (item.type === "LOAN") {
+      return item.raw?.type === "LENT"
+        ? "rgba(96, 165, 250, 0.14)"
+        : "rgba(245, 158, 11, 0.14)";
+    }
+    if (item.raw?.category?.color) {
+      return `${item.raw.category.color}22`;
+    }
+    return "rgba(99, 102, 241, 0.14)";
+  };
+
+  const getIconColor = () => {
+    if (item.type === "INCOME") return colors.success;
+    if (item.type === "LOAN") {
+      return item.raw?.type === "LENT" ? "#60A5FA" : colors.warning;
+    }
+    if (item.raw?.category?.color) {
+      return item.raw.category.color;
+    }
+    return colors.accent;
+  };
+
   return (
     <View style={styles.container}>
       <Animated.View
         style={{
+          opacity: fadeAnim,
           transform: [
             {
               translateX: deleteAnim.interpolate({
                 inputRange: [0, 1],
-                outputRange: [0, -SCREEN_WIDTH],
+                outputRange: [0, SCREEN_WIDTH + 50],
+              }),
+            },
+            {
+              scale: deleteAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [1, 0.9],
               }),
             },
           ],
@@ -116,11 +159,11 @@ export function SwipeableActivityRow({
       >
         <Swipeable
           ref={swipeableRef}
-          renderRightActions={renderRightActions}
+          renderLeftActions={renderLeftActions}
           onSwipeableOpen={onSwipeableOpen}
           friction={2}
-          rightThreshold={60}
-          containerStyle={{ borderRadius: 18 }}
+          leftThreshold={60}
+          containerStyle={{ borderRadius: 22 }}
         >
           <Animated.View
             style={[
@@ -143,23 +186,23 @@ export function SwipeableActivityRow({
               accessibilityRole="button"
               accessibilityLabel={`${item.title}, ${formatCurrency(item.amount)}`}
             >
-              <View style={styles.iconCircle}>
+              {/* Bubbly soft icon circle */}
+              <View style={[styles.iconCircle, { backgroundColor: getIconBg() }]}>
                 <MaterialCommunityIcons
                   name={item.icon as any}
                   size={20}
-                  color={colors.textPrimary}
+                  color={getIconColor()}
                 />
               </View>
 
+              {/* Title only (clean, minimal, comfy — no descriptions) */}
               <View style={styles.rowMiddle}>
                 <Text style={styles.rowTitle} numberOfLines={1}>
                   {item.title}
                 </Text>
-                <Text style={styles.rowSub} numberOfLines={1}>
-                  {item.subtitle}
-                </Text>
               </View>
 
+              {/* Amount */}
               <View style={styles.rowEnd}>
                 <Text
                   style={[
@@ -181,25 +224,33 @@ export function SwipeableActivityRow({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 8,
-    borderRadius: 18,
+    marginBottom: 10,
+    borderRadius: 22,
     overflow: "hidden",
   },
-  rightAction: {
+  leftAction: {
     flex: 1,
     backgroundColor: colors.danger,
     justifyContent: "center",
-    alignItems: "flex-end",
-    paddingRight: 24,
-    borderRadius: 18,
+    alignItems: "flex-start",
+    paddingLeft: spacing.lg,
+    borderRadius: 22,
+  },
+  deleteIconBubble: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255, 255, 255, 0.22)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: spacing.md,
     backgroundColor: colors.surfaceRaised,
-    borderRadius: 18,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
@@ -210,18 +261,36 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
   },
-  rowMiddle: { flex: 1 },
-  rowTitle: { ...typography.body, fontWeight: "600", fontSize: 16 },
-  rowSub: { ...typography.caption, color: colors.textMuted, marginTop: 2, fontSize: 13 },
-  rowEnd: { alignItems: "flex-end", justifyContent: "center" },
-  rowAmount: { fontSize: 17, fontWeight: "700" },
-  amountDefault: { color: colors.textPrimary },
-  amountIncome: { color: colors.success },
+  rowMiddle: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  rowTitle: {
+    ...typography.body,
+    fontWeight: "600",
+    fontSize: 16,
+    color: colors.textPrimary,
+    letterSpacing: -0.2,
+  },
+  rowEnd: {
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+  rowAmount: {
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  amountDefault: {
+    color: colors.textPrimary,
+  },
+  amountIncome: {
+    color: colors.success,
+  },
 });

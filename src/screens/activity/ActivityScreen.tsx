@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   SectionList,
-  TextInput,
   RefreshControl,
   LayoutAnimation,
 } from "react-native";
@@ -56,7 +55,6 @@ export function ActivityScreen() {
   const [activeTab, setActiveTab] = useState<ActivityTab>(
     route.params?.filter || "ALL"
   );
-  const [searchQuery, setSearchQuery] = useState("");
   const [settlingLoan, setSettlingLoan] = useState<Loan | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [syncState, setSyncState] = useState<{ isSyncing: boolean; pendingCount: number }>({
@@ -114,7 +112,7 @@ export function ActivityScreen() {
     ]);
   }, [refetchExpenses, refetchIncome, refetchLoans]);
 
-  // Aggregate all transactions calmly into UnifiedActivityItem format
+  // Aggregate all transactions calmly into UnifiedActivityItem format — title only, no descriptions
   const unifiedItems = useMemo<UnifiedActivityItem[]>(() => {
     const list: UnifiedActivityItem[] = [];
 
@@ -125,8 +123,7 @@ export function ActivityScreen() {
           id: `exp-${exp.id}`,
           rawId: exp.id,
           type: "EXPENSE",
-          title: exp.description || exp.category?.name || "Expense",
-          subtitle: exp.category?.name || "Uncategorized",
+          title: exp.category?.name || exp.description || "Expense",
           amount: exp.amount,
           date: exp.date,
           icon: exp.category?.icon || "credit-card-outline",
@@ -143,7 +140,6 @@ export function ActivityScreen() {
           rawId: inc.id,
           type: "INCOME",
           title: inc.source || inc.description || "Income",
-          subtitle: inc.paymentMethod || "Direct Deposit",
           amount: inc.amount,
           date: inc.date,
           icon: inc.sourceIcon || "wallet-plus-outline",
@@ -163,9 +159,6 @@ export function ActivityScreen() {
           rawId: loan.id,
           type: "LOAN",
           title: `${isLent ? "Lent to" : "Borrowed from"} ${loan.personName}`,
-          subtitle: isSettled
-            ? "Fully Settled"
-            : `Remaining: ${formatCurrency(Math.max(0, loan.amount - loan.settledAmount))}`,
           amount: loan.amount,
           date: loan.createdAt,
           icon: isLent ? "arrow-top-right" : "arrow-bottom-left",
@@ -175,22 +168,11 @@ export function ActivityScreen() {
       });
     }
 
-    // Filter by live search query
-    let filtered = list;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(
-        (item) =>
-          item.title.toLowerCase().includes(q) ||
-          item.subtitle.toLowerCase().includes(q)
-      );
-    }
-
     // Sort by date descending
-    filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    return filtered;
-  }, [expensesData, incomeData, loans, activeTab, searchQuery]);
+    return list;
+  }, [expensesData, incomeData, loans, activeTab]);
 
   // Group into clean date sections
   const sections = useMemo(() => {
@@ -257,7 +239,7 @@ export function ActivityScreen() {
           } else if (item.type === "LOAN") {
             await removeLoan(item.rawId);
           }
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
         } catch {
         } finally {
           setDeletingId(null);
@@ -302,42 +284,10 @@ export function ActivityScreen() {
           options={TAB_OPTIONS}
           selected={activeTab}
           onChange={(tab) => {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
             setActiveTab(tab);
           }}
         />
-      </View>
-
-      {/* Minimal Search Bar */}
-      <View style={styles.searchBarWrap}>
-        <View style={styles.searchContainer}>
-          <MaterialCommunityIcons
-            name="magnify"
-            size={18}
-            color={colors.textMuted}
-            style={styles.searchIcon}
-          />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search transactions..."
-            placeholderTextColor={colors.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCorrect={false}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSearchQuery("")}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <MaterialCommunityIcons
-                name="close-circle"
-                size={16}
-                color={colors.textMuted}
-              />
-            </TouchableOpacity>
-          )}
-        </View>
       </View>
 
       {/* Transaction Feed */}
@@ -347,9 +297,7 @@ export function ActivityScreen() {
         <EmptyState
           title="No transactions"
           subtitle={
-            searchQuery
-              ? `No records found for "${searchQuery}"`
-              : activeTab === "LOANS"
+            activeTab === "LOANS"
               ? "No active debts or loans recorded."
               : "Transactions you log will appear here."
           }
@@ -434,8 +382,9 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     ...typography.title,
-    fontSize: 26,
-    letterSpacing: -0.4,
+    fontSize: 28,
+    fontWeight: "800",
+    letterSpacing: -0.5,
     color: colors.textPrimary,
   },
   offlineBanner: {
@@ -443,9 +392,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     backgroundColor: "rgba(245, 158, 11, 0.1)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
     marginTop: spacing.xs,
     alignSelf: "flex-start",
   },
@@ -457,38 +406,14 @@ const styles = StyleSheet.create({
   segmentedWrap: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.md,
     backgroundColor: colors.background,
-  },
-  searchBarWrap: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
-    backgroundColor: colors.background,
-  },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    height: 42,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  searchIcon: {
-    marginRight: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    color: colors.textPrimary,
-    fontSize: 14,
-    paddingVertical: 0,
   },
   loansOverviewCard: {
     flexDirection: "row",
     backgroundColor: colors.surfaceRaised,
-    borderRadius: 18,
-    paddingVertical: spacing.md,
+    borderRadius: 22,
+    paddingVertical: spacing.md + 2,
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
@@ -503,27 +428,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.borderLight,
   },
   loanColLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "700",
     color: colors.textMuted,
     letterSpacing: 0.6,
     marginBottom: 4,
   },
   loanColValue: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "700",
   },
   listContent: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 140, // Generous clearance for bottom bar & FAB
+    paddingBottom: 140,
   },
   sectionHeader: {
     paddingTop: spacing.md,
-    paddingBottom: spacing.xs,
+    paddingBottom: spacing.xs + 2,
     backgroundColor: colors.background,
   },
   sectionHeaderText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
     color: colors.textMuted,
     letterSpacing: 0.5,
