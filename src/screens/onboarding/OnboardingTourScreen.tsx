@@ -138,7 +138,6 @@ interface TourSlide {
   badgeColor: string;
   title: string;
   description: string;
-  features: string[];
 }
 
 const SLIDES: TourSlide[] = [
@@ -148,7 +147,6 @@ const SLIDES: TourSlide[] = [
     badgeColor: colors.accent,
     title: "Track Cashflow Instantly",
     description: "Capture daily expenses and income in seconds with offline-first speed.",
-    features: ["⚡ Instant offline entry", "🏷️ Clean categories", "💱 Multi-currency"],
   },
   {
     id: "budget",
@@ -156,7 +154,6 @@ const SLIDES: TourSlide[] = [
     badgeColor: colors.accent,
     title: "Stay Ahead of Limits",
     description: "Visual spending progress bars keep you conscious before you overspend.",
-    features: ["🎯 Category limits", "📊 Real-time pacing", "🛡️ Over-budget alerts"],
   },
   {
     id: "lending",
@@ -164,7 +161,6 @@ const SLIDES: TourSlide[] = [
     badgeColor: "#60A5FA",
     title: "Lend & Borrow Clearly",
     description: "Know exactly who owes you and what you owe, with seamless settlements.",
-    features: ["🤝 Real-time debt position", "⏱️ Due date tracking", "💳 Inline settlements"],
   },
   {
     id: "peace",
@@ -172,7 +168,6 @@ const SLIDES: TourSlide[] = [
     badgeColor: colors.accent,
     title: "Total Financial Clarity",
     description: "Clean monthly snapshots and automatic sync designed for everyday peace of mind.",
-    features: ["🔒 100% private & secure", "☁️ Background cloud sync", "🌙 Calm dark aesthetic"],
   },
 ];
 
@@ -250,15 +245,6 @@ export function OnboardingTourScreen({ route, navigation }: Props) {
               {/* Slide Title & Description */}
               <Text style={styles.slideTitle}>{item.title}</Text>
               <Text style={styles.slideDescription}>{item.description}</Text>
-
-              {/* Feature Pills */}
-              <View style={styles.featuresRow}>
-                {item.features.map((feature: string, idx: number) => (
-                  <View key={idx} style={styles.featurePill}>
-                    <Text style={styles.featurePillText}>{feature}</Text>
-                  </View>
-                ))}
-              </View>
             </View>
           );
         }}
@@ -343,33 +329,11 @@ const styles = StyleSheet.create({
   },
   slideDescription: {
     ...typography.body,
-    fontSize: 15,
+    fontSize: 16,
     textAlign: "center",
     color: colors.textSecondary,
-    lineHeight: 22,
+    lineHeight: 24,
     maxWidth: 320,
-    marginBottom: spacing.xl,
-  },
-  featuresRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: spacing.xs + 2,
-    maxWidth: 320,
-  },
-  featurePill: {
-    paddingHorizontal: spacing.md - 2,
-    paddingVertical: spacing.xs + 1,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  featurePillText: {
-    ...typography.caption,
-    fontSize: 12,
-    color: colors.textPrimary,
-    fontWeight: "600",
   },
   bottomBar: {
     paddingHorizontal: spacing.lg,

@@ -14,11 +14,12 @@ import { ExpensesListScreen } from "../screens/expenses/ExpensesListScreen";
 import { IncomeListScreen } from "../screens/income/IncomeListScreen";
 import { QuickActionSheet } from "../components/QuickActionSheet";
 import { Platform, View, StyleSheet, TouchableOpacity } from "react-native";
+import Svg, { Path } from "react-native-svg";
 import { hapticMedium } from "../utils/haptics";
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
-// Dummy component for QuickAdd tab (intercepted by tabPress listener)
+// Dummy component for QuickAdd tab (handled via custom tabBarButton)
 function EmptyComponent() {
   return null;
 }
@@ -54,19 +55,9 @@ export function TabNavigator() {
             fontWeight: "600",
             marginTop: 2,
           },
-          tabBarIcon: ({ color, size, focused }) => {
+          tabBarIcon: ({ color, focused }) => {
             if (route.name === "QuickAdd") {
-              return (
-                <View style={styles.centerButtonWrapper}>
-                  <View style={styles.centerButton}>
-                    <MaterialCommunityIcons
-                      name="plus"
-                      color="#FFFFFF"
-                      size={30}
-                    />
-                  </View>
-                </View>
-              );
+              return null;
             }
 
             let iconName: string;
@@ -100,7 +91,7 @@ export function TabNavigator() {
           },
         })}
       >
-        {/* Primary 5 Tabs (with center elevated + button) */}
+        {/* Primary 5 Tabs (with center elevated + cutout button) */}
         <Tab.Screen
           name="Home"
           component={HomeScreen}
@@ -117,14 +108,34 @@ export function TabNavigator() {
           name="QuickAdd"
           component={EmptyComponent}
           options={{
-            tabBarLabel: () => null,
-          }}
-          listeners={{
-            tabPress: (e) => {
-              e.preventDefault();
-              hapticMedium();
-              setQuickActionVisible(true);
-            },
+            tabBarShowLabel: false,
+            tabBarButton: () => (
+              <View style={styles.centerButtonDock} pointerEvents="box-none">
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel="Quick Add"
+                  onPress={() => {
+                    hapticMedium();
+                    setQuickActionVisible(true);
+                  }}
+                  style={styles.centerButtonTouchable}
+                >
+                  <View style={styles.centerCutoutOuter}>
+                    <View style={styles.centerButtonInner}>
+                      <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                        <Path
+                          d="M12 5V19M5 12H19"
+                          stroke="#FFFFFF"
+                          strokeWidth={2.8}
+                          strokeLinecap="round"
+                        />
+                      </Svg>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            ),
           }}
         />
 
@@ -145,17 +156,26 @@ export function TabNavigator() {
           name="Loans"
           component={ActivityScreen}
           initialParams={{ filter: "LOANS" }}
-          options={{ tabBarButton: () => null }}
+          options={{
+            tabBarButton: () => null,
+            tabBarItemStyle: { display: "none" },
+          }}
         />
         <Tab.Screen
           name="Expenses"
           component={ExpensesListScreen}
-          options={{ tabBarButton: () => null }}
+          options={{
+            tabBarButton: () => null,
+            tabBarItemStyle: { display: "none" },
+          }}
         />
         <Tab.Screen
           name="Income"
           component={IncomeListScreen}
-          options={{ tabBarButton: () => null }}
+          options={{
+            tabBarButton: () => null,
+            tabBarItemStyle: { display: "none" },
+          }}
         />
       </Tab.Navigator>
 
@@ -173,26 +193,36 @@ export function TabNavigator() {
 }
 
 const styles = StyleSheet.create({
-  centerButtonWrapper: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  centerButtonDock: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "flex-start",
+    zIndex: 10,
+  },
+  centerButtonTouchable: {
+    top: -20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  centerCutoutOuter: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
-    top: -16,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderWidth: 3,
+    borderColor: colors.background,
     shadowColor: colors.accent,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 5,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  centerButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  centerButtonInner: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.accent,
     alignItems: "center",
     justifyContent: "center",
