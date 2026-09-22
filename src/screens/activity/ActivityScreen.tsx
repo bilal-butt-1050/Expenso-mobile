@@ -158,7 +158,7 @@ export function ActivityScreen() {
           id: `loan-${loan.id}`,
           rawId: loan.id,
           type: "LOAN",
-          title: `${isLent ? "Lent to" : "Borrowed from"} ${loan.personName}`,
+          title: isLent ? "Lent" : "Borrowed",
           amount: loan.amount,
           date: loan.createdAt,
           icon: isLent ? "arrow-top-right" : "arrow-bottom-left",
@@ -222,10 +222,14 @@ export function ActivityScreen() {
   const confirmDeleteItem = (item: UnifiedActivityItem) => {
     const typeLabel =
       item.type === "EXPENSE" ? "Expense" : item.type === "INCOME" ? "Income" : "Loan";
+    const deleteMessage =
+      item.type === "LOAN" && (item.raw as Loan)?.personName
+        ? `Are you sure you want to delete this ${item.title.toLowerCase()} record (${(item.raw as Loan).personName}) for ${formatCurrency(item.amount)}?`
+        : `Are you sure you want to delete "${item.title}" for ${formatCurrency(item.amount)}?`;
 
     confirm({
       title: `Delete ${typeLabel}?`,
-      message: `Are you sure you want to delete "${item.title}" for ${formatCurrency(item.amount)}?`,
+      message: deleteMessage,
       destructive: true,
       confirmText: "Delete",
       onConfirm: async () => {
