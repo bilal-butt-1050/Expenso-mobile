@@ -67,6 +67,6 @@ Live task plan for active work on the mobile app. Update checkboxes as steps are
 - [x] 2. Title-Only Records: Removed descriptions and subtitle clutter across all records (expenses, income, loans); records feature only clean titles and amounts.
 - [x] 3. Activity Search Removal: Eliminated search bar and text filtering in the Activity tab to keep it minimal, fast, and cozy.
 - [x] 4. Bubbly Geometry & Aesthetic: Rounded pill segmented control, soft pastel icon bubbles, and comfortable padding.
-- [x] 5. Verification: `npm run typecheck` passes with 0 errors.
+- [x] 5. Verification: `npm run typecheck` passes with 0 errors and EAS preview update published (`0e372ffc-8d9f-4aac-97df-585cb4de42c3`).
 
 
