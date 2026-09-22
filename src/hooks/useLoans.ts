@@ -6,21 +6,26 @@ import { useAppData } from "../context/AppDataContext";
 import { syncService } from "../services/syncService";
 
 export function useLoans(filterType?: LoanType, filterStatus?: LoanStatus) {
-  const { notifyDataChanged } = useAppData();
+  const { dataVersion, notifyDataChanged } = useAppData();
   const [loans, setLoans] = useState<Loan[]>([]);
   const [summary, setSummary] = useState<LoansSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load from offline cache initially
+  // Load from offline cache initially and whenever dataVersion or filters change
   useEffect(() => {
     syncService.getCache<Loan[]>("loans").then((cachedLoans) => {
-      if (cachedLoans) setLoans(cachedLoans);
+      if (cachedLoans) {
+        let filtered = cachedLoans;
+        if (filterType) filtered = filtered.filter((l) => l.type === filterType);
+        if (filterStatus) filtered = filtered.filter((l) => l.status === filterStatus);
+        setLoans(filtered);
+      }
     });
     syncService.getCache<LoansSummary>("loans_summary").then((cachedSummary) => {
       if (cachedSummary) setSummary(cachedSummary);
     });
-  }, []);
+  }, [dataVersion, filterType, filterStatus]);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
@@ -32,8 +37,11 @@ export function useLoans(filterType?: LoanType, filterStatus?: LoanStatus) {
       ]);
       setLoans(loansData);
       setSummary(summaryData);
-      syncService.setCache("loans", loansData);
-      syncService.setCache("loans_summary", summaryData);
+      // Only write to main cache when unfiltered so we preserve all loans
+      if (!filterType && !filterStatus) {
+        syncService.setCache("loans", loansData);
+        syncService.setCache("loans_summary", summaryData);
+      }
     } catch (err: any) {
       if (!err.response) {
         // Silently preserve offline cached loans
@@ -47,13 +55,19 @@ export function useLoans(filterType?: LoanType, filterStatus?: LoanStatus) {
 
   useEffect(() => {
     refresh();
-  }, [refresh]);
+  }, [refresh, dataVersion]);
 
   const addLoan = async (input: LoanInput): Promise<Loan> => {
     try {
       const created = await loansApi.createLoan(input);
-      await refresh();
+      // Immediately and optimistically update the cache and state for instant UI reflection
+      const cached = (await syncService.getCache<Loan[]>("loans")) || [];
+      const next = [created, ...cached.filter((l) => l.id !== created.id)];
+      await syncService.setCache("loans", next);
+      setLoans(next);
       notifyDataChanged();
+      // Background re-fetch to sync summary calculations
+      refresh().catch(() => {});
       return created;
     } catch (err: any) {
       if (!err.response) {
@@ -85,8 +99,12 @@ export function useLoans(filterType?: LoanType, filterStatus?: LoanStatus) {
   const recordPayment = async (id: string, paymentAmount?: number) => {
     try {
       const updated = await loansApi.settleLoan(id, paymentAmount);
-      await refresh();
+      const cached = (await syncService.getCache<Loan[]>("loans")) || [];
+      const updatedList = cached.map((l) => (l.id === id ? updated : l));
+      await syncService.setCache("loans", updatedList);
+      setLoans(updatedList);
       notifyDataChanged();
+      refresh().catch(() => {});
       return updated;
     } catch (err: any) {
       if (!err.response) {
@@ -115,8 +133,12 @@ export function useLoans(filterType?: LoanType, filterStatus?: LoanStatus) {
   const removeLoan = async (id: string) => {
     try {
       await loansApi.deleteLoan(id);
-      await refresh();
+      const cached = (await syncService.getCache<Loan[]>("loans")) || [];
+      const next = cached.filter((l) => l.id !== id);
+      await syncService.setCache("loans", next);
+      setLoans(next);
       notifyDataChanged();
+      refresh().catch(() => {});
     } catch (err: any) {
       if (!err.response) {
         await syncService.queueAction("DELETE_LOAN", { id });

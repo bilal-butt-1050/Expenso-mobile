@@ -71,13 +71,6 @@ export function ActivityScreen() {
     }
   }, [route.params?.filter]);
 
-  // Subscribe to offline sync outbox status
-  useEffect(() => {
-    return syncService.subscribe((state) => {
-      setSyncState(state);
-    });
-  }, []);
-
   const {
     data: expensesData,
     isLoading: expensesLoading,
@@ -101,6 +94,15 @@ export function ActivityScreen() {
     removeLoan,
   } = useLoans();
 
+  // Immediately refetch data when jumped to with a new record highlight
+  useEffect(() => {
+    if (route.params?.highlightId) {
+      refetchLoans();
+      refetchExpenses?.();
+      refetchIncome?.();
+    }
+  }, [route.params?.highlightId, refetchLoans, refetchExpenses, refetchIncome]);
+
   const isLoading = expensesLoading && incomeLoading && loansLoading;
 
   const handleRefresh = useCallback(async () => {
@@ -119,11 +121,15 @@ export function ActivityScreen() {
     // 1. Expenses
     if (activeTab === "ALL" || activeTab === "EXPENSES") {
       (expensesData || []).forEach((exp) => {
+        let title = exp.category?.name || exp.description || "Expense";
+        if (title.toLowerCase().startsWith("loan repayment")) {
+          title = "Loan Repayment";
+        }
         list.push({
           id: `exp-${exp.id}`,
           rawId: exp.id,
           type: "EXPENSE",
-          title: exp.category?.name || exp.description || "Expense",
+          title,
           amount: exp.amount,
           date: exp.date,
           icon: exp.category?.icon || "credit-card-outline",
@@ -135,11 +141,15 @@ export function ActivityScreen() {
     // 2. Income
     if (activeTab === "ALL" || activeTab === "INCOME") {
       (incomeData || []).forEach((inc) => {
+        let title = inc.source || inc.description || "Income";
+        if (title.toLowerCase().startsWith("loan repayment")) {
+          title = "Loan Repayment";
+        }
         list.push({
           id: `inc-${inc.id}`,
           rawId: inc.id,
           type: "INCOME",
-          title: inc.source || inc.description || "Income",
+          title,
           amount: inc.amount,
           date: inc.date,
           icon: inc.sourceIcon || "wallet-plus-outline",

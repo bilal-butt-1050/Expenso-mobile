@@ -238,7 +238,9 @@ function IncomeItem({
         <CategoryPill icon={item.sourceIcon || "cash-multiple"} size={48} />
         <View style={styles.rowMiddle}>
           <Text style={styles.rowTitle} numberOfLines={1}>
-            {item.source}
+            {item.source?.toLowerCase().startsWith("loan repayment")
+              ? "Loan Repayment"
+              : item.source}
           </Text>
         </View>
       </TouchableOpacity>
