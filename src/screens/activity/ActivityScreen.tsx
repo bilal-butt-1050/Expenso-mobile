@@ -284,7 +284,6 @@ export function ActivityScreen() {
           options={TAB_OPTIONS}
           selected={activeTab}
           onChange={(tab) => {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
             setActiveTab(tab);
           }}
         />

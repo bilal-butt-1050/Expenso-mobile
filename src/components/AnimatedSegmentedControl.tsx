@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
-import { radius, spacing } from "../theme/spacing";
+import { radius } from "../theme/spacing";
 import { hapticLight } from "../utils/haptics";
 
 export interface SegmentOption<T extends string = string> {
@@ -38,34 +38,59 @@ export function AnimatedSegmentedControl<T extends string = string>({
   onChange,
   style,
 }: AnimatedSegmentedControlProps<T>) {
-  const [containerWidth, setContainerWidth] = React.useState(0);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const isMeasuredRef = useRef(false);
+
   const selectedIndex = options.findIndex((opt) => opt.value === selected);
   const activeIndex = selectedIndex >= 0 ? selectedIndex : 0;
 
   const segmentWidth = containerWidth > 0 ? (containerWidth - 8) / options.length : 0;
-  const maxTranslate = Math.max(0, (options.length - 1) * segmentWidth);
   const translateX = useSharedValue(0);
 
+  const onLayout = (e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0) {
+      const sw = (w - 8) / options.length;
+      if (!isMeasuredRef.current) {
+        isMeasuredRef.current = true;
+        // Snap immediately to active index on initial layout (no lame fly-in from 0)
+        translateX.value = activeIndex * sw;
+      }
+      setContainerWidth(w);
+    }
+  };
+
+  // Sync external changes (e.g. route parameters or programmatic reset)
   useEffect(() => {
-    if (segmentWidth > 0) {
+    if (isMeasuredRef.current && segmentWidth > 0) {
       translateX.value = withSpring(activeIndex * segmentWidth, {
-        damping: 17,
-        stiffness: 200,
+        damping: 24,
+        stiffness: 260,
+        mass: 0.7,
       });
     }
   }, [activeIndex, segmentWidth]);
 
+  // Buttery smooth Reanimated UI-thread transform
   const indicatorStyle = useAnimatedStyle(() => {
-    // Natural elastic boundary: never bleeds outside the container edge
-    const clampedPos = Math.max(0, Math.min(translateX.value, maxTranslate));
     return {
-      transform: [{ translateX: clampedPos }],
+      transform: [{ translateX: translateX.value }],
       width: segmentWidth,
     };
   });
 
-  const onLayout = (e: LayoutChangeEvent) => {
-    setContainerWidth(e.nativeEvent.layout.width);
+  const handlePress = (value: T, index: number) => {
+    if (value === selected) return;
+    hapticLight();
+    // Instantly animate on the UI thread at tap time with zero JS lag
+    if (segmentWidth > 0) {
+      translateX.value = withSpring(index * segmentWidth, {
+        damping: 24,
+        stiffness: 260,
+        mass: 0.7,
+      });
+    }
+    onChange(value);
   };
 
   return (
@@ -73,19 +98,14 @@ export function AnimatedSegmentedControl<T extends string = string>({
       {segmentWidth > 0 && (
         <Animated.View style={[styles.indicator, indicatorStyle]} />
       )}
-      {options.map((opt) => {
+      {options.map((opt, index) => {
         const isSelected = opt.value === selected;
         return (
           <TouchableOpacity
             key={opt.value}
             style={styles.segment}
             activeOpacity={0.7}
-            onPress={() => {
-              if (!isSelected) {
-                hapticLight();
-                onChange(opt.value);
-              }
-            }}
+            onPress={() => handlePress(opt.value, index)}
           >
             <View style={styles.segmentContent}>
               {opt.icon && (
@@ -142,14 +162,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     borderRadius: radius.pill,
     shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+    elevation: 3,
   },
   segment: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 9,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1,
@@ -163,7 +183,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
     letterSpacing: -0.1,
   },
