@@ -4,18 +4,9 @@
     "slug": "expenso",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.jpg",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0B0F19",
-    "splash": {
-      "image": "./assets/transparent.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0B0F19",
-      "dark": {
-        "image": "./assets/transparent.png",
-        "backgroundColor": "#0B0F19"
-      }
-    },
     "androidStatusBar": {
       "backgroundColor": "#0B0F19",
       "barStyle": "light-content"
@@ -35,17 +26,8 @@
     "android": {
       "package": "com.expenso.app",
       "userInterfaceStyle": "dark",
-      "splash": {
-        "image": "./assets/transparent.png",
-        "resizeMode": "contain",
-        "backgroundColor": "#0B0F19",
-        "dark": {
-          "image": "./assets/transparent.png",
-          "backgroundColor": "#0B0F19"
-        }
-      },
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.jpg",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B0F19"
       }
     },
@@ -68,11 +50,12 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/transparent.png",
-          "imageWidth": 200,
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
           "backgroundColor": "#0B0F19",
           "dark": {
-            "image": "./assets/transparent.png",
+            "image": "./assets/splash-icon.png",
             "backgroundColor": "#0B0F19"
           }
         }

@@ -39,19 +39,30 @@ export function RootNavigator() {
   const [showSplash, setShowSplash] = useState(true);
   const [needsTour, setNeedsTour] = useState<boolean | null>(null);
 
+  // Stay undecided (`null`) until auth has settled. Resolving this early meant the navigator
+  // mounted with a guessed initial route and then remounted — via the `key` below — the moment the
+  // real answer arrived, which showed up as a flash immediately after the splash.
   useEffect(() => {
-    if (user?.id) {
-      AsyncStorage.getItem(`@expenso_tour_completed_${user.id}`)
-        .then((val) => {
-          setNeedsTour(val !== "true");
-        })
-        .catch(() => {
-          setNeedsTour(false);
-        });
-    } else {
+    if (isLoading) return;
+
+    if (!user?.id) {
       setNeedsTour(false);
+      return;
     }
-  }, [user?.id]);
+
+    let cancelled = false;
+    AsyncStorage.getItem(`@expenso_tour_completed_${user.id}`)
+      .then((val) => {
+        if (!cancelled) setNeedsTour(val !== "true");
+      })
+      .catch(() => {
+        if (!cancelled) setNeedsTour(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, isLoading]);
 
   // Dismiss native splash immediately on mount —
   // our custom AnimatedSplash is already mounted and covering the screen with zero flicker.
