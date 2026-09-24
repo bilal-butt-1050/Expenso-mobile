@@ -66,12 +66,16 @@ export function ActivityScreen() {
 
   const highlightId = route.params?.highlightId;
 
-  // React to route params filter changes
+  // Apply an incoming filter, then clear it. The param is sticky otherwise: arriving with the
+  // same value twice does not re-fire this effect, so a user who had switched segments in the
+  // meantime saw the request silently ignored.
   useEffect(() => {
-    if (route.params?.filter) {
-      setActiveTab(route.params.filter);
+    const incoming = route.params?.filter;
+    if (incoming) {
+      setActiveTab(incoming);
+      navigation.setParams({ filter: undefined });
     }
-  }, [route.params?.filter]);
+  }, [route.params?.filter, navigation]);
 
   const {
     data: expensesData,
@@ -105,7 +109,7 @@ export function ActivityScreen() {
     }
   }, [route.params?.highlightId, refetchLoans, refetchExpenses, refetchIncome]);
 
-  const isLoading = expensesLoading && incomeLoading && loansLoading;
+  const isLoading = expensesLoading || incomeLoading || loansLoading;
 
   const handleRefresh = useCallback(async () => {
     await Promise.all([
@@ -120,18 +124,15 @@ export function ActivityScreen() {
   const unifiedItems = useMemo<UnifiedActivityItem[]>(() => {
     const list: UnifiedActivityItem[] = [];
 
-    // 1. Expenses
+    // 1. Expenses — category leads, the user's own note identifies the entry.
     if (activeTab === "ALL" || activeTab === "EXPENSES") {
       (expensesData || []).forEach((exp) => {
-        let title = exp.category?.name || exp.description || "Expense";
-        if (title.toLowerCase().startsWith("loan repayment")) {
-          title = "Loan Repayment";
-        }
         list.push({
           id: `exp-${exp.id}`,
           rawId: exp.id,
           type: "EXPENSE",
-          title,
+          title: exp.category?.name || exp.description || "Expense",
+          subtitle: exp.category?.name ? exp.description || undefined : undefined,
           amount: exp.amount,
           date: exp.date,
           icon: exp.category?.icon || "credit-card-outline",
@@ -143,15 +144,12 @@ export function ActivityScreen() {
     // 2. Income
     if (activeTab === "ALL" || activeTab === "INCOME") {
       (incomeData || []).forEach((inc) => {
-        let title = inc.source || inc.description || "Income";
-        if (title.toLowerCase().startsWith("loan repayment")) {
-          title = "Loan Repayment";
-        }
         list.push({
           id: `inc-${inc.id}`,
           rawId: inc.id,
           type: "INCOME",
-          title,
+          title: inc.source || inc.description || "Income",
+          subtitle: inc.source ? inc.description || undefined : undefined,
           amount: inc.amount,
           date: inc.date,
           icon: inc.sourceIcon || "wallet-plus-outline",
@@ -161,16 +159,26 @@ export function ActivityScreen() {
       });
     }
 
-    // 3. Loans
+    // 3. Loans — the counterparty is the identity of the record, so it leads.
     if (activeTab === "ALL" || activeTab === "LOANS") {
       (loans || []).forEach((loan) => {
         const isLent = loan.type === "LENT";
         const isSettled = loan.status === "SETTLED";
+        const remaining = Math.max(0, loan.amount - loan.settledAmount);
         list.push({
           id: `loan-${loan.id}`,
           rawId: loan.id,
           type: "LOAN",
-          title: isLent ? "Lent" : "Borrowed",
+          title: loan.personName,
+          subtitle: isSettled
+            ? isLent
+              ? "Lent · settled"
+              : "Borrowed · settled"
+            : loan.settledAmount > 0
+              ? `${isLent ? "Owed to you" : "You owe"} · ${formatCurrency(remaining)} left`
+              : isLent
+                ? "Owed to you"
+                : "You owe",
           amount: loan.amount,
           date: loan.createdAt,
           icon: isLent ? "arrow-top-right" : "arrow-bottom-left",

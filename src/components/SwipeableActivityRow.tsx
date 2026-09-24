@@ -92,10 +92,10 @@ export function SwipeableActivityRow({
     }
   }, [isDeleting]);
 
-  // Smooth bubbly left action revealed when swiping left-to-right
-  const renderLeftActions = () => {
+  // Revealed by swiping right-to-left, matching Mail, Gmail and every other list.
+  const renderRightActions = () => {
     return (
-      <View style={styles.leftAction}>
+      <View style={styles.rightAction}>
         <View style={styles.deleteIconBubble}>
           <MaterialCommunityIcons name="trash-can-outline" size={22} color="#FFFFFF" />
         </View>
@@ -104,7 +104,7 @@ export function SwipeableActivityRow({
   };
 
   const onSwipeableOpen = (direction: "left" | "right") => {
-    if (direction === "left") {
+    if (direction === "right") {
       hapticDelete();
       swipeableRef.current?.close();
       onDelete();
@@ -145,7 +145,7 @@ export function SwipeableActivityRow({
             {
               translateX: deleteAnim.interpolate({
                 inputRange: [0, 1],
-                outputRange: [0, SCREEN_WIDTH + 50],
+                outputRange: [0, -(SCREEN_WIDTH + 50)],
               }),
             },
             {
@@ -159,10 +159,10 @@ export function SwipeableActivityRow({
       >
         <Swipeable
           ref={swipeableRef}
-          renderLeftActions={renderLeftActions}
+          renderRightActions={renderRightActions}
           onSwipeableOpen={onSwipeableOpen}
           friction={2}
-          leftThreshold={60}
+          rightThreshold={60}
           containerStyle={{ borderRadius: 22 }}
         >
           <Animated.View
@@ -195,11 +195,21 @@ export function SwipeableActivityRow({
                 />
               </View>
 
-              {/* Title only (clean, minimal, comfy — no descriptions) */}
+              {/*
+                Title plus the one line that says *which* entry this is. Rows were title-only,
+                so every restaurant meal read "Food · Rs 500" and five loans rendered as five
+                identical "Lent · Rs 5,000". Uncluttered means fewer elements each carrying
+                weight, not dropping the field you opened the screen to read.
+              */}
               <View style={styles.rowMiddle}>
                 <Text style={styles.rowTitle} numberOfLines={1}>
                   {item.title}
                 </Text>
+                {item.subtitle ? (
+                  <Text style={styles.rowSubtitle} numberOfLines={1}>
+                    {item.subtitle}
+                  </Text>
+                ) : null}
               </View>
 
               {/* Amount */}
@@ -228,12 +238,12 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     overflow: "hidden",
   },
-  leftAction: {
+  rightAction: {
     flex: 1,
     backgroundColor: colors.danger,
     justifyContent: "center",
-    alignItems: "flex-start",
-    paddingLeft: spacing.lg,
+    alignItems: "flex-end",
+    paddingRight: spacing.lg,
     borderRadius: 22,
   },
   deleteIconBubble: {
@@ -277,6 +287,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textPrimary,
     letterSpacing: -0.2,
+  },
+  rowSubtitle: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: 2,
   },
   rowEnd: {
     alignItems: "flex-end",

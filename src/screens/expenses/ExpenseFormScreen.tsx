@@ -142,24 +142,10 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
       const budgetItem = dashboardData?.budgetVsActual.find((b) => b.categoryId === categoryId);
 
-      if (!forceSave && (!budgetItem || budgetItem.budget <= 0)) {
-        setIsSaving(false);
-        confirm({
-          title: "No Budget Set",
-          message: "You haven't set a budget for this category yet. Would you like to set one now to keep your expenses organized?",
-          confirmText: "Set Budget",
-          cancelText: "Save Without Budget",
-          icon: "wallet-outline",
-          onConfirm: () => {
-            setBudgetInputValue("");
-            setIsBudgetSheetOpen(true);
-          },
-          onCancel: () => {
-            handleSave(true);
-          },
-        });
-        return;
-      }
+      // No "you haven't set a budget" interruption. It fired on *every* save into an
+      // unbudgeted category — including edits to months-old expenses — turning a three-tap
+      // action into a modal dismissal, forever, with no way to opt out. Budgets are set on the
+      // Budget screen, which is one tab away and exists for exactly that.
 
       const diff = editing ? parsedAmount - editing.amount : parsedAmount;
       const newActual = (budgetItem?.actual ?? 0) + diff;
@@ -375,7 +361,9 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         visible={Boolean(budgetAlert)}
         transparent
         animationType="fade"
-        onRequestClose={() => { setBudgetAlert(null); navigation.goBack(); }}
+        // Dismissing the warning returns to the form. It used to call goBack(), silently
+        // throwing away everything the user had typed.
+        onRequestClose={() => setBudgetAlert(null)}
       >
         <View style={styles.alertBackdrop}>
           <View style={styles.alertCard}>
@@ -478,7 +466,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
                   // Auto-resume expense saving logic bypass budget constraint check
                   handleSave(true);
                 } catch (err: any) {
-                  alert({ title: "Error", message: err.message || "Failed to save budget" });
+                  alert({ title: "Couldn't save budget", message: getErrorMessage(err) });
                 } finally {
                   setIsSavingBudget(false);
                 }
