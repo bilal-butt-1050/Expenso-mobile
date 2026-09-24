@@ -16,6 +16,7 @@ import { CategoryFormScreen } from "../screens/settings/CategoryFormScreen";
 import { LoanFormScreen } from "../screens/loans/LoanFormScreen";
 import { OnboardingTourScreen } from "../screens/onboarding/OnboardingTourScreen";
 import { SettingsScreen } from "../screens/settings/SettingsScreen";
+import { LoansScreen } from "../screens/loans/LoansScreen";
 import { AnimatedSplash } from "../components/AnimatedSplash";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -39,19 +40,30 @@ export function RootNavigator() {
   const [showSplash, setShowSplash] = useState(true);
   const [needsTour, setNeedsTour] = useState<boolean | null>(null);
 
+  // Stay undecided (`null`) until auth has settled. Resolving this early meant the navigator
+  // mounted with a guessed initial route and then remounted — via the `key` below — the moment the
+  // real answer arrived, which showed up as a flash immediately after the splash.
   useEffect(() => {
-    if (user?.id) {
-      AsyncStorage.getItem(`@expenso_tour_completed_${user.id}`)
-        .then((val) => {
-          setNeedsTour(val !== "true");
-        })
-        .catch(() => {
-          setNeedsTour(false);
-        });
-    } else {
+    if (isLoading) return;
+
+    if (!user?.id) {
       setNeedsTour(false);
+      return;
     }
-  }, [user?.id]);
+
+    let cancelled = false;
+    AsyncStorage.getItem(`@expenso_tour_completed_${user.id}`)
+      .then((val) => {
+        if (!cancelled) setNeedsTour(val !== "true");
+      })
+      .catch(() => {
+        if (!cancelled) setNeedsTour(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, isLoading]);
 
   // Dismiss native splash immediately on mount —
   // our custom AnimatedSplash is already mounted and covering the screen with zero flicker.
@@ -72,7 +84,11 @@ export function RootNavigator() {
           <Stack.Navigator
             key={user ? (needsTour ? "tour-stack" : "tabs-stack") : "auth-stack"}
             screenOptions={{ headerShown: false }}
-            initialRouteName={needsTour ? "OnboardingTour" : "Tabs"}
+            // Must name a screen that exists in the branch rendered below. Signed out, only
+            // `Auth` is registered — pointing at `Tabs` there threw
+            // "Couldn't find a screen named 'Tabs' to use as 'initialRouteName'" and took the
+            // whole app down on launch. React Navigation 6 only warned about this; 7 throws.
+            initialRouteName={user ? (needsTour ? "OnboardingTour" : "Tabs") : "Auth"}
           >
             {user ? (
               <>
@@ -80,6 +96,11 @@ export function RootNavigator() {
                 <Stack.Screen
                   name="Settings"
                   component={SettingsScreen}
+                  options={{ animation: "slide_from_right" }}
+                />
+                <Stack.Screen
+                  name="Loans"
+                  component={LoansScreen}
                   options={{ animation: "slide_from_right" }}
                 />
                 <Stack.Screen name="OnboardingTour" component={OnboardingTourScreen} />

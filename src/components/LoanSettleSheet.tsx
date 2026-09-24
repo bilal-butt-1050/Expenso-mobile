@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { spacing } from "../theme/spacing";
 import { typography } from "../theme/typography";
 import { formatCurrency, formatAmountInput } from "../utils/currency";
 import { Loan } from "../types/models";
+import { getErrorMessage } from "../api/client";
 import { hapticLight, hapticSuccess } from "../utils/haptics";
 
 interface LoanSettleSheetProps {
@@ -35,27 +36,42 @@ export function LoanSettleSheet({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!loan) return null;
+  // Retain the last loan so the sheet still has something to render while it animates out.
+  // It used to `return null` the moment `loan` went null, so it vanished instead of closing.
+  const [shown, setShown] = useState<Loan | null>(loan);
+  useEffect(() => {
+    if (loan) setShown(loan);
+  }, [loan]);
 
-  const isLent = loan.type === "LENT";
-  const remaining = Math.max(0, loan.amount - loan.settledAmount);
-  const isSettled = loan.status === "SETTLED" || remaining <= 0;
+  // Reset per loan. These hooks sit above the old early return, so state survived between
+  // loans — opening one, typing a partial amount, closing, then opening another showed the
+  // first loan's figure still in the field.
+  useEffect(() => {
+    setPartialAmount("");
+    setError(null);
+  }, [loan?.id]);
+
+  const isLent = shown?.type === "LENT";
+  const remaining = shown ? Math.max(0, shown.amount - shown.settledAmount) : 0;
+  const isSettled = !shown || shown.status === "SETTLED" || remaining <= 0;
 
   const handleSettleFull = async () => {
+    if (!shown) return;
     setIsSubmitting(true);
     setError(null);
     try {
-      await onSettle(loan.id);
+      await onSettle(shown.id);
       hapticSuccess();
       onClose();
     } catch (err: any) {
-      setError(err.message || "Failed to settle loan");
+      setError(getErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleSettlePartial = async () => {
+    if (!shown) return;
     const num = parseFloat(partialAmount.replace(/,/g, ""));
     if (isNaN(num) || num <= 0) {
       setError("Please enter a valid amount greater than 0");
@@ -69,11 +85,11 @@ export function LoanSettleSheet({
     setIsSubmitting(true);
     setError(null);
     try {
-      await onSettle(loan.id, num);
+      await onSettle(shown.id, num);
       hapticSuccess();
       onClose();
     } catch (err: any) {
-      setError(err.message || "Failed to record payment");
+      setError(getErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -81,6 +97,8 @@ export function LoanSettleSheet({
 
   return (
     <BottomSheet visible={!!loan} onClose={onClose}>
+      {/* Rendered even while `loan` is null so the sheet can play its exit animation. It used
+          to `return null` before this point, so it simply vanished. */}
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
@@ -107,7 +125,7 @@ export function LoanSettleSheet({
             <TouchableOpacity
               onPress={() => {
                 onClose();
-                onDelete(loan.id);
+                if (shown) onDelete(shown.id);
               }}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
@@ -119,21 +137,21 @@ export function LoanSettleSheet({
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.personName}>{loan.personName}</Text>
-          {loan.notes ? <Text style={styles.notes}>{loan.notes}</Text> : null}
+          <Text style={styles.personName}>{shown?.personName}</Text>
+          {shown?.notes ? <Text style={styles.notes}>{shown.notes}</Text> : null}
         </View>
 
         {/* Balance Breakdown */}
         <View style={styles.balanceCard}>
           <View style={styles.balanceCol}>
             <Text style={styles.balanceLabel}>TOTAL</Text>
-            <Text style={styles.balanceVal}>{formatCurrency(loan.amount)}</Text>
+            <Text style={styles.balanceVal}>{formatCurrency(shown?.amount ?? 0)}</Text>
           </View>
           <View style={styles.balanceDivider} />
           <View style={styles.balanceCol}>
             <Text style={styles.balanceLabel}>SETTLED</Text>
             <Text style={[styles.balanceVal, { color: colors.success }]}>
-              {formatCurrency(loan.settledAmount)}
+              {formatCurrency(shown?.settledAmount ?? 0)}
             </Text>
           </View>
           <View style={styles.balanceDivider} />

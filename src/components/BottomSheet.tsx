@@ -25,10 +25,16 @@ const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export function BottomSheet({ visible, onClose, children }: Props) {
   const [showModal, setShowModal] = React.useState(visible);
+  // Read inside the effect without making it a dependency.
+  const showModalRef = useRef(showModal);
+  showModalRef.current = showModal;
   const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
 
+  // Depends on `visible` alone. It previously also depended on `showModal`, which this effect
+  // sets — so opening ran the entrance animation, re-ran the effect, and restarted it from
+  // off-screen. Every sheet in the app visibly snapped down and re-sprang.
   useEffect(() => {
     if (visible) {
       setShowModal(true);
@@ -47,7 +53,7 @@ export function BottomSheet({ visible, onClose, children }: Props) {
           friction: 25,
         }),
       ]).start();
-    } else if (showModal) {
+    } else if (showModalRef.current) {
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 0,
@@ -63,7 +69,8 @@ export function BottomSheet({ visible, onClose, children }: Props) {
         setShowModal(false);
       });
     }
-  }, [visible, showModal]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   const handleClose = () => {
     onClose();
@@ -103,7 +110,9 @@ export function BottomSheet({ visible, onClose, children }: Props) {
 
       <KeyboardAvoidingView 
         style={styles.sheetWrap} 
-        behavior={Platform.OS === "ios" ? "padding" : "padding"}
+        // A ternary with two identical branches. On Android `padding` fights the window's own
+        // adjustResize and lifts the sheet twice as far as the keyboard.
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         pointerEvents="box-none"
       >
         <Animated.View

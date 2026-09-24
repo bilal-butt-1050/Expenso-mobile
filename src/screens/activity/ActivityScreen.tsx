@@ -5,15 +5,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   SectionList,
-  TextInput,
   RefreshControl,
   LayoutAnimation,
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useExpenses } from "../../hooks/useExpenses";
-import { useIncome } from "../../hooks/useIncome";
+import { useTransactions, useTransactionMutations } from "../../hooks/useTransactions";
 import { useLoans } from "../../hooks/useLoans";
 import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
@@ -27,18 +25,28 @@ import {
   UnifiedActivityItem,
 } from "../../components/SwipeableActivityRow";
 import { LoanSettleSheet } from "../../components/LoanSettleSheet";
-import { syncService } from "../../services/syncService";
+import { usePendingWriteCount } from "../../lib/onlineStatus";
+import { useTabBarPadding } from "../../hooks/useTabBarPadding";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
+import { getErrorMessage } from "../../api/client";
 import { hapticLight, hapticDelete } from "../../utils/haptics";
 import { TabParamList, RootStackParamList } from "../../types/navigation";
-import { Expense, Income, Loan } from "../../types/models";
+import { CASH_SIGN, Loan, Transaction, TransactionKind } from "../../types/models";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type ActivityTab = "ALL" | "EXPENSES" | "INCOME" | "LOANS";
+
+/** Which ledger kinds each segment shows. Loans are positions and come from the loan list. */
+const KINDS_FOR_TAB: Record<ActivityTab, TransactionKind[] | undefined> = {
+  ALL: undefined,
+  EXPENSES: ["SPEND"],
+  INCOME: ["EARN"],
+  LOANS: [],
+};
 
 const TAB_OPTIONS: SegmentOption<ActivityTab>[] = [
   { label: "All", value: "ALL" },
@@ -51,48 +59,44 @@ export function ActivityScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteProp<TabParamList, "Activity">>();
   const { selectedMonth, setSelectedMonth } = useAppData();
-  const { confirm } = useDialog();
+  const { confirm, alert } = useDialog();
+  const bottomPadding = useTabBarPadding();
 
   const [activeTab, setActiveTab] = useState<ActivityTab>(
     route.params?.filter || "ALL"
   );
-  const [searchQuery, setSearchQuery] = useState("");
   const [settlingLoan, setSettlingLoan] = useState<Loan | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [syncState, setSyncState] = useState<{ isSyncing: boolean; pendingCount: number }>({
-    isSyncing: false,
-    pendingCount: 0,
-  });
+  // Real count of writes waiting on connectivity. The previous state was declared and never
+  // set, so this banner could not appear and offline changes were invisible.
+  const pendingWrites = usePendingWriteCount();
 
   const highlightId = route.params?.highlightId;
 
-  // React to route params filter changes
+  // Apply an incoming filter, then clear it. The param is sticky otherwise: arriving with the
+  // same value twice does not re-fire this effect, so a user who had switched segments in the
+  // meantime saw the request silently ignored.
   useEffect(() => {
-    if (route.params?.filter) {
-      setActiveTab(route.params.filter);
+    const incoming = route.params?.filter;
+    if (incoming) {
+      setActiveTab(incoming);
+      navigation.setParams({ filter: undefined });
     }
-  }, [route.params?.filter]);
+  }, [route.params?.filter, navigation]);
 
-  // Subscribe to offline sync outbox status
-  useEffect(() => {
-    return syncService.subscribe((state) => {
-      setSyncState(state);
-    });
-  }, []);
-
+  // One paginated, month-filtered feed from the server, instead of merging three
+  // independently-paginated sources in the client — which is what made month filtering,
+  // ordering and the loading state all wrong at once.
+  const kinds = KINDS_FOR_TAB[activeTab];
   const {
-    data: expensesData,
-    isLoading: expensesLoading,
-    refetch: refetchExpenses,
-    removeExpense,
-  } = useExpenses();
-
-  const {
-    data: incomeData,
-    isLoading: incomeLoading,
-    refetch: refetchIncome,
-    removeIncome,
-  } = useIncome();
+    items: transactions,
+    isLoading: txLoading,
+    isRefreshing,
+    hasMore,
+    refetch: refetchTransactions,
+    loadMore,
+  } = useTransactions({ kinds });
+  const { deleteTransaction } = useTransactionMutations();
 
   const {
     loans,
@@ -103,94 +107,88 @@ export function ActivityScreen() {
     removeLoan,
   } = useLoans();
 
-  const isLoading = expensesLoading && incomeLoading && loansLoading;
+  const isLoading = (activeTab === "LOANS" ? loansLoading : txLoading) || false;
 
   const handleRefresh = useCallback(async () => {
-    await Promise.all([
-      refetchExpenses?.(),
-      refetchIncome?.(),
-      refetchLoans(),
-      syncService.syncPendingActions(),
-    ]);
-  }, [refetchExpenses, refetchIncome, refetchLoans]);
+    await Promise.all([refetchTransactions(), refetchLoans()]);
+  }, [refetchTransactions, refetchLoans]);
 
-  // Aggregate all transactions calmly into UnifiedActivityItem format
+  /**
+   * Maps the ledger onto rows.
+   *
+   * Loan-linked movements carry the direction in their own description already, so they read
+   * naturally in the feed without any of the client-side title rewriting the old code did.
+   */
   const unifiedItems = useMemo<UnifiedActivityItem[]>(() => {
-    const list: UnifiedActivityItem[] = [];
-
-    // 1. Expenses
-    if (activeTab === "ALL" || activeTab === "EXPENSES") {
-      (expensesData || []).forEach((exp) => {
-        list.push({
-          id: `exp-${exp.id}`,
-          rawId: exp.id,
-          type: "EXPENSE",
-          title: exp.description || exp.category?.name || "Expense",
-          subtitle: exp.category?.name || "Uncategorized",
-          amount: exp.amount,
-          date: exp.date,
-          icon: exp.category?.icon || "credit-card-outline",
-          raw: exp,
-        });
-      });
-    }
-
-    // 2. Income
-    if (activeTab === "ALL" || activeTab === "INCOME") {
-      (incomeData || []).forEach((inc) => {
-        list.push({
-          id: `inc-${inc.id}`,
-          rawId: inc.id,
-          type: "INCOME",
-          title: inc.source || inc.description || "Income",
-          subtitle: inc.paymentMethod || "Direct Deposit",
-          amount: inc.amount,
-          date: inc.date,
-          icon: inc.sourceIcon || "wallet-plus-outline",
-          isIncome: true,
-          raw: inc,
-        });
-      });
-    }
-
-    // 3. Loans
-    if (activeTab === "ALL" || activeTab === "LOANS") {
-      (loans || []).forEach((loan) => {
+    if (activeTab === "LOANS") {
+      return (loans || []).map((loan) => {
         const isLent = loan.type === "LENT";
         const isSettled = loan.status === "SETTLED";
-        list.push({
+        const remaining = Math.max(0, loan.amount - loan.settledAmount);
+        return {
           id: `loan-${loan.id}`,
           rawId: loan.id,
-          type: "LOAN",
-          title: `${isLent ? "Lent to" : "Borrowed from"} ${loan.personName}`,
+          type: "LOAN" as const,
+          // The counterparty is the identity of the record. Rows previously read only "Lent"
+          // or "Borrowed", so every loan looked the same.
+          title: loan.personName,
           subtitle: isSettled
-            ? "Fully Settled"
-            : `Remaining: ${formatCurrency(Math.max(0, loan.amount - loan.settledAmount))}`,
+            ? `${isLent ? "Lent" : "Borrowed"} · settled`
+            : loan.settledAmount > 0
+              ? `${isLent ? "Owed to you" : "You owe"} · ${formatCurrency(remaining)} left`
+              : isLent
+                ? "Owed to you"
+                : "You owe",
           amount: loan.amount,
           date: loan.createdAt,
           icon: isLent ? "arrow-top-right" : "arrow-bottom-left",
           isSettled,
           raw: loan,
-        });
+        };
       });
     }
 
-    // Filter by live search query
-    let filtered = list;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(
-        (item) =>
-          item.title.toLowerCase().includes(q) ||
-          item.subtitle.toLowerCase().includes(q)
-      );
-    }
+    // Already ordered by the server on (date desc, id desc).
+    return (transactions || []).map((tx) => {
+      const isIncoming = CASH_SIGN[tx.kind] > 0;
+      const isLoanRow = Boolean(tx.loanId);
 
-    // Sort by date descending
-    filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const title = isLoanRow
+        ? tx.description || "Loan movement"
+        : tx.kind === "SPEND"
+          ? tx.category?.name || tx.description || "Expense"
+          : tx.source || tx.description || "Income";
 
-    return filtered;
-  }, [expensesData, incomeData, loans, activeTab, searchQuery]);
+      const subtitle = isLoanRow
+        ? undefined
+        : tx.kind === "SPEND"
+          ? tx.category?.name
+            ? tx.description || undefined
+            : undefined
+          : tx.source
+            ? tx.description || undefined
+            : undefined;
+
+      return {
+        id: tx.id,
+        rawId: tx.id,
+        type: tx.kind === "SPEND" ? ("EXPENSE" as const) : ("INCOME" as const),
+        title,
+        subtitle,
+        amount: tx.amount,
+        date: tx.date,
+        icon: isLoanRow
+          ? isIncoming
+            ? "arrow-bottom-left"
+            : "arrow-top-right"
+          : tx.kind === "SPEND"
+            ? tx.category?.icon || "credit-card-outline"
+            : tx.sourceIcon || "wallet-plus-outline",
+        isIncome: isIncoming,
+        raw: tx,
+      };
+    });
+  }, [transactions, loans, activeTab]);
 
   // Group into clean date sections
   const sections = useMemo(() => {
@@ -228,37 +226,57 @@ export function ActivityScreen() {
 
   const handleRowPress = (item: UnifiedActivityItem) => {
     hapticLight();
-    if (item.type === "EXPENSE") {
-      navigation.navigate("ExpenseForm", { expense: item.raw as Expense });
-    } else if (item.type === "INCOME") {
-      navigation.navigate("IncomeForm", { income: item.raw as Income });
-    } else if (item.type === "LOAN") {
+
+    if (item.type === "LOAN") {
       setSettlingLoan(item.raw as Loan);
+      return;
+    }
+
+    const tx = item.raw as Transaction;
+
+    // A loan's movements are owned by the loan; editing one directly would desynchronise it
+    // from the loan's settled amount. Send the user to the loan instead.
+    if (tx.loanId) {
+      const loan = loans.find((l) => l.id === tx.loanId);
+      if (loan) setSettlingLoan(loan);
+      else navigation.navigate("Loans");
+      return;
+    }
+
+    if (tx.kind === "SPEND") {
+      navigation.navigate("ExpenseForm", { transaction: tx });
+    } else {
+      navigation.navigate("IncomeForm", { transaction: tx });
     }
   };
 
   const confirmDeleteItem = (item: UnifiedActivityItem) => {
     const typeLabel =
       item.type === "EXPENSE" ? "Expense" : item.type === "INCOME" ? "Income" : "Loan";
+    const deleteMessage =
+      item.type === "LOAN"
+        ? `${(item.raw as Loan).personName} · ${formatCurrency(item.amount)}. Any payments recorded against it go too.`
+        : `"${item.title}" for ${formatCurrency(item.amount)}. This cannot be undone.`;
 
     confirm({
       title: `Delete ${typeLabel}?`,
-      message: `Are you sure you want to delete "${item.title}" for ${formatCurrency(item.amount)}?`,
+      message: deleteMessage,
       destructive: true,
       confirmText: "Delete",
       onConfirm: async () => {
         hapticDelete();
         setDeletingId(item.id);
         try {
-          if (item.type === "EXPENSE") {
-            await removeExpense(item.rawId);
-          } else if (item.type === "INCOME") {
-            await removeIncome(item.rawId);
-          } else if (item.type === "LOAN") {
+          if (item.type === "LOAN") {
             await removeLoan(item.rawId);
+          } else {
+            await deleteTransaction(item.rawId);
           }
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        } catch {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
+        } catch (err) {
+          // The API refuses to delete a loan-linked row (409) so the loan's balance cannot
+          // silently diverge from its payment record.
+          alert({ title: "Couldn't delete", message: getErrorMessage(err) });
         } finally {
           setDeletingId(null);
         }
@@ -275,24 +293,13 @@ export function ActivityScreen() {
         </View>
         <Text style={styles.headerTitle}>Activity</Text>
 
-        {/* Offline Sync Banner if pending items exist */}
-        {syncState.pendingCount > 0 && (
-          <TouchableOpacity
-            style={styles.offlineBanner}
-            onPress={() => syncService.syncPendingActions()}
-            activeOpacity={0.8}
-          >
-            <MaterialCommunityIcons
-              name={syncState.isSyncing ? "sync" : "cloud-clock-outline"}
-              size={14}
-              color={colors.warning}
-            />
+        {pendingWrites > 0 && (
+          <View style={styles.offlineBanner}>
+            <MaterialCommunityIcons name="cloud-clock-outline" size={14} color={colors.warning} />
             <Text style={styles.offlineBannerText}>
-              {syncState.isSyncing
-                ? "Syncing changes with server..."
-                : `${syncState.pendingCount} offline change(s) • Tap to sync`}
+              {pendingWrites} change{pendingWrites === 1 ? "" : "s"} waiting for connection
             </Text>
-          </TouchableOpacity>
+          </View>
         )}
       </View>
 
@@ -302,42 +309,9 @@ export function ActivityScreen() {
           options={TAB_OPTIONS}
           selected={activeTab}
           onChange={(tab) => {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
             setActiveTab(tab);
           }}
         />
-      </View>
-
-      {/* Minimal Search Bar */}
-      <View style={styles.searchBarWrap}>
-        <View style={styles.searchContainer}>
-          <MaterialCommunityIcons
-            name="magnify"
-            size={18}
-            color={colors.textMuted}
-            style={styles.searchIcon}
-          />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search transactions..."
-            placeholderTextColor={colors.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCorrect={false}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSearchQuery("")}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <MaterialCommunityIcons
-                name="close-circle"
-                size={16}
-                color={colors.textMuted}
-              />
-            </TouchableOpacity>
-          )}
-        </View>
       </View>
 
       {/* Transaction Feed */}
@@ -347,9 +321,7 @@ export function ActivityScreen() {
         <EmptyState
           title="No transactions"
           subtitle={
-            searchQuery
-              ? `No records found for "${searchQuery}"`
-              : activeTab === "LOANS"
+            activeTab === "LOANS"
               ? "No active debts or loans recorded."
               : "Transactions you log will appear here."
           }
@@ -359,7 +331,7 @@ export function ActivityScreen() {
         <SectionList
           sections={sections}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: bottomPadding }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -434,8 +406,9 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     ...typography.title,
-    fontSize: 26,
-    letterSpacing: -0.4,
+    fontSize: 28,
+    fontWeight: "800",
+    letterSpacing: -0.5,
     color: colors.textPrimary,
   },
   offlineBanner: {
@@ -443,9 +416,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     backgroundColor: "rgba(245, 158, 11, 0.1)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
     marginTop: spacing.xs,
     alignSelf: "flex-start",
   },
@@ -457,38 +430,14 @@ const styles = StyleSheet.create({
   segmentedWrap: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.md,
     backgroundColor: colors.background,
-  },
-  searchBarWrap: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
-    backgroundColor: colors.background,
-  },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    height: 42,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  searchIcon: {
-    marginRight: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    color: colors.textPrimary,
-    fontSize: 14,
-    paddingVertical: 0,
   },
   loansOverviewCard: {
     flexDirection: "row",
     backgroundColor: colors.surfaceRaised,
-    borderRadius: 18,
-    paddingVertical: spacing.md,
+    borderRadius: 22,
+    paddingVertical: spacing.md + 2,
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
@@ -503,27 +452,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.borderLight,
   },
   loanColLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "700",
     color: colors.textMuted,
     letterSpacing: 0.6,
     marginBottom: 4,
   },
   loanColValue: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "700",
   },
   listContent: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 140, // Generous clearance for bottom bar & FAB
   },
   sectionHeader: {
     paddingTop: spacing.md,
-    paddingBottom: spacing.xs,
+    paddingBottom: spacing.xs + 2,
     backgroundColor: colors.background,
   },
   sectionHeaderText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
     color: colors.textMuted,
     letterSpacing: 0.5,

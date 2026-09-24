@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { User } from "../types/models";
 import { getToken, clearToken, setUnauthorizedHandler } from "../api/client";
 import { setActiveCurrency } from "../utils/currency";
+import { clearAllCaches } from "../lib/queryClient";
 import * as authApi from "../api/auth";
 
 interface AuthContextValue {
@@ -39,43 +40,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // On app launch: load cached profile immediately for 0-latency offline access,
-  // then attempt to refresh in background without clearing session on network failures.
+  // On app launch: restore the cached profile and release the splash immediately, then refresh
+  // from the server in the background. Blocking startup on /auth/me meant every cold start paid a
+  // full network round-trip before the navigator could mount — seconds on a poor connection, for
+  // data we already had on disk.
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
       const token = await getToken();
       if (!token) {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
         return;
       }
 
-      // 1. Immediately restore cached user if available
+      // 1. Restore the cached user and unblock the UI.
       try {
         const cached = await AsyncStorage.getItem("@expenso_cached_user");
-        if (cached) {
+        if (cached && !cancelled) {
           const parsed = JSON.parse(cached);
           setUser(parsed);
           if (parsed.currency) setActiveCurrency(parsed.currency);
         }
       } catch {}
 
-      // 2. Fetch latest from server
+      if (!cancelled) setIsLoading(false);
+
+      // 2. Revalidate in the background. A network failure keeps the cached session alive;
+      //    only an explicit 401 ends it.
       try {
         const me = await authApi.fetchCurrentUser();
+        if (cancelled) return;
         setUser(me);
         await AsyncStorage.setItem("@expenso_cached_user", JSON.stringify(me));
       } catch (err: any) {
-        // ONLY clear token if the server explicitly returned 401 Unauthorized
+        if (cancelled) return;
         if (err.response?.status === 401) {
           await clearToken();
           await AsyncStorage.removeItem("@expenso_cached_user");
           setUser(null);
         }
-        // If it's a network error / offline, keep the cached user session active!
-      } finally {
-        setIsLoading(false);
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const saveUserAndCache = async (userData: User | null) => {
@@ -109,6 +119,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await authApi.logout();
         } catch {}
         await clearToken();
+        // Every cached query and queued mutation goes too. Logout used to clear only the token
+        // and the cached profile, so signing in as a different account on the same device showed
+        // the previous user's transactions until the network replaced them.
+        await clearAllCaches(user?.id);
         await saveUserAndCache(null);
       },
       refreshUser: async () => {

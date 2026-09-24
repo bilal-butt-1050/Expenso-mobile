@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FlatList, StyleSheet, Text, TouchableOpacity, View, Animated, Easing, LayoutAnimation, Dimensions } from "react-native";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -22,33 +22,12 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export function CategoriesScreen() {
   const navigation = useNavigation<Nav>();
-  const route = useRoute<RouteProp<RootStackParamList, "Categories">>();
-  const highlightId = route.params?.highlightId;
-  const deleteId = route.params?.deleteId;
-  
   const insets = useSafeAreaInsets();
   const { data: categories, isLoading, removeCategory } = useCategories();
   const { confirm, alert } = useDialog();
 
+  // Set by confirmDelete; the row animates out and then actually removes the category.
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [highlightingId, setHighlightingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (deleteId && deleteId !== deletingId) {
-      setDeletingId(deleteId);
-      navigation.setParams({ deleteId: undefined });
-    }
-  }, [deleteId, deletingId, navigation]);
-
-  useEffect(() => {
-    if (highlightId) {
-      setHighlightingId(highlightId);
-      navigation.setParams({ highlightId: undefined });
-      setTimeout(() => {
-        setHighlightingId(null);
-      }, 3000);
-    }
-  }, [highlightId, navigation]);
 
   const confirmDelete = (item: Category) => {
     if ((categories?.length || 0) <= 5) {
@@ -91,7 +70,6 @@ export function CategoriesScreen() {
         renderItem={({ item }) => (
           <CategoryItem
             item={item}
-            isNewlyAdded={item.id === highlightingId}
             isDeleting={item.id === deletingId}
             onPress={() => {
               const isImmutable = item.name === "Other";

@@ -1,37 +1,39 @@
-import { useCallback } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as categoriesApi from "../api/categories";
-import { useAppData } from "../context/AppDataContext";
-import { useAsyncData } from "./useAsyncData";
+import { queryKeys } from "../lib/queryClient";
 
 export function useCategories() {
-  const { dataVersion, notifyDataChanged } = useAppData();
-  const state = useAsyncData(() => categoriesApi.fetchCategories(), [dataVersion]);
+  const queryClient = useQueryClient();
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.categories() });
+    // A renamed or recoloured category changes how every transaction renders.
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+  };
 
-  const addCategory = useCallback(
-    async (input: categoriesApi.CategoryInput) => {
-      const category = await categoriesApi.createCategory(input);
-      notifyDataChanged();
-      return category;
-    },
-    [notifyDataChanged]
-  );
+  const query = useQuery({
+    queryKey: queryKeys.categories(),
+    queryFn: categoriesApi.fetchCategories,
+    // Categories change rarely and every form depends on them.
+    staleTime: 5 * 60 * 1000,
+  });
 
-  const editCategory = useCallback(
-    async (id: string, input: Partial<categoriesApi.CategoryInput>) => {
-      await categoriesApi.updateCategory(id, input);
-      notifyDataChanged();
-    },
-    [notifyDataChanged]
-  );
+  const add = useMutation({ mutationFn: categoriesApi.createCategory, onSuccess: invalidate });
+  const edit = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Partial<categoriesApi.CategoryInput> }) =>
+      categoriesApi.updateCategory(id, input),
+    onSuccess: invalidate,
+  });
+  const remove = useMutation({ mutationFn: categoriesApi.deleteCategory, onSuccess: invalidate });
 
-  const removeCategory = useCallback(
-    async (id: string) => {
-      const result = await categoriesApi.deleteCategory(id);
-      notifyDataChanged();
-      return result;
-    },
-    [notifyDataChanged]
-  );
-
-  return { ...state, addCategory, editCategory, removeCategory };
+  return {
+    data: query.data ?? null,
+    isLoading: query.isLoading,
+    error: query.error ? String(query.error) : null,
+    refetch: query.refetch,
+    addCategory: add.mutateAsync,
+    editCategory: (id: string, input: Partial<categoriesApi.CategoryInput>) =>
+      edit.mutateAsync({ id, input }),
+    removeCategory: remove.mutateAsync,
+  };
 }

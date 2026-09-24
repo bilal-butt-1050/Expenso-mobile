@@ -15,10 +15,12 @@ import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
 import { EmptyState } from "../../components/EmptyState";
 import { BudgetSkeleton } from "../../components/Skeleton";
+import { useTabBarPadding } from "../../hooks/useTabBarPadding";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { formatCurrency, formatAmountInput } from "../../utils/currency";
+import { getErrorMessage } from "../../api/client";
 import { Category } from "../../types/models";
 import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
@@ -32,11 +34,12 @@ export function BudgetScreen() {
   const navigation = useNavigation<NavigationProp<TabParamList, "Budget">>();
   const { user, updateProfile } = useAuth();
   const { selectedMonth, setSelectedMonth } = useAppData();
-  const { data: summary, isLoading } = useDashboard();
+  const { data: summary, isLoading, refetch } = useDashboard();
   const { data: categories } = useCategories();
-  const { setBudget } = useBudgets(selectedMonth);
+  const { setBudget, clearBudget } = useBudgets(selectedMonth);
   const { alert } = useDialog();
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const bottomPadding = useTabBarPadding();
 
   React.useEffect(() => {
     if (route.params?.openCategoryId && categories) {
@@ -81,7 +84,8 @@ export function BudgetScreen() {
           data={rows}
           keyExtractor={(item) => item.category.id}
           refreshing={isLoading}
-          contentContainerStyle={{ paddingBottom: 140 }}
+          onRefresh={refetch}
+          contentContainerStyle={{ paddingBottom: bottomPadding }}
           ListHeaderComponent={
             <>
               <View style={styles.topRow}>
@@ -179,19 +183,25 @@ export function BudgetScreen() {
 
       <BottomSheet visible={!!editingCategory} onClose={() => setEditingCategory(null)}>
         <BudgetEditSheet
+          // Keyed so each category gets a fresh instance. Without this the amount field kept
+          // the previously opened category's value and saving mis-budgeted the new one.
+          key={editingCategory?.id ?? "none"}
           category={editingCategory}
           currentAmount={rows.find((r) => r.category.id === editingCategory?.id)?.budget ?? 0}
           onClose={() => setEditingCategory(null)}
           onSave={async (amount) => {
             if (!editingCategory) return;
             try {
-              await setBudget(editingCategory.id, amount);
+              // Zero means "no budget", not "a budget of nothing" — otherwise the row keeps
+              // claiming to be budgeted and the progress bar renders against zero.
+              if (amount > 0) {
+                await setBudget(editingCategory.id, amount);
+              } else {
+                await clearBudget(editingCategory.id);
+              }
               setEditingCategory(null);
-            } catch (error: any) {
-              alert({
-                title: "Error",
-                message: error.message || "Failed to save budget",
-              });
+            } catch (error) {
+              alert({ title: "Couldn't save budget", message: getErrorMessage(error) });
             }
           }}
         />

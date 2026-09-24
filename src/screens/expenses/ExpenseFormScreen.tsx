@@ -14,7 +14,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { TabActions } from "@react-navigation/native";
 import { useAuth } from "../../context/AuthContext";
 import { useCategories } from "../../hooks/useCategories";
-import { useExpenses } from "../../hooks/useExpenses";
+import { useTransactionMutations } from "../../hooks/useTransactions";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
@@ -53,7 +53,7 @@ const NEED_WANT: NeedWant[] = ["Need", "Want"];
 
 export function ExpenseFormScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const editing = route.params?.expense;
+  const editing = route.params?.transaction;
   const { user } = useAuth();
   const { data: categories } = useCategories();
 
@@ -61,7 +61,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const expenseMonth = date.toISOString().slice(0, 7);
 
   const { data: dashboardData } = useDashboard(expenseMonth);
-  const { addExpense, editExpense, removeExpense } = useExpenses();
+  const { createTransaction, updateTransaction, deleteTransaction } = useTransactionMutations();
   const { setSelectedMonth } = useAppData();
   const { confirm, alert } = useDialog();
 
@@ -70,7 +70,9 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? "");
   const [description, setDescription] = useState(editing?.description ?? "");
   const [amount, setAmount] = useState(editing ? formatAmountInput(String(editing.amount)) : "");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(editing?.paymentMethod ?? "Cash");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    (editing?.paymentMethod as PaymentMethod) ?? "Cash"
+  );
   const [needWant, setNeedWant] = useState<NeedWant>(editing?.needWant ?? "Need");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -132,6 +134,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       setIsSaving(true);
       const parsedAmount = Number(amount.replace(/,/g, ""));
       const input = {
+        kind: "SPEND" as const,
         categoryId,
         date: date.toISOString(),
         description: description || undefined,
@@ -142,24 +145,10 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
       const budgetItem = dashboardData?.budgetVsActual.find((b) => b.categoryId === categoryId);
 
-      if (!forceSave && (!budgetItem || budgetItem.budget <= 0)) {
-        setIsSaving(false);
-        confirm({
-          title: "No Budget Set",
-          message: "You haven't set a budget for this category yet. Would you like to set one now to keep your expenses organized?",
-          confirmText: "Set Budget",
-          cancelText: "Save Without Budget",
-          icon: "wallet-outline",
-          onConfirm: () => {
-            setBudgetInputValue("");
-            setIsBudgetSheetOpen(true);
-          },
-          onCancel: () => {
-            handleSave(true);
-          },
-        });
-        return;
-      }
+      // No "you haven't set a budget" interruption. It fired on *every* save into an
+      // unbudgeted category — including edits to months-old expenses — turning a three-tap
+      // action into a modal dismissal, forever, with no way to opt out. Budgets are set on the
+      // Budget screen, which is one tab away and exists for exactly that.
 
       const diff = editing ? parsedAmount - editing.amount : parsedAmount;
       const newActual = (budgetItem?.actual ?? 0) + diff;
@@ -205,20 +194,21 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       // Actually save the expense
       let newExpenseId: string | undefined;
       if (editing) {
-        await editExpense(editing.id, input);
+        await updateTransaction({ id: editing.id, input });
       } else {
-        const result = await addExpense(input);
+        const result = await createTransaction(input);
         newExpenseId = result.id;
       }
 
       hapticRecordCreated();
       setBudgetAlert(null);
       
-      // Switch to the month of the new expense so the user can see it
+      // Follow the saved entry to its month so it is actually visible. The server owns the
+      // month key (derived in the user's timezone); this mirrors it for the picker.
       const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`;
       setSelectedMonth(monthKey);
 
-      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: editing ? editing.id : newExpenseId, filter: "EXPENSES" }));
+      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: editing ? editing.id : newExpenseId }));
       navigation.goBack();
     } catch (err) {
       hapticError();
@@ -238,11 +228,11 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       icon: "trash-can-outline",
       onConfirm: async () => {
         hapticDelete();
-        await removeExpense(editing.id);
+        await deleteTransaction(editing.id);
         navigation.goBack();
       },
     });
-  }, [editing, confirm, removeExpense, navigation]);
+  }, [editing, confirm, deleteTransaction, navigation]);
 
   React.useLayoutEffect(() => {
     if (editing) {
@@ -375,7 +365,9 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         visible={Boolean(budgetAlert)}
         transparent
         animationType="fade"
-        onRequestClose={() => { setBudgetAlert(null); navigation.goBack(); }}
+        // Dismissing the warning returns to the form. It used to call goBack(), silently
+        // throwing away everything the user had typed.
+        onRequestClose={() => setBudgetAlert(null)}
       >
         <View style={styles.alertBackdrop}>
           <View style={styles.alertCard}>
@@ -478,7 +470,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
                   // Auto-resume expense saving logic bypass budget constraint check
                   handleSave(true);
                 } catch (err: any) {
-                  alert({ title: "Error", message: err.message || "Failed to save budget" });
+                  alert({ title: "Couldn't save budget", message: getErrorMessage(err) });
                 } finally {
                   setIsSavingBudget(false);
                 }

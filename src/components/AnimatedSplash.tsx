@@ -1,118 +1,102 @@
-import React, { useEffect, useRef } from "react";
-import {
-  Animated,
-  Dimensions,
-  Easing,
-  StyleSheet,
-  Text,
-} from "react-native";
+import React, { useCallback, useEffect, useRef } from "react";
+import { Animated, Easing, StyleSheet, Text } from "react-native";
 import { colors } from "../theme/colors";
 
-const { width, height } = Dimensions.get("window");
-
 interface Props {
-  /** When true, auth/init check has finished. */
+  /** True once auth restore and the initial navigation state have settled. */
   ready: boolean;
-  /** Called once the exit animation fully completes. */
+  /** Called once the exit animation has fully completed. */
   onComplete: () => void;
 }
 
 /**
- * Premium splash screen launcher.
+ * Brand splash shown over the navigator while auth is restored.
  *
- * - Zero-flicker: Opaque from frame 1.
- * - Displays only the "expenso" wordmark in brand purple.
- * - Transition: Starts massively zoomed in (filling the screen), smoothly zooms out.
- * - Resilient: Free of stale closures with a max safety timer so the app never hangs.
+ * The background matches the native splash exactly, so the native-to-JS handoff is invisible.
+ *
+ * Timing is driven by `ready`, not by a fixed duration: the wordmark settles quickly and the
+ * splash leaves as soon as the app is actually usable, with a short floor so a fast cold start
+ * doesn't flash. Transforms are deliberately small — an oversized scale forces the compositor to
+ * rasterize a huge layer during the exact window when the JS thread is busy parsing the bundle
+ * and restoring the session, which is what made this stutter.
  */
+
+/** Wordmark settle. */
+const INTRO_MS = 420;
+/** Fade-out. */
+const EXIT_MS = 280;
+/** Floor before we're allowed to leave, so a warm start doesn't flash. */
+const MIN_VISIBLE_MS = 620;
+/** Hard ceiling — the app must never hang on the splash. */
+const SAFETY_MS = 4000;
+
 export function AnimatedSplash({ ready, onComplete }: Props) {
-  // Zoom animation: starts massively zoomed in (40x), zooms out to resting center (1.0x)
-  const zoomAnim = useRef(new Animated.Value(40)).current;
+  const intro = useRef(new Animated.Value(0)).current;
   const exitOpacity = useRef(new Animated.Value(1)).current;
 
-  const isReadyRef = useRef(ready);
-  isReadyRef.current = ready;
-
-  const introDone = useRef(false);
   const hasExited = useRef(false);
+  const mountedAt = useRef(Date.now());
+  const readyRef = useRef(ready);
+  readyRef.current = ready;
 
-  const triggerExit = () => {
+  const triggerExit = useCallback(() => {
     if (hasExited.current) return;
     hasExited.current = true;
 
-    Animated.parallel([
-      Animated.timing(exitOpacity, {
-        toValue: 0,
-        duration: 350,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }),
-      Animated.timing(zoomAnim, {
-        toValue: 1.05,
-        duration: 350,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onComplete();
-    });
-  };
-
-  useEffect(() => {
-    // 1. Entrance Zoom-Out Animation
-    Animated.timing(zoomAnim, {
-      toValue: 1.0,
-      duration: 800,
-      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+    Animated.timing(exitOpacity, {
+      toValue: 0,
+      duration: EXIT_MS,
+      easing: Easing.out(Easing.quad),
       useNativeDriver: true,
-    }).start(() => {
-      introDone.current = true;
-      if (isReadyRef.current) {
-        triggerExit();
-      }
+    }).start(({ finished }) => {
+      if (finished) onComplete();
     });
+  }, [exitOpacity, onComplete]);
 
-    // 2. Safety timeout: guarantees the app never hangs on splash screen
-    const safetyTimer = setTimeout(() => {
+  /** Leave now if ready, otherwise wait out the remaining floor and re-check. */
+  const exitWhenAllowed = useCallback(() => {
+    if (hasExited.current || !readyRef.current) return;
+    const elapsed = Date.now() - mountedAt.current;
+    if (elapsed >= MIN_VISIBLE_MS) {
       triggerExit();
-    }, 2000);
-
-    return () => {
-      clearTimeout(safetyTimer);
-    };
-  }, []);
-
-  // Exit trigger if ready flips to true after the intro zoom completes
-  useEffect(() => {
-    if (ready && introDone.current) {
-      triggerExit();
+    } else {
+      setTimeout(triggerExit, MIN_VISIBLE_MS - elapsed);
     }
-  }, [ready]);
+  }, [triggerExit]);
+
+  // Intro: a small settle, cheap to composite.
+  useEffect(() => {
+    Animated.timing(intro, {
+      toValue: 1,
+      duration: INTRO_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(exitWhenAllowed);
+
+    const safety = setTimeout(triggerExit, SAFETY_MS);
+    return () => clearTimeout(safety);
+  }, [intro, exitWhenAllowed, triggerExit]);
+
+  // Auth may settle after the intro has already finished.
+  useEffect(() => {
+    if (ready) exitWhenAllowed();
+  }, [ready, exitWhenAllowed]);
 
   return (
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        styles.container,
-        {
-          opacity: exitOpacity,
-        },
-      ]}
-    >
-      <Animated.View
+    <Animated.View pointerEvents="none" style={[styles.container, { opacity: exitOpacity }]}>
+      <Animated.Text
         style={[
-          styles.centerWrap,
+          styles.wordmark,
           {
+            opacity: intro.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),
             transform: [
-              // Offset slightly so that the massive zoom feels centered on the 'p'
-              { translateX: zoomAnim.interpolate({ inputRange: [1, 40], outputRange: [0, 40] }) },
-              { scale: zoomAnim }
+              { scale: intro.interpolate({ inputRange: [0, 1], outputRange: [1.06, 1] }) },
             ],
           },
         ]}
       >
-        <Text style={styles.wordmark}>expenso</Text>
-      </Animated.View>
+        expenso
+      </Animated.Text>
     </Animated.View>
   );
 }
@@ -120,16 +104,10 @@ export function AnimatedSplash({ ready, onComplete }: Props) {
 const styles = StyleSheet.create({
   container: {
     ...(StyleSheet.absoluteFill as object),
-    width,
-    height,
     backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 9999,
-  },
-  centerWrap: {
-    alignItems: "center",
-    justifyContent: "center",
   },
   wordmark: {
     fontSize: 48,

@@ -12,7 +12,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { TabActions } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
-import { useIncome } from "../../hooks/useIncome";
+import { useTransactionMutations } from "../../hooks/useTransactions";
 import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
 import { formatCurrency, formatAmountInput } from "../../utils/currency";
@@ -48,8 +48,8 @@ const PAYMENT_METHODS: PaymentMethod[] = ["Cash", "Bank Transfer", "Card", "Cheq
 
 export function IncomeFormScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const editing = route.params?.income;
-  const { addIncome, editIncome, removeIncome } = useIncome();
+  const editing = route.params?.transaction;
+  const { createTransaction, updateTransaction, deleteTransaction } = useTransactionMutations();
   const { setSelectedMonth } = useAppData();
   const { confirm } = useDialog();
 
@@ -100,6 +100,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
     setIsSaving(true);
     try {
       const input = {
+        kind: "EARN" as const,
         date: date.toISOString(),
         source: selectedPreset.source,
         sourceIcon: selectedPreset.icon,
@@ -111,9 +112,9 @@ export function IncomeFormScreen({ route, navigation }: Props) {
 
       let newIncomeId: string | undefined;
       if (editing) {
-        await editIncome(editing.id, input);
+        await updateTransaction({ id: editing.id, input });
       } else {
-        const result = await addIncome(input);
+        const result = await createTransaction(input);
         newIncomeId = result.id;
       }
 
@@ -123,7 +124,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
       const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`;
       setSelectedMonth(monthKey);
 
-      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: editing ? editing.id : newIncomeId, filter: "INCOME" }));
+      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: editing ? editing.id : newIncomeId }));
       navigation.goBack();
     } catch (err) {
       hapticError();
@@ -143,11 +144,11 @@ export function IncomeFormScreen({ route, navigation }: Props) {
       icon: "trash-can-outline",
       onConfirm: async () => {
         hapticDelete();
-        await removeIncome(editing.id);
+        await deleteTransaction(editing.id);
         navigation.goBack();
       },
     });
-  }, [editing, confirm, removeIncome, navigation]);
+  }, [editing, confirm, deleteTransaction, navigation]);
 
   React.useLayoutEffect(() => {
     if (editing) {

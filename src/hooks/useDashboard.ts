@@ -1,13 +1,21 @@
+import { useQuery } from "@tanstack/react-query";
 import { fetchDashboardSummary } from "../api/dashboard";
 import { useAppData } from "../context/AppDataContext";
-import { useAsyncData } from "./useAsyncData";
+import { queryKeys } from "../lib/queryClient";
 
 export function useDashboard(overrideMonth?: string) {
-  const { selectedMonth, dataVersion } = useAppData();
-  const targetMonth = overrideMonth || selectedMonth;
-  return useAsyncData(
-    () => fetchDashboardSummary(targetMonth),
-    [targetMonth, dataVersion],
-    `dashboard_${targetMonth}`
-  );
+  const { selectedMonth } = useAppData();
+  const month = overrideMonth || selectedMonth;
+
+  const query = useQuery({
+    queryKey: queryKeys.dashboard(month),
+    queryFn: () => fetchDashboardSummary(month),
+  });
+
+  return {
+    data: query.data ?? null,
+    isLoading: query.isLoading,
+    error: query.error ? String(query.error) : null,
+    refetch: query.refetch,
+  };
 }
