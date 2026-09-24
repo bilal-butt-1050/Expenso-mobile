@@ -14,7 +14,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { TabActions } from "@react-navigation/native";
 import { useAuth } from "../../context/AuthContext";
 import { useCategories } from "../../hooks/useCategories";
-import { useExpenses } from "../../hooks/useExpenses";
+import { useTransactionMutations } from "../../hooks/useTransactions";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
@@ -53,7 +53,7 @@ const NEED_WANT: NeedWant[] = ["Need", "Want"];
 
 export function ExpenseFormScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const editing = route.params?.expense;
+  const editing = route.params?.transaction;
   const { user } = useAuth();
   const { data: categories } = useCategories();
 
@@ -61,7 +61,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const expenseMonth = date.toISOString().slice(0, 7);
 
   const { data: dashboardData } = useDashboard(expenseMonth);
-  const { addExpense, editExpense, removeExpense } = useExpenses();
+  const { createTransaction, updateTransaction, deleteTransaction } = useTransactionMutations();
   const { setSelectedMonth } = useAppData();
   const { confirm, alert } = useDialog();
 
@@ -70,7 +70,9 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? "");
   const [description, setDescription] = useState(editing?.description ?? "");
   const [amount, setAmount] = useState(editing ? formatAmountInput(String(editing.amount)) : "");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(editing?.paymentMethod ?? "Cash");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    (editing?.paymentMethod as PaymentMethod) ?? "Cash"
+  );
   const [needWant, setNeedWant] = useState<NeedWant>(editing?.needWant ?? "Need");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -132,6 +134,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       setIsSaving(true);
       const parsedAmount = Number(amount.replace(/,/g, ""));
       const input = {
+        kind: "SPEND" as const,
         categoryId,
         date: date.toISOString(),
         description: description || undefined,
@@ -191,20 +194,21 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       // Actually save the expense
       let newExpenseId: string | undefined;
       if (editing) {
-        await editExpense(editing.id, input);
+        await updateTransaction({ id: editing.id, input });
       } else {
-        const result = await addExpense(input);
+        const result = await createTransaction(input);
         newExpenseId = result.id;
       }
 
       hapticRecordCreated();
       setBudgetAlert(null);
       
-      // Switch to the month of the new expense so the user can see it
+      // Follow the saved entry to its month so it is actually visible. The server owns the
+      // month key (derived in the user's timezone); this mirrors it for the picker.
       const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`;
       setSelectedMonth(monthKey);
 
-      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: editing ? editing.id : newExpenseId, filter: "EXPENSES" }));
+      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: editing ? editing.id : newExpenseId }));
       navigation.goBack();
     } catch (err) {
       hapticError();
@@ -224,11 +228,11 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       icon: "trash-can-outline",
       onConfirm: async () => {
         hapticDelete();
-        await removeExpense(editing.id);
+        await deleteTransaction(editing.id);
         navigation.goBack();
       },
     });
-  }, [editing, confirm, removeExpense, navigation]);
+  }, [editing, confirm, deleteTransaction, navigation]);
 
   React.useLayoutEffect(() => {
     if (editing) {

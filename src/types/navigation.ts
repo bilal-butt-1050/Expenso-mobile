@@ -1,5 +1,5 @@
 import { NavigatorScreenParams } from "@react-navigation/native";
-import { Category, Expense, Income, Loan, LoanType } from "./models";
+import { Category, Loan, LoanType, Transaction } from "./models";
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -32,8 +32,9 @@ export type RootStackParamList = {
   Loans: undefined;
   /** `loan` present means edit; absent means create. */
   LoanForm: { initialType?: LoanType; loan?: Loan } | undefined;
-  ExpenseForm: { expense?: Expense } | undefined;
-  IncomeForm: { income?: Income } | undefined;
+  /** `transaction` present means edit; absent means create. */
+  ExpenseForm: { transaction?: Transaction } | undefined;
+  IncomeForm: { transaction?: Transaction } | undefined;
   Categories: undefined;
   CategoryForm: { category?: Category } | undefined;
   OnboardingTour: { fromSettings?: boolean } | undefined;

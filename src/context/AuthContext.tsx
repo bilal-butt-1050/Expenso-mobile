@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { User } from "../types/models";
 import { getToken, clearToken, setUnauthorizedHandler } from "../api/client";
 import { setActiveCurrency } from "../utils/currency";
+import { clearAllCaches } from "../lib/queryClient";
 import * as authApi from "../api/auth";
 
 interface AuthContextValue {
@@ -118,6 +119,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await authApi.logout();
         } catch {}
         await clearToken();
+        // Every cached query and queued mutation goes too. Logout used to clear only the token
+        // and the cached profile, so signing in as a different account on the same device showed
+        // the previous user's transactions until the network replaced them.
+        await clearAllCaches(user?.id);
         await saveUserAndCache(null);
       },
       refreshUser: async () => {
