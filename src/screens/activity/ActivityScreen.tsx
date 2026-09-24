@@ -27,6 +27,7 @@ import {
 } from "../../components/SwipeableActivityRow";
 import { LoanSettleSheet } from "../../components/LoanSettleSheet";
 import { syncService } from "../../services/syncService";
+import { useTabBarPadding } from "../../hooks/useTabBarPadding";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
@@ -51,6 +52,7 @@ export function ActivityScreen() {
   const route = useRoute<RouteProp<TabParamList, "Activity">>();
   const { selectedMonth, setSelectedMonth } = useAppData();
   const { confirm } = useDialog();
+  const bottomPadding = useTabBarPadding();
 
   const [activeTab, setActiveTab] = useState<ActivityTab>(
     route.params?.filter || "ALL"
@@ -320,7 +322,7 @@ export function ActivityScreen() {
         <SectionList
           sections={sections}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: bottomPadding }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -453,7 +455,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 140,
   },
   sectionHeader: {
     paddingTop: spacing.md,

@@ -145,6 +145,8 @@ export interface Loan {
   personName: string;
   amount: number;
   settledAmount: number;
+  /** Server-computed: amount - settledAmount, floored at zero. */
+  remainingAmount?: number;
   dueDate: string | null; // ISO string
   status: LoanStatus;
   notes: string | null;
@@ -158,6 +160,11 @@ export interface LoanInput {
   amount: number;
   dueDate?: string | null;
   notes?: string | null;
+  /**
+   * Whether the principal moves now. Defaults to true server-side. False records a debt that
+   * predates the app without fabricating a cash movement today.
+   */
+  recordCashflow?: boolean;
 }
 
 export interface LoansSummary {

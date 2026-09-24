@@ -11,7 +11,6 @@ import {
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { TabActions } from "@react-navigation/native";
 import { RootStackParamList } from "../../types/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { useLoans } from "../../hooks/useLoans";
@@ -31,14 +30,24 @@ type Props = NativeStackScreenProps<RootStackParamList, "LoanForm">;
 export function LoanFormScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { addLoan } = useLoans();
+  const { addLoan, editLoan } = useLoans();
+  const editing = route.params?.loan;
 
-  const [type, setType] = useState<LoanType>(route.params?.initialType || "LENT");
-  const [personName, setPersonName] = useState("");
-  const [rawAmount, setRawAmount] = useState("");
-  const [hasDueDate, setHasDueDate] = useState(false);
-  const [dueDate, setDueDate] = useState<Date>(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)); // Default +7 days
-  const [notes, setNotes] = useState("");
+  const [type, setType] = useState<LoanType>(editing?.type || route.params?.initialType || "LENT");
+  const [personName, setPersonName] = useState(editing?.personName ?? "");
+  const [rawAmount, setRawAmount] = useState(
+    editing ? formatAmountInput(String(editing.amount)) : ""
+  );
+  const [hasDueDate, setHasDueDate] = useState(Boolean(editing?.dueDate));
+  const [dueDate, setDueDate] = useState<Date>(
+    editing?.dueDate ? new Date(editing.dueDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  );
+  const [notes, setNotes] = useState(editing?.notes ?? "");
+  /**
+   * Whether the money moves now. Recording a debt that predates the app must not fabricate a cash
+   * movement today, so this is offered on create. On edit the principal has already been recorded.
+   */
+  const [recordCashflow, setRecordCashflow] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -67,16 +76,26 @@ export function LoanFormScreen({ route, navigation }: Props) {
 
     setIsSubmitting(true);
     try {
-      const created = await addLoan({
-        type,
-        personName: cleanName,
-        amount: numericAmount,
-        dueDate: hasDueDate ? dueDate.toISOString() : undefined,
-        notes: notes.trim() || undefined,
-      });
+      if (editing) {
+        await editLoan(editing.id, {
+          personName: cleanName,
+          amount: numericAmount,
+          dueDate: hasDueDate ? dueDate.toISOString() : null,
+          notes: notes.trim() || null,
+        });
+      } else {
+        await addLoan({
+          type,
+          personName: cleanName,
+          amount: numericAmount,
+          dueDate: hasDueDate ? dueDate.toISOString() : undefined,
+          notes: notes.trim() || undefined,
+          recordCashflow,
+        });
+      }
 
       hapticRecordCreated();
-      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: created.id, filter: "LOANS" }));
+      // Loans live on their own screen now, so land there rather than filtering the Activity feed.
       navigation.goBack();
     } catch (err) {
       hapticError();
@@ -102,7 +121,7 @@ export function LoanFormScreen({ route, navigation }: Props) {
       >
         {/* Header Title */}
         <View style={styles.header}>
-          <Text style={styles.title}>Record Loan / Debt</Text>
+          <Text style={styles.title}>{editing ? "Edit Record" : "Record Loan / Debt"}</Text>
           <Text style={styles.subtitle}>
             {type === "LENT"
               ? "You gave money to someone and expect it back"
@@ -110,7 +129,10 @@ export function LoanFormScreen({ route, navigation }: Props) {
           </Text>
         </View>
 
-        {/* Type Selector (Lent vs Borrowed) */}
+        {/* Type Selector (Lent vs Borrowed) — create only. Flipping direction after the
+            opening movement is recorded would leave the ledger describing something that
+            never happened. */}
+        {!editing && (
         <View style={styles.typeSelector}>
           <TouchableOpacity
             style={[
@@ -164,6 +186,7 @@ export function LoanFormScreen({ route, navigation }: Props) {
             </Text>
           </TouchableOpacity>
         </View>
+        )}
 
         {/* Person / Counterparty Name */}
         <TextField
@@ -182,6 +205,25 @@ export function LoanFormScreen({ route, navigation }: Props) {
           placeholder="0"
           keyboardType="numeric"
         />
+
+        {!editing && (
+          <TouchableOpacity
+            style={styles.dueToggleRow}
+            onPress={() => setRecordCashflow(!recordCashflow)}
+            activeOpacity={0.7}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: recordCashflow }}
+          >
+            <MaterialCommunityIcons
+              name={recordCashflow ? "checkbox-marked" : "checkbox-blank-outline"}
+              size={22}
+              color={recordCashflow ? colors.accent : colors.textMuted}
+            />
+            <Text style={styles.dueToggleLabel}>
+              {type === "LENT" ? "I handed over the money now" : "I received the money now"}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Due Date Toggle & Picker */}
         <View style={styles.dueSection}>
@@ -222,7 +264,7 @@ export function LoanFormScreen({ route, navigation }: Props) {
 
         {/* Save Button */}
         <Button
-          label={type === "LENT" ? "Save Lent Record" : "Save Borrowed Record"}
+          label={editing ? "Save Changes" : type === "LENT" ? "Save Lent Record" : "Save Borrowed Record"}
           onPress={handleSave}
           loading={isSubmitting}
           style={styles.submitButton}

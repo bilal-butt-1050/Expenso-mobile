@@ -130,6 +130,21 @@ export function useLoans(filterType?: LoanType, filterStatus?: LoanStatus) {
     }
   };
 
+  /**
+   * Editing was unreachable: `loansApi.updateLoan` existed but was never exposed here, so a typo
+   * in a name or amount could only be fixed by deleting and recreating the loan.
+   */
+  const editLoan = async (id: string, input: Partial<LoanInput>) => {
+    const updated = await loansApi.updateLoan(id, input);
+    const cached = (await syncService.getCache<Loan[]>("loans")) || [];
+    const next = cached.map((l) => (l.id === id ? updated : l));
+    await syncService.setCache("loans", next);
+    setLoans(next);
+    notifyDataChanged();
+    refresh().catch(() => {});
+    return updated;
+  };
+
   const removeLoan = async (id: string) => {
     try {
       await loansApi.deleteLoan(id);
@@ -160,6 +175,7 @@ export function useLoans(filterType?: LoanType, filterStatus?: LoanStatus) {
     error,
     refresh,
     addLoan,
+    editLoan,
     recordPayment,
     removeLoan,
   };

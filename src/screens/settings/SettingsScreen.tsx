@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import md5 from "md5";
 import { useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
@@ -24,6 +25,8 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export function SettingsScreen() {
   const navigation = useNavigation<Nav>();
+  // A root stack screen, so there is no tab bar underneath — safe-area inset is the right clearance.
+  const insets = useSafeAreaInsets();
   const { user, logout, updateProfile, changePassword } = useAuth();
   const { confirm, alert } = useDialog();
 
@@ -192,7 +195,7 @@ export function SettingsScreen() {
     <ScreenContainer>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 140 }}
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, spacing.lg) + spacing.xl }}
       >
         <View style={styles.header}>
           <Text style={styles.title}>Settings</Text>

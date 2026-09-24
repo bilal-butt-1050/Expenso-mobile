@@ -15,6 +15,7 @@ import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
 import { EmptyState } from "../../components/EmptyState";
 import { BudgetSkeleton } from "../../components/Skeleton";
+import { useTabBarPadding } from "../../hooks/useTabBarPadding";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
@@ -37,6 +38,7 @@ export function BudgetScreen() {
   const { setBudget } = useBudgets(selectedMonth);
   const { alert } = useDialog();
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const bottomPadding = useTabBarPadding();
 
   React.useEffect(() => {
     if (route.params?.openCategoryId && categories) {
@@ -81,7 +83,7 @@ export function BudgetScreen() {
           data={rows}
           keyExtractor={(item) => item.category.id}
           refreshing={isLoading}
-          contentContainerStyle={{ paddingBottom: 140 }}
+          contentContainerStyle={{ paddingBottom: bottomPadding }}
           ListHeaderComponent={
             <>
               <View style={styles.topRow}>

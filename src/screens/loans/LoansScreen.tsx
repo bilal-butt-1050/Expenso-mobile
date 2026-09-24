@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   FlatList,
   RefreshControl,
@@ -14,106 +14,69 @@ import { RootStackParamList } from "../../types/navigation";
 import { useLoans } from "../../hooks/useLoans";
 import { useDialog } from "../../context/DialogContext";
 import { Loan, LoanType } from "../../types/models";
-import { Card } from "../../components/Card";
-import { Button } from "../../components/Button";
-import { BottomSheet } from "../../components/BottomSheet";
-import { TextField } from "../../components/TextField";
+import { LoanSettleSheet } from "../../components/LoanSettleSheet";
+import { AnimatedSegmentedControl, SegmentOption } from "../../components/AnimatedSegmentedControl";
+import { EmptyState } from "../../components/EmptyState";
+import { getErrorMessage } from "../../api/client";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
-import { formatCurrency, formatAmountInput } from "../../utils/currency";
-import { hapticSuccess, hapticLight } from "../../utils/haptics";
+import { formatCurrency } from "../../utils/currency";
+import { formatDate } from "../../utils/date";
+import { hapticLight } from "../../utils/haptics";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Loans">;
 
+type Scope = "ACTIVE" | "SETTLED";
+type TypeFilter = "ALL" | LoanType;
+
+const SCOPES: SegmentOption<Scope>[] = [
+  { label: "Active", value: "ACTIVE" },
+  { label: "Settled", value: "SETTLED" },
+];
+
+const TYPES: { label: string; value: TypeFilter }[] = [
+  { label: "All", value: "ALL" },
+  { label: "Owed to me", value: "LENT" },
+  { label: "I owe", value: "BORROWED" },
+];
+
+/**
+ * Full debt management, reached from Home's "Debts & Loans" card.
+ *
+ * This screen existed at 821 lines and was imported by nothing, so loans could only be settled
+ * from a sheet in the Activity feed and could not be edited at all. It now reuses
+ * `LoanSettleSheet` rather than carrying a second inline copy of the same settlement UI.
+ */
 export function LoansScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { loans, summary, isLoading, refresh, recordPayment, removeLoan } = useLoans();
   const { confirm, alert } = useDialog();
 
-  const [typeFilter, setTypeFilter] = useState<"ALL" | LoanType>("ALL");
-  const [showSettled, setShowSettled] = useState(false);
-
-  // Settlement BottomSheet state
+  const [scope, setScope] = useState<Scope>("ACTIVE");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
   const [settlingLoan, setSettlingLoan] = useState<Loan | null>(null);
-  const [partialAmount, setPartialAmount] = useState("");
-  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
 
-  const filteredLoans = useMemo(() => {
-    return loans.filter((loan) => {
-      // Filter by type
-      if (typeFilter !== "ALL" && loan.type !== typeFilter) {
-        return false;
-      }
-      // Filter by active vs settled
-      if (showSettled) {
-        return loan.status === "SETTLED";
-      }
-      return loan.status !== "SETTLED";
-    });
-  }, [loans, typeFilter, showSettled]);
+  const visibleLoans = useMemo(
+    () =>
+      loans.filter((loan) => {
+        if (typeFilter !== "ALL" && loan.type !== typeFilter) return false;
+        return scope === "SETTLED" ? loan.status === "SETTLED" : loan.status !== "SETTLED";
+      }),
+    [loans, typeFilter, scope]
+  );
 
-  const handleOpenSettle = (loan: Loan) => {
-    hapticLight();
-    setSettlingLoan(loan);
-    setPartialAmount("");
-  };
-
-  const handleFullSettle = async () => {
-    if (!settlingLoan) return;
-    setIsSubmittingPayment(true);
-    try {
-      await recordPayment(settlingLoan.id);
-      hapticSuccess();
-      setSettlingLoan(null);
-    } catch (err: any) {
-      alert({ title: "Error", message: err.message || "Failed to settle loan" });
-    } finally {
-      setIsSubmittingPayment(false);
-    }
-  };
-
-  const handlePartialSettle = async () => {
-    if (!settlingLoan) return;
-    const numeric = parseFloat(partialAmount.replace(/,/g, ""));
-    if (isNaN(numeric) || numeric <= 0) {
-      alert({ title: "Invalid Amount", message: "Please enter a valid payment amount." });
-      return;
-    }
-
-    const remaining = Math.max(0, settlingLoan.amount - settlingLoan.settledAmount);
-    if (numeric > remaining) {
-      alert({
-        title: "Amount Exceeds Balance",
-        message: `The payment amount cannot exceed the remaining balance of ${formatCurrency(remaining)}.`,
-      });
-      return;
-    }
-
-    setIsSubmittingPayment(true);
-    try {
-      await recordPayment(settlingLoan.id, numeric);
-      hapticSuccess();
-      setSettlingLoan(null);
-    } catch (err: any) {
-      alert({ title: "Error", message: err.message || "Failed to record payment" });
-    } finally {
-      setIsSubmittingPayment(false);
-    }
-  };
-
-  const handleDelete = (loan: Loan) => {
+  const confirmDelete = (loan: Loan) => {
     confirm({
-      title: "Delete Record?",
-      message: `Are you sure you want to delete this loan record with ${loan.personName}?`,
+      title: "Delete this record?",
+      message: `${loan.type === "LENT" ? "Lent to" : "Borrowed from"} ${loan.personName} · ${formatCurrency(loan.amount)}. Any payments recorded against it are removed too.`,
       confirmText: "Delete",
       destructive: true,
       onConfirm: async () => {
         try {
           await removeLoan(loan.id);
-          hapticSuccess();
-        } catch (err: any) {
-          alert({ title: "Error", message: err.message || "Failed to delete record" });
+        } catch (err) {
+          alert({ title: "Couldn't delete", message: getErrorMessage(err) });
         }
       },
     });
@@ -121,333 +84,206 @@ export function LoansScreen({ navigation }: Props) {
 
   return (
     <View style={styles.root}>
-      {/* Top Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <MaterialCommunityIcons name="chevron-left" size={28} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.title}>Lend & Borrow</Text>
-        </View>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.iconButton}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <MaterialCommunityIcons name="chevron-left" size={28} color={colors.textPrimary} />
+        </TouchableOpacity>
+
+        <Text style={styles.title}>Debts & Loans</Text>
 
         <TouchableOpacity
           onPress={() => navigation.navigate("LoanForm")}
-          style={styles.addBtn}
-          activeOpacity={0.8}
+          style={styles.iconButton}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Record a new loan"
         >
-          <MaterialCommunityIcons name="plus" size={18} color="#FFFFFF" />
-          <Text style={styles.addBtnText}>Add</Text>
+          <MaterialCommunityIcons name="plus" size={24} color={colors.accent} />
         </TouchableOpacity>
       </View>
 
       <FlatList
-        data={filteredLoans}
-        keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refresh} tintColor={colors.accent} />}
+        data={visibleLoans}
+        keyExtractor={(loan) => loan.id}
         contentContainerStyle={[
           styles.listContent,
-          { paddingBottom: Math.max(insets.bottom, 24) + 120 },
+          { paddingBottom: Math.max(insets.bottom, spacing.lg) + spacing.xl },
         ]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={refresh} tintColor={colors.accent} />
+        }
         ListHeaderComponent={
           <>
-            {/* Top Summary Cards */}
-            <View style={styles.summaryGrid}>
-              <Card style={styles.summaryCard}>
-                <View style={styles.summaryBadgeLent}>
-                  <MaterialCommunityIcons name="arrow-top-right" size={14} color={colors.success} />
-                  <Text style={styles.summaryBadgeTextLent}>YOU ARE OWED</Text>
+            {summary && (
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryCol}>
+                  <Text style={styles.summaryLabel}>OWED TO YOU</Text>
+                  <Text style={[styles.summaryValue, { color: colors.success }]}>
+                    {formatCurrency(summary.totalLentPending)}
+                  </Text>
                 </View>
-                <Text style={styles.summaryAmountLent}>
-                  {formatCurrency(summary?.totalLentPending ?? 0)}
-                </Text>
-                <Text style={styles.summarySubtext}>
-                  {summary?.activeLentCount ?? 0} active {summary?.activeLentCount === 1 ? "record" : "records"}
-                </Text>
-              </Card>
-
-              <Card style={styles.summaryCard}>
-                <View style={styles.summaryBadgeBorrowed}>
-                  <MaterialCommunityIcons name="arrow-bottom-left" size={14} color={colors.warning} />
-                  <Text style={styles.summaryBadgeTextBorrowed}>YOU OWE</Text>
+                <View style={styles.summaryDivider} />
+                <View style={styles.summaryCol}>
+                  <Text style={styles.summaryLabel}>YOU OWE</Text>
+                  <Text style={[styles.summaryValue, { color: colors.danger }]}>
+                    {formatCurrency(summary.totalBorrowedPending)}
+                  </Text>
                 </View>
-                <Text style={styles.summaryAmountBorrowed}>
-                  {formatCurrency(summary?.totalBorrowedPending ?? 0)}
-                </Text>
-                <Text style={styles.summarySubtext}>
-                  {summary?.activeBorrowedCount ?? 0} active {summary?.activeBorrowedCount === 1 ? "record" : "records"}
-                </Text>
-              </Card>
-            </View>
-
-            {/* Type Filter Pills */}
-            <View style={styles.filterRow}>
-              <View style={styles.typeFilterGroup}>
-                {(["ALL", "LENT", "BORROWED"] as const).map((t) => {
-                  const active = typeFilter === t;
-                  const label = t === "ALL" ? "All" : t === "LENT" ? "Owed" : "I Owe";
-                  return (
-                    <TouchableOpacity
-                      key={t}
-                      style={[styles.filterPill, active && styles.filterPillActive]}
-                      onPress={() => {
-                        hapticLight();
-                        setTypeFilter(t);
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
               </View>
+            )}
 
-              {/* Status Toggle (Active vs Settled) */}
-              <TouchableOpacity
-                style={[styles.statusToggle, showSettled && styles.statusToggleActive]}
-                onPress={() => {
-                  hapticLight();
-                  setShowSettled(!showSettled);
-                }}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons
-                  name={showSettled ? "check-circle" : "clock-outline"}
-                  size={15}
-                  color={showSettled ? colors.accent : colors.textMuted}
-                />
-                <Text style={[styles.statusToggleText, showSettled && styles.statusToggleTextActive]}>
-                  {showSettled ? "Settled" : "Active"}
-                </Text>
-              </TouchableOpacity>
+            <AnimatedSegmentedControl options={SCOPES} selected={scope} onChange={setScope} />
+
+            <View style={styles.typeRow}>
+              {TYPES.map((t) => {
+                const active = typeFilter === t.value;
+                return (
+                  <TouchableOpacity
+                    key={t.value}
+                    style={[styles.typeChip, active && styles.typeChipActive]}
+                    onPress={() => {
+                      hapticLight();
+                      setTypeFilter(t.value);
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.typeChipText, active && styles.typeChipTextActive]}>
+                      {t.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </>
         }
         ListEmptyComponent={
-          !isLoading ? (
-            <View style={styles.emptyState}>
-              <MaterialCommunityIcons name="handshake-outline" size={48} color={colors.textMuted} />
-              <Text style={styles.emptyTitle}>
-                {showSettled ? "No settled loan records" : "No active loan records"}
-              </Text>
-              <Text style={styles.emptySubtitle}>
-                {showSettled
-                  ? "Settled records will appear here once paid off."
-                  : "Track money you lend to friends or borrow from institutions."}
-              </Text>
-              {!showSettled && (
-                <Button
-                  label="Add First Loan Record"
-                  onPress={() => navigation.navigate("LoanForm")}
-                  style={styles.emptyButton}
-                />
-              )}
-            </View>
-          ) : null
+          <EmptyState
+            icon="hand-coin-outline"
+            title={scope === "SETTLED" ? "Nothing settled yet" : "No open debts"}
+            subtitle={
+              scope === "SETTLED"
+                ? "Loans you've fully settled will be kept here."
+                : "Money you lend or borrow will appear here."
+            }
+          />
         }
-        renderItem={({ item }) => {
-          const isLent = item.type === "LENT";
-          const remaining = Math.max(0, item.amount - item.settledAmount);
-          const progress = Math.min(1, item.amount > 0 ? item.settledAmount / item.amount : 0);
-          const isSettled = item.status === "SETTLED";
-
-          // Due date check
-          const isOverdue =
-            !isSettled && item.dueDate && new Date(item.dueDate).getTime() < Date.now();
-
-          return (
-            <Card style={styles.loanCard}>
-              <View style={styles.loanTopRow}>
-                <View style={styles.loanLeft}>
-                  <View
-                    style={[
-                      styles.avatarCircle,
-                      { backgroundColor: isLent ? colors.successMuted : colors.warningMuted },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.avatarText,
-                        { color: isLent ? colors.success : colors.warning },
-                      ]}
-                    >
-                      {(item.personName || "L")[0].toUpperCase()}
-                    </Text>
-                  </View>
-
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.personName}>{item.personName}</Text>
-                    <View style={styles.badgeRow}>
-                      <View
-                        style={[
-                          styles.typeBadge,
-                          {
-                            backgroundColor: isLent ? colors.successMuted : colors.warningMuted,
-                            borderColor: isLent
-                              ? "rgba(16, 185, 129, 0.3)"
-                              : "rgba(245, 158, 11, 0.3)",
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.typeBadgeText,
-                            { color: isLent ? colors.success : colors.warning },
-                          ]}
-                        >
-                          {isLent ? "Owed to You" : "You Owe"}
-                        </Text>
-                      </View>
-
-                      {isSettled ? (
-                        <View style={styles.settledBadge}>
-                          <Text style={styles.settledBadgeText}>Fully Settled</Text>
-                        </View>
-                      ) : isOverdue ? (
-                        <View style={styles.overdueBadge}>
-                          <MaterialCommunityIcons name="alert-circle-outline" size={12} color={colors.danger} />
-                          <Text style={styles.overdueBadgeText}>Overdue</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  </View>
-                </View>
-
-                {/* Remaining Amount */}
-                <View style={styles.loanRight}>
-                  <Text
-                    style={[
-                      styles.loanAmount,
-                      { color: isLent ? colors.success : colors.textPrimary },
-                    ]}
-                  >
-                    {formatCurrency(remaining)}
-                  </Text>
-                  <Text style={styles.loanTotalLabel}>
-                    of {formatCurrency(item.amount)}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Progress bar toward complete settlement */}
-              {item.amount > 0 && !isSettled && (
-                <View style={styles.progressBarWrap}>
-                  <View
-                    style={[
-                      styles.progressBarFill,
-                      {
-                        width: `${Math.round(progress * 100)}%`,
-                        backgroundColor: isLent ? colors.success : colors.accent,
-                      },
-                    ]}
-                  />
-                </View>
-              )}
-
-              {/* Notes & Due Date info */}
-              {(item.notes || item.dueDate) && (
-                <View style={styles.detailsRow}>
-                  {item.dueDate ? (
-                    <View style={styles.detailItem}>
-                      <MaterialCommunityIcons name="calendar-clock" size={13} color={colors.textMuted} />
-                      <Text style={styles.detailText}>
-                        Due {new Date(item.dueDate).toLocaleDateString()}
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  {item.notes ? (
-                    <Text style={styles.notesText} numberOfLines={1}>
-                      {item.notes}
-                    </Text>
-                  ) : null}
-                </View>
-              )}
-
-              {/* Action Buttons */}
-              <View style={styles.cardActions}>
-                {!isSettled && (
-                  <TouchableOpacity
-                    style={styles.settleBtn}
-                    onPress={() => handleOpenSettle(item)}
-                    activeOpacity={0.8}
-                  >
-                    <MaterialCommunityIcons name="cash-check" size={16} color="#FFFFFF" />
-                    <Text style={styles.settleBtnText}>Record Payment</Text>
-                  </TouchableOpacity>
-                )}
-
-                <TouchableOpacity
-                  style={styles.deleteBtn}
-                  onPress={() => handleDelete(item)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.textMuted} />
-                </TouchableOpacity>
-              </View>
-            </Card>
-          );
-        }}
+        renderItem={({ item }) => (
+          <LoanRow
+            loan={item}
+            onSettle={() => setSettlingLoan(item)}
+            onEdit={() => navigation.navigate("LoanForm", { loan: item })}
+            onDelete={() => confirmDelete(item)}
+          />
+        )}
       />
 
-      {/* Settle / Payment BottomSheet */}
-      <BottomSheet visible={Boolean(settlingLoan)} onClose={() => setSettlingLoan(null)}>
-        {settlingLoan && (
-          <View style={styles.sheetContent}>
-            <Text style={styles.sheetTitle}>Record Payment</Text>
-            <Text style={styles.sheetSubtitle}>
-              {settlingLoan.type === "LENT"
-                ? `Recording money received from ${settlingLoan.personName}`
-                : `Recording money paid to ${settlingLoan.personName}`}
-            </Text>
+      <LoanSettleSheet
+        loan={settlingLoan}
+        onClose={() => setSettlingLoan(null)}
+        onSettle={async (loanId, amount) => {
+          await recordPayment(loanId, amount);
+        }}
+        onDelete={(loanId) => {
+          const loan = loans.find((l) => l.id === loanId);
+          if (loan) confirmDelete(loan);
+        }}
+      />
+    </View>
+  );
+}
 
-            <View style={styles.sheetBalanceCard}>
-              <Text style={styles.sheetBalanceLabel}>Remaining Balance</Text>
-              <Text style={styles.sheetBalanceValue}>
-                {formatCurrency(Math.max(0, settlingLoan.amount - settlingLoan.settledAmount))}
-              </Text>
-            </View>
+function LoanRow({
+  loan,
+  onSettle,
+  onEdit,
+  onDelete,
+}: {
+  loan: Loan;
+  onSettle: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const isLent = loan.type === "LENT";
+  const remaining = Math.max(0, loan.amount - loan.settledAmount);
+  const progress = loan.amount > 0 ? loan.settledAmount / loan.amount : 0;
+  const isSettled = loan.status === "SETTLED";
+  const isOverdue =
+    !isSettled && !!loan.dueDate && new Date(loan.dueDate).getTime() < Date.now();
 
-            {/* Settle In Full Action */}
-            <Button
-              label="Settle Remaining in Full"
-              onPress={handleFullSettle}
-              loading={isSubmittingPayment}
-              style={{ width: "100%" }}
-            />
+  return (
+    <View style={styles.card}>
+      <TouchableOpacity
+        style={styles.cardMain}
+        onPress={onSettle}
+        activeOpacity={0.75}
+        accessibilityRole="button"
+        accessibilityLabel={`${isLent ? "Lent to" : "Borrowed from"} ${loan.personName}, ${formatCurrency(remaining)} remaining`}
+      >
+        <View
+          style={[
+            styles.avatar,
+            { backgroundColor: isLent ? "rgba(96,165,250,0.14)" : "rgba(245,158,11,0.14)" },
+          ]}
+        >
+          <MaterialCommunityIcons
+            name={isLent ? "arrow-top-right" : "arrow-bottom-left"}
+            size={20}
+            color={isLent ? "#60A5FA" : colors.warning}
+          />
+        </View>
 
-            <View style={styles.sheetDividerRow}>
-              <View style={styles.sheetDivider} />
-              <Text style={styles.sheetDividerText}>OR PARTIAL PAYMENT</Text>
-              <View style={styles.sheetDivider} />
-            </View>
+        <View style={styles.cardBody}>
+          {/* The counterparty is the whole point of a loan record — without it every row reads
+              identically. Previously rows showed only "Lent" or "Borrowed". */}
+          <Text style={styles.personName} numberOfLines={1}>
+            {loan.personName}
+          </Text>
+          <Text style={styles.cardMeta} numberOfLines={1}>
+            {isLent ? "Owed to you" : "You owe"}
+            {loan.dueDate ? ` · due ${formatDate(loan.dueDate)}` : ""}
+          </Text>
+        </View>
 
-            {/* Custom Partial Amount */}
-            <TextField
-              label="Partial Amount Paid"
-              value={partialAmount}
-              onChangeText={(text) => setPartialAmount(formatAmountInput(text))}
-              placeholder="0"
-              keyboardType="numeric"
-            />
+        <View style={styles.cardAmounts}>
+          <Text style={[styles.remaining, isSettled && styles.remainingSettled]}>
+            {formatCurrency(isSettled ? loan.amount : remaining)}
+          </Text>
+          {!isSettled && loan.settledAmount > 0 && (
+            <Text style={styles.ofTotal}>of {formatCurrency(loan.amount)}</Text>
+          )}
+          {isOverdue && <Text style={styles.overdue}>Overdue</Text>}
+        </View>
+      </TouchableOpacity>
 
-            <Button
-              label="Record Partial Amount"
-              variant="secondary"
-              onPress={handlePartialSettle}
-              loading={isSubmittingPayment}
-              disabled={!partialAmount.trim()}
-              style={{ width: "100%" }}
-            />
-          </View>
+      {!isSettled && loan.settledAmount > 0 && (
+        <View style={styles.track}>
+          <View style={[styles.trackFill, { width: `${Math.min(100, progress * 100)}%` }]} />
+        </View>
+      )}
+
+      <View style={styles.cardActions}>
+        <TouchableOpacity onPress={onEdit} style={styles.action} hitSlop={8}>
+          <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textSecondary} />
+          <Text style={styles.actionText}>Edit</Text>
+        </TouchableOpacity>
+        {!isSettled && (
+          <TouchableOpacity onPress={onSettle} style={styles.action} hitSlop={8}>
+            <MaterialCommunityIcons name="cash-check" size={16} color={colors.accent} />
+            <Text style={[styles.actionText, { color: colors.accent }]}>Settle</Text>
+          </TouchableOpacity>
         )}
-      </BottomSheet>
+        <TouchableOpacity onPress={onDelete} style={styles.action} hitSlop={8}>
+          <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.danger} />
+          <Text style={[styles.actionText, { color: colors.danger }]}>Delete</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -458,364 +294,96 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
-    backgroundColor: colors.background,
   },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  backBtn: {
-    padding: spacing.xs,
-    marginLeft: -spacing.xs,
-  },
-  title: {
-    ...typography.title,
-    fontSize: 22,
-  },
-  addBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: colors.accent,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: radius.pill,
-  },
-  addBtnText: {
-    ...typography.small,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  listContent: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    gap: spacing.md,
-  },
-  summaryGrid: {
-    flexDirection: "row",
-    gap: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  summaryCard: {
-    flex: 1,
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-  },
-  summaryBadgeLent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginBottom: 6,
-  },
-  summaryBadgeTextLent: {
-    ...typography.caption,
-    fontSize: 11,
-    fontWeight: "700",
-    color: colors.success,
-    letterSpacing: 0.5,
-  },
-  summaryAmountLent: {
-    ...typography.metricValue,
-    fontSize: 20,
-    color: colors.success,
-  },
-  summaryBadgeBorrowed: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginBottom: 6,
-  },
-  summaryBadgeTextBorrowed: {
-    ...typography.caption,
-    fontSize: 11,
-    fontWeight: "700",
-    color: colors.warning,
-    letterSpacing: 0.5,
-  },
-  summaryAmountBorrowed: {
-    ...typography.metricValue,
-    fontSize: 20,
-    color: colors.warning,
-  },
-  summarySubtext: {
-    ...typography.caption,
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 4,
-  },
-  filterRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginVertical: spacing.xs,
-  },
-  typeFilterGroup: {
-    flexDirection: "row",
-    backgroundColor: colors.surface,
-    borderRadius: radius.pill,
-    padding: 3,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterPill: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-  },
-  filterPillActive: {
-    backgroundColor: colors.surfaceRaised,
-  },
-  filterPillText: {
-    ...typography.caption,
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.textMuted,
-  },
-  filterPillTextActive: {
-    color: colors.textPrimary,
-    fontWeight: "700",
-  },
-  statusToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  statusToggleActive: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentMuted,
-  },
-  statusToggleText: {
-    ...typography.caption,
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.textMuted,
-  },
-  statusToggleTextActive: {
-    color: colors.accent,
-    fontWeight: "700",
-  },
-  emptyState: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: spacing.xxl,
-    gap: spacing.xs,
-  },
-  emptyTitle: {
-    ...typography.subtitle,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
-  },
-  emptySubtitle: {
-    ...typography.caption,
-    color: colors.textMuted,
-    textAlign: "center",
-    maxWidth: 260,
-  },
-  emptyButton: {
-    marginTop: spacing.md,
-  },
-  loanCard: {
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    gap: spacing.sm,
-  },
-  loanTopRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-  },
-  loanLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    flex: 1,
-  },
-  avatarCircle: {
+  iconButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: {
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  personName: {
-    ...typography.body,
-    fontWeight: "700",
-  },
-  badgeRow: {
+  title: { ...typography.title, fontSize: 20, color: colors.textPrimary },
+
+  listContent: { paddingHorizontal: spacing.lg, gap: spacing.sm },
+
+  summaryCard: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    marginTop: 3,
-  },
-  typeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: 22,
+    paddingVertical: spacing.md + 2,
+    paddingHorizontal: spacing.lg,
     borderWidth: 1,
+    borderColor: colors.borderLight,
+    marginBottom: spacing.md,
   },
-  typeBadgeText: {
+  summaryCol: { flex: 1, alignItems: "center" },
+  summaryDivider: { width: 1, backgroundColor: colors.borderLight },
+  summaryLabel: {
     fontSize: 11,
     fontWeight: "700",
-  },
-  settledBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-  },
-  settledBadgeText: {
-    fontSize: 11,
-    fontWeight: "600",
     color: colors.textMuted,
+    letterSpacing: 0.6,
+    marginBottom: 4,
   },
-  overdueBadge: {
-    flexDirection: "row",
+  summaryValue: { fontSize: 17, fontWeight: "700" },
+
+  typeRow: { flexDirection: "row", gap: spacing.xs, marginTop: spacing.sm, marginBottom: spacing.md },
+  typeChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  typeChipActive: { backgroundColor: colors.accentMuted, borderColor: colors.accent },
+  typeChipText: { fontSize: 13, fontWeight: "600", color: colors.textSecondary },
+  typeChipTextActive: { color: colors.accent, fontWeight: "700" },
+
+  card: {
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  cardMain: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  avatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: "center",
-    gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
-    backgroundColor: colors.dangerMuted,
+    justifyContent: "center",
   },
-  overdueBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: colors.danger,
-  },
-  loanRight: {
-    alignItems: "flex-end",
-  },
-  loanAmount: {
-    ...typography.subtitle,
-    fontWeight: "800",
-  },
-  loanTotalLabel: {
-    ...typography.caption,
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  progressBarWrap: {
+  cardBody: { flex: 1 },
+  personName: { fontSize: 16, fontWeight: "700", color: colors.textPrimary, letterSpacing: -0.2 },
+  cardMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  cardAmounts: { alignItems: "flex-end" },
+  remaining: { fontSize: 16, fontWeight: "700", color: colors.textPrimary },
+  remainingSettled: { color: colors.textMuted, textDecorationLine: "line-through" },
+  ofTotal: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+  overdue: { fontSize: 11, fontWeight: "700", color: colors.danger, marginTop: 2 },
+
+  track: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255,255,255,0.06)",
     overflow: "hidden",
-    marginTop: 2,
+    marginTop: spacing.sm,
   },
-  progressBarFill: {
-    height: "100%",
-    borderRadius: 2,
-  },
-  detailsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    marginTop: 2,
-  },
-  detailItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  detailText: {
-    ...typography.caption,
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-  notesText: {
-    ...typography.caption,
-    fontSize: 12,
-    color: colors.textSecondary,
-    flex: 1,
-  },
+  trackFill: { height: "100%", backgroundColor: colors.accent, borderRadius: 2 },
+
   cardActions: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 6,
+    gap: spacing.lg,
+    marginTop: spacing.sm,
     paddingTop: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
   },
-  settleBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: colors.accent,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 3,
-    borderRadius: radius.md,
-  },
-  settleBtnText: {
-    ...typography.small,
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
-  deleteBtn: {
-    padding: spacing.xs,
-  },
-  sheetContent: {
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  sheetTitle: {
-    ...typography.title,
-    fontSize: 20,
-  },
-  sheetSubtitle: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginTop: -spacing.xs,
-  },
-  sheetBalanceCard: {
-    padding: spacing.md,
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: radius.md,
-    alignItems: "center",
-    gap: 4,
-    marginVertical: spacing.xs,
-  },
-  sheetBalanceLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-    textTransform: "uppercase",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  sheetBalanceValue: {
-    ...typography.metricValue,
-    fontSize: 26,
-    color: colors.textPrimary,
-  },
-  sheetDividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginVertical: spacing.xs,
-  },
-  sheetDivider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  sheetDividerText: {
-    ...typography.caption,
-    fontSize: 11,
-    fontWeight: "700",
-    color: colors.textMuted,
-    letterSpacing: 0.5,
-  },
+  action: { flexDirection: "row", alignItems: "center", gap: 5, minHeight: 32 },
+  actionText: { fontSize: 13, fontWeight: "600", color: colors.textSecondary },
 });

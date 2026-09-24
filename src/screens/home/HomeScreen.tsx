@@ -21,6 +21,7 @@ import { useAuth } from "../../context/AuthContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { MonthPicker } from "../../components/MonthPicker";
 import { HomeSkeleton } from "../../components/Skeleton";
+import { useTabBarPadding } from "../../hooks/useTabBarPadding";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { formatCurrency } from "../../utils/currency";
@@ -30,6 +31,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export function HomeScreen() {
   const navigation = useNavigation<Nav>();
+  const bottomPadding = useTabBarPadding();
   const { user } = useAuth();
   const { selectedMonth, setSelectedMonth } = useAppData();
   const { data, isLoading, refetch } = useDashboard();
@@ -40,12 +42,10 @@ export function HomeScreen() {
     await Promise.all([refetch(), refreshLoans(), refetchExpenses()]);
   };
 
-  const navigateToLoans = () => {
-    navigation.navigate("Tabs" as any, {
-      screen: "Activity",
-      params: { filter: "LOANS" },
-    });
-  };
+  // Opens the dedicated Loans screen rather than filtering the Activity feed. Loans are
+  // positions, not events — they belong somewhere they can be edited and settled, not as
+  // untitled rows in a transaction list.
+  const navigateToLoans = () => navigation.navigate("Loans");
 
   const overdueLoans = (loans ?? []).filter((l) => {
     if (l.status === "SETTLED" || !l.dueDate) return false;
@@ -90,7 +90,7 @@ export function HomeScreen() {
         </View>
         <TouchableOpacity
           style={styles.headerAvatar}
-          onPress={() => navigation.navigate("Settings" as any)}
+          onPress={() => navigation.navigate("Settings")}
           activeOpacity={0.8}
           accessibilityRole="button"
           accessibilityLabel="Open settings"
@@ -110,7 +110,7 @@ export function HomeScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { paddingBottom: bottomPadding }]}
         refreshControl={
           <RefreshControl
             refreshing={isLoading}
@@ -285,7 +285,7 @@ export function HomeScreen() {
               <View style={styles.cardHeaderRow}>
                 <Text style={styles.cardHeaderTitle}>Recent Activity</Text>
                 <TouchableOpacity
-                  onPress={() => navigation.navigate("Tabs" as any, { screen: "Activity" })}
+                  onPress={() => navigation.navigate("Tabs", { screen: "Activity" })}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Text style={styles.seeAllText}>See All →</Text>
@@ -304,7 +304,7 @@ export function HomeScreen() {
                         idx > 0 && styles.recentRowBorder,
                       ]}
                       activeOpacity={0.7}
-                      onPress={() => navigation.navigate("Tabs" as any, { screen: "Activity" })}
+                      onPress={() => navigation.navigate("Tabs", { screen: "Activity" })}
                     >
                       <View
                         style={[
@@ -368,9 +368,7 @@ const styles = StyleSheet.create({
   headerAvatarImage: { width: "100%", height: "100%" },
   headerAvatarText: { fontSize: 17, fontWeight: "700", color: colors.accent },
 
-  scroll: {
-    paddingBottom: 140,
-  },
+  scroll: {},
 
   heroSection: {
     alignItems: "center",
