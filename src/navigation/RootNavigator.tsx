@@ -84,7 +84,11 @@ export function RootNavigator() {
           <Stack.Navigator
             key={user ? (needsTour ? "tour-stack" : "tabs-stack") : "auth-stack"}
             screenOptions={{ headerShown: false }}
-            initialRouteName={needsTour ? "OnboardingTour" : "Tabs"}
+            // Must name a screen that exists in the branch rendered below. Signed out, only
+            // `Auth` is registered — pointing at `Tabs` there threw
+            // "Couldn't find a screen named 'Tabs' to use as 'initialRouteName'" and took the
+            // whole app down on launch. React Navigation 6 only warned about this; 7 throws.
+            initialRouteName={user ? (needsTour ? "OnboardingTour" : "Tabs") : "Auth"}
           >
             {user ? (
               <>
