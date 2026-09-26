@@ -20,6 +20,7 @@ import Animated, {
 import { colors } from "../theme/colors";
 import { radius, spacing } from "../theme/spacing";
 import { hapticLight } from "../utils/haptics";
+import { useRegisterOverlay } from "../lib/overlays";
 
 interface QuickActionSheetProps {
   visible: boolean;
@@ -42,6 +43,7 @@ export function QuickActionSheet({
 }: QuickActionSheetProps) {
   const insets = useSafeAreaInsets();
   const [modalVisible, setModalVisible] = useState(visible);
+  useRegisterOverlay(modalVisible);
   const isClosingRef = useRef(false);
 
   const translateY = useSharedValue(600);

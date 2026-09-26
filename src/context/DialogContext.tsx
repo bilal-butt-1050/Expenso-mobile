@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRegisterOverlay } from "../lib/overlays";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
 import { radius, spacing } from "../theme/spacing";
@@ -47,6 +48,7 @@ type DialogState =
 export function DialogProvider({ children }: { children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
   const [dialogState, setDialogState] = useState<DialogState>({ type: "none" });
+  useRegisterOverlay(dialogState.type !== "none");
 
   const modalAnim = useRef(new Animated.Value(0)).current;
 

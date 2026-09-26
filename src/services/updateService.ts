@@ -6,7 +6,26 @@ import { AppState, AppStateStatus } from "react-native";
  */
 class UpdateService {
   private isChecking = false;
-  private hasPromptedThisSession = false;
+  /** A newer bundle has been downloaded and applies on reload. Sticky for the session. */
+  private updateReady = false;
+  private readyListeners = new Set<() => void>();
+
+  /** "Update ready" is offered at most once per process, even across logout and login. */
+  private promptOffered = false;
+  public wasPromptOffered = (): boolean => this.promptOffered;
+  public markPromptOffered = (): void => {
+    this.promptOffered = true;
+  };
+
+  /** For `useSyncExternalStore`: whether a downloaded update is waiting to be applied. */
+  public isUpdateReady = (): boolean => this.updateReady;
+
+  public subscribeUpdateReady = (listener: () => void): (() => void) => {
+    this.readyListeners.add(listener);
+    return () => {
+      this.readyListeners.delete(listener);
+    };
+  };
 
   /**
    * Initializes the update check listeners.
@@ -47,12 +66,12 @@ class UpdateService {
       if (checkResult.isAvailable) {
         const fetchResult = await Updates.fetchUpdateAsync();
         if (fetchResult.isNew) {
-          if (onUpdateReady) {
-            onUpdateReady();
-          } else if (!this.hasPromptedThisSession) {
-            this.hasPromptedThisSession = true;
-            // Next time the user opens the app or upon reload, the update is live
-          }
+          // Without a prompt the new bundle only took effect on the second cold start. The
+          // app now offers a restart (UpdatePrompt); if that is ignored, the next cold start
+          // applies it as before.
+          this.updateReady = true;
+          this.readyListeners.forEach((listener) => listener());
+          onUpdateReady?.();
           return true;
         }
       }
@@ -91,3 +110,32 @@ class UpdateService {
 }
 
 export const updateService = new UpdateService();
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August",
+  "September", "October", "November", "December"];
+
+/**
+ * One line naming the bundle that is actually running, for the Settings footer (DESIGN §S9).
+ * It is the evidence R-10 needs that a given update reached this phone, so it's selectable.
+ */
+export function describeRunningUpdate(): { text: string; a11y: string } {
+  const { isEnabled, channel, updateId, isEmbeddedLaunch, createdAt } = updateService.getDiagnostics();
+  if (__DEV__ || !isEnabled) {
+    return { text: "development", a11y: "Development build" };
+  }
+  const ch = channel || "unknown channel";
+  if (isEmbeddedLaunch || !updateId) {
+    return { text: `${ch} · built-in bundle`, a11y: `Running the built-in bundle on the ${ch} channel` };
+  }
+  const id = updateId.slice(0, 8);
+  if (!createdAt) {
+    return { text: `${ch} · update ${id}`, a11y: `Running update ${id} on the ${ch} channel` };
+  }
+  const day = createdAt.getDate();
+  const month = MONTHS[createdAt.getMonth()];
+  const year = createdAt.getFullYear();
+  return {
+    text: `${ch} · update ${id} · ${day} ${month.slice(0, 3)} ${year}`,
+    a11y: `Running update ${id} on the ${ch} channel, published ${day} ${month} ${year}`,
+  };
+}

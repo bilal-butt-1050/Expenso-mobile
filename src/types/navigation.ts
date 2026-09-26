@@ -19,8 +19,6 @@ export type ActivityFilter = "ALL" | "EXPENSES" | "INCOME" | "LOANS";
 export type TabParamList = {
   Home: undefined;
   Activity: { filter?: ActivityFilter; highlightId?: string } | undefined;
-  /** Renders nothing — the tab button opens the quick-action sheet. */
-  QuickAdd: undefined;
   Budget: { openCategoryId?: string } | undefined;
 };
 

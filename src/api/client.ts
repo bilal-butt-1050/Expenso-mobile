@@ -105,6 +105,8 @@ export async function clearToken(): Promise<void> {
 
 // Normalizes whatever axios/the API throws into a plain readable message,
 // so every screen can just do `catch (e) { showError(getErrorMessage(e)) }`.
+export const OFFLINE_MESSAGE = "Can't reach the server — check your connection.";
+
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data as
@@ -117,7 +119,7 @@ export function getErrorMessage(error: unknown): string {
       }
     }
     if (data?.error) return data.error;
-    if (error.message === "Network Error") return "Can't reach the server — check your connection.";
+    if (error.message === "Network Error") return OFFLINE_MESSAGE;
   }
   return "Something went wrong. Please try again.";
 }

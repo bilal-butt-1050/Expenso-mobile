@@ -74,38 +74,34 @@ export function SkeletonList({ rows = 5 }: { rows?: number }) {
 
 /** Skeleton for the HomeScreen dashboard */
 export function HomeSkeleton() {
+  // Mirrors Home's real shape (DESIGN §S1): greeting, hero figure, as-of label and opening line,
+  // then the cashflow card and the debts card.
   return (
-    <View style={homeStyles.container}>
-      {/* Balance Hero */}
+    <View style={homeStyles.container} accessibilityLabel="Loading your figures">
       <View style={homeStyles.hero}>
-        <Skeleton width={140} height={12} />
-        <Skeleton width={220} height={44} borderRadius={8} style={{ marginTop: 8 }} />
+        <Skeleton width={140} height={14} />
+        <Skeleton width={220} height={38} borderRadius={radius.sm} />
+        <Skeleton width={160} height={15} />
+        <Skeleton width={240} height={14} />
       </View>
 
-      {/* Quick Action Pills */}
-      <View style={homeStyles.quickActions}>
-        <Skeleton width="30%" height={48} borderRadius={14} />
-        <Skeleton width="30%" height={48} borderRadius={14} />
-        <Skeleton width="30%" height={48} borderRadius={14} />
-      </View>
-
-      {/* Action Center */}
-      <View style={homeStyles.sectionWrap}>
-        <Skeleton width={110} height={14} style={{ marginBottom: 12 }} />
-        <View style={homeStyles.actionCenterRow}>
-          <Skeleton width={180} height={56} borderRadius={16} />
-          <Skeleton width={180} height={56} borderRadius={16} />
+      <View style={homeStyles.card}>
+        <Skeleton width={130} height={15} />
+        <View style={homeStyles.twoCol}>
+          <Skeleton width="45%" height={44} borderRadius={radius.sm} />
+          <Skeleton width="45%" height={44} borderRadius={radius.sm} />
         </View>
+        <Skeleton width="100%" height={14} />
+        <Skeleton width="100%" height={4} borderRadius={2} />
+        <Skeleton width="100%" height={14} />
       </View>
 
-      {/* Monthly Snapshot Grid */}
-      <View style={homeStyles.sectionWrap}>
-        <Skeleton width={130} height={14} style={{ marginBottom: 12 }} />
-        <View style={homeStyles.meshRow}>
-          <Skeleton width="48%" height={88} borderRadius={16} />
-          <Skeleton width="48%" height={88} borderRadius={16} />
+      <View style={homeStyles.card}>
+        <Skeleton width={110} height={15} />
+        <View style={homeStyles.twoCol}>
+          <Skeleton width="45%" height={44} borderRadius={radius.sm} />
+          <Skeleton width="45%" height={44} borderRadius={radius.sm} />
         </View>
-        <Skeleton width="100%" height={96} borderRadius={16} style={{ marginTop: 10 }} />
       </View>
     </View>
   );
@@ -187,25 +183,24 @@ const listStyles = StyleSheet.create({
 });
 
 const homeStyles = StyleSheet.create({
-  container: { gap: spacing.lg, paddingBottom: spacing.xxl },
-  hero: { alignItems: "center", paddingVertical: spacing.lg },
-  quickActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.sm,
+  container: { gap: spacing.md },
+  hero: {
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
   },
-  sectionWrap: {
-    marginTop: spacing.xs,
+  card: {
+    gap: spacing.md,
+    padding: spacing.lg,
+    marginHorizontal: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    backgroundColor: colors.surface,
   },
-  actionCenterRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  meshRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-  },
+  twoCol: { flexDirection: "row", justifyContent: "space-between" },
 });
 
 const listScreenStyles = StyleSheet.create({
