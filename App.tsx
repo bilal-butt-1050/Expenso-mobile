@@ -1,7 +1,11 @@
 import React from "react";
 import { StyleSheet } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import {
+  SafeAreaProvider,
+  initialWindowMetrics,
+} from "react-native-safe-area-context";
 import { QueryProvider } from "./src/lib/QueryProvider";
 import { AuthProvider } from "./src/context/AuthContext";
 import { AppDataProvider } from "./src/context/AppDataContext";
@@ -22,21 +26,29 @@ export default function App() {
     };
   }, []);
 
+  // Gesture handler needs this root, or its gestures are never recognised. In a release build that
+  // failure is silent (the error only throws in development), which is how swipe-to-delete shipped
+  // not working at all.
   return (
-    <SafeAreaProvider initialMetrics={initialWindowMetrics} style={styles.root}>
-      <AuthProvider>
-        <QueryProvider>
-        <AppDataProvider>
-          <DialogProvider>
-            <SnackbarProvider>
-              <StatusBar style="light" />
-              <RootNavigator />
-            </SnackbarProvider>
-          </DialogProvider>
-        </AppDataProvider>
-        </QueryProvider>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <SafeAreaProvider
+        initialMetrics={initialWindowMetrics}
+        style={styles.root}
+      >
+        <AuthProvider>
+          <QueryProvider>
+            <AppDataProvider>
+              <DialogProvider>
+                <SnackbarProvider>
+                  <StatusBar style="light" />
+                  <RootNavigator />
+                </SnackbarProvider>
+              </DialogProvider>
+            </AppDataProvider>
+          </QueryProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

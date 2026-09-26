@@ -103,8 +103,11 @@ export function SwipeableActivityRow({
     );
   };
 
+  // The library reports the direction the row *moved*: swiping right-to-left to reveal the delete
+  // action on the right moves it left. This checked "right", so even once gestures worked the swipe
+  // would have opened and deleted nothing.
   const onSwipeableOpen = (direction: "left" | "right") => {
-    if (direction === "right") {
+    if (direction === "left") {
       hapticDelete();
       swipeableRef.current?.close();
       onDelete();
