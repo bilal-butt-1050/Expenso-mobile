@@ -100,7 +100,9 @@ export function useTransactionMutations() {
      * Commit a delete nobody waits on (the swipe undo expiring). Failure shows in the snackbar
      * (S-5) and the row comes back.
      */
-    commitDelete: (id: string, title: string, callbacks?: { onError?: () => void; onSettled?: () => void }) =>
-      remove.mutate({ id, title, background: true }, callbacks),
+    // mutateAsync, not mutate(vars, callbacks): per-call callbacks belong to the observer and are
+    // replaced by the next mutate, so a second swipe would drop the first one's cleanup.
+    commitDelete: (id: string, title: string): Promise<void> =>
+      remove.mutateAsync({ id, title, background: true }),
   };
 }

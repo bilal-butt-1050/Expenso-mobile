@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { AccessibilityInfo, AppState, BackHandler } from "react-native";
 import { SnackbarEntry, SnackbarMessage, initialState, reducer } from "./snackbarQueue";
-import { registerSnackbarSink } from "./snackbarBridge";
+import { registerSnackbarReset, registerSnackbarSink } from "./snackbarBridge";
 
 export type { SnackbarAction, SnackbarEntry, SnackbarMessage } from "./snackbarQueue";
 
@@ -135,6 +135,23 @@ export function SnackbarProvider({ children }: { children: React.ReactNode }) {
     registerSnackbarSink(show);
     return () => registerSnackbarSink(null);
   }, [show]);
+
+  // A session purge drops every message and every pending undo without running it.
+  useEffect(() => {
+    registerSnackbarReset(() => {
+      const { current: visible, queue } = stateRef.current;
+      let discarded = 0;
+      for (const entry of [visible, ...queue]) {
+        if (entry?.onExpire && !settled.current.has(entry.key)) {
+          settled.current.add(entry.key);
+          discarded += 1;
+        }
+      }
+      dispatch({ type: "reset" });
+      return discarded;
+    });
+    return () => registerSnackbarReset(null);
+  }, []);
 
   const api = useMemo(() => ({ show, dismiss }), [show, dismiss]);
   const host = useMemo(

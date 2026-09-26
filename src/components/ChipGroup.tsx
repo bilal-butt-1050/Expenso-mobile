@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: spacing.xs,
     minHeight: size.minTouch,
     paddingHorizontal: spacing.md,
     borderRadius: radius.pill,

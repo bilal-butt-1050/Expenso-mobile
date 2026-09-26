@@ -96,6 +96,8 @@ export function IncomeFormScreen({ route, navigation }: Props) {
   const [isSaving, setIsSaving] = useState(false);
 
   const amountRef = useRef<TextInput>(null);
+  // One id per form, reused on retries (see ExpenseFormScreen).
+  const clientIdRef = useRef(editing ? undefined : newTransactionId());
   useFocusAfterTransition(amountRef, !editing);
 
   const handleSave = async () => {
@@ -123,7 +125,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
 
       // Offline, the write is queued and this resolves at once (see ExpenseFormScreen).
       const title = description.trim() || selectedPreset.source;
-      const clientId = editing ? undefined : newTransactionId();
+      const clientId = clientIdRef.current;
       let savedId = editing?.id ?? clientId;
       if (editing) {
         await updateTransaction(editing.id, input, title);

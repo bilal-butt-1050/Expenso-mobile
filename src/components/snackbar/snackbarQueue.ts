@@ -59,7 +59,8 @@ export type Action =
   | { type: "show"; message: SnackbarMessage; now: number }
   | { type: "dismiss"; key?: number; now: number }
   | { type: "host"; active: boolean; now: number }
-  | { type: "background" };
+  | { type: "background" }
+  | { type: "reset" };
 
 function byPriorityThenAge(a: SnackbarEntry, b: SnackbarEntry) {
   return a.priority - b.priority || a.key - b.key;
@@ -128,6 +129,10 @@ export function reducer(state: State, action: Action): State {
       return promote({ ...state, hostActive: true }, action.now);
     }
     case "background":
+      // Sticky messages (a failed save or delete) must survive a trip to another app.
+      return { ...state, current: null, queue: state.queue.filter((e) => e.sticky) };
+    case "reset":
+      // The session ended: nothing queued for the old account may show to the next one.
       return { ...state, current: null, queue: [] };
   }
 }

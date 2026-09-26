@@ -1,5 +1,5 @@
 import axios from "axios";
-import { InfiniteData, MutationKey, onlineManager } from "@tanstack/react-query";
+import { InfiniteData, MutationFunctionContext, MutationKey, onlineManager } from "@tanstack/react-query";
 import * as txApi from "../api/transactions";
 import * as loansApi from "../api/loans";
 import { getErrorMessage } from "../api/client";
@@ -76,10 +76,31 @@ function reportFailedSave(title: string, error: unknown) {
   }, 500);
 }
 
-function onWriteError(error: unknown, vars: WriteMeta) {
+// The signed-in user, so a write that fails after its session ended is never reported to whoever
+// signs in next (threat S3). Set by QueryProvider.
+let activeUserId: string | null = null;
+
+export function setActiveWriteUser(userId: string | null) {
+  activeUserId = userId;
+}
+
+/**
+ * Whether a failed background write should be reported. Not when it belongs to another session,
+ * and not on a 401: that ends the session, and the write is counted in the "weren't saved" notice.
+ */
+function shouldReport(error: unknown, context: MutationFunctionContext | undefined): boolean {
+  if (context?.meta?.userId !== activeUserId) return false;
+  if (statusOf(error) === 401) {
+    noteDiscardedWrites(1);
+    return false;
+  }
+  return true;
+}
+
+function onWriteError(error: unknown, vars: WriteMeta, context: MutationFunctionContext | undefined) {
   // Show the server's truth again, whatever the optimistic state was.
   invalidateMoney();
-  if (vars.background) reportFailedSave(vars.title, error);
+  if (vars.background && shouldReport(error, context)) reportFailedSave(vars.title, error);
 }
 
 // --- Transactions ----------------------------------------------------------------------------
@@ -87,14 +108,16 @@ queryClient.setMutationDefaults(mutationKeys.createTransaction, {
   mutationFn: (vars: CreateTransactionVars) => txApi.createTransaction(vars.input),
   scope: MONEY_SCOPE,
   onSuccess: invalidateMoney,
-  onError: (error: unknown, vars: CreateTransactionVars) => onWriteError(error, vars),
+  onError: (error: unknown, vars: CreateTransactionVars, _result: unknown, context?: MutationFunctionContext) =>
+    onWriteError(error, vars, context),
 });
 
 queryClient.setMutationDefaults(mutationKeys.updateTransaction, {
   mutationFn: (vars: UpdateTransactionVars) => txApi.updateTransaction(vars.id, vars.input),
   scope: MONEY_SCOPE,
   onSuccess: invalidateMoney,
-  onError: (error: unknown, vars: UpdateTransactionVars) => onWriteError(error, vars),
+  onError: (error: unknown, vars: UpdateTransactionVars, _result: unknown, context?: MutationFunctionContext) =>
+    onWriteError(error, vars, context),
 });
 
 queryClient.setMutationDefaults(mutationKeys.deleteTransaction, {
@@ -121,9 +144,14 @@ queryClient.setMutationDefaults(mutationKeys.deleteTransaction, {
     );
   },
   onSuccess: invalidateMoney,
-  onError: (error: unknown, vars: DeleteTransactionVars) => {
+  onError: (
+    error: unknown,
+    vars: DeleteTransactionVars,
+    _result: unknown,
+    context?: MutationFunctionContext
+  ) => {
     invalidateMoney();
-    if (!vars.background) return;
+    if (!vars.background || !shouldReport(error, context)) return;
     showSnackbar({
       id: `S-5-${vars.id}`,
       text: `Couldn't delete ${vars.title}. ${getErrorMessage(error)}`,
@@ -142,21 +170,24 @@ queryClient.setMutationDefaults(mutationKeys.createLoan, {
   mutationFn: (vars: CreateLoanVars) => loansApi.createLoan(vars.input),
   scope: MONEY_SCOPE,
   onSuccess: invalidateMoney,
-  onError: (error: unknown, vars: CreateLoanVars) => onWriteError(error, vars),
+  onError: (error: unknown, vars: CreateLoanVars, _result: unknown, context?: MutationFunctionContext) =>
+    onWriteError(error, vars, context),
 });
 
 queryClient.setMutationDefaults(mutationKeys.updateLoan, {
   mutationFn: (vars: UpdateLoanVars) => loansApi.updateLoan(vars.id, vars.input),
   scope: MONEY_SCOPE,
   onSuccess: invalidateMoney,
-  onError: (error: unknown, vars: UpdateLoanVars) => onWriteError(error, vars),
+  onError: (error: unknown, vars: UpdateLoanVars, _result: unknown, context?: MutationFunctionContext) =>
+    onWriteError(error, vars, context),
 });
 
 queryClient.setMutationDefaults(mutationKeys.settleLoan, {
   mutationFn: (vars: SettleLoanVars) => loansApi.settleLoan(vars.id, vars.amount),
   scope: MONEY_SCOPE,
   onSuccess: invalidateMoney,
-  onError: (error: unknown, vars: SettleLoanVars) => onWriteError(error, vars),
+  onError: (error: unknown, vars: SettleLoanVars, _result: unknown, context?: MutationFunctionContext) =>
+    onWriteError(error, vars, context),
 });
 
 queryClient.setMutationDefaults(mutationKeys.deleteLoan, {
@@ -177,7 +208,8 @@ queryClient.setMutationDefaults(mutationKeys.deleteLoan, {
     );
   },
   onSuccess: invalidateMoney,
-  onError: (error: unknown, vars: DeleteLoanVars) => onWriteError(error, vars),
+  onError: (error: unknown, vars: DeleteLoanVars, _result: unknown, context?: MutationFunctionContext) =>
+    onWriteError(error, vars, context),
 });
 
 /**
@@ -199,25 +231,47 @@ export async function submitWrite<V extends WriteMeta, R>(
 // --- Discarded writes (S-9) ---------------------------------------------------------------------
 /**
  * Queued writes thrown away when a session ends, or because they belonged to another account, are
- * reported rather than lost silently. The message is sticky and the snackbar only shows over the
- * tabs, so after a sign-out it waits and appears at the first tab focus after the next sign-in.
- * It's held in memory only (the purge wipes storage); if the app process dies first, it's lost.
+ * reported, not lost silently. The count is held in memory only (the purge wipes storage).
+ * DiscardedWritesNotice, inside the tabs, shows it at the first tab focus after the next sign-in.
  */
+let discardedWrites = 0;
+const discardedListeners = new Set<() => void>();
+
 export function noteDiscardedWrites(count: number) {
   if (count <= 0) return;
-  showSnackbar({
-    id: "S-9",
-    text: `${count} offline change${count === 1 ? "" : "s"} weren't saved.`,
-    icon: "alert-outline",
-    duration: 8000,
-    priority: 2,
-    sticky: true,
-  });
+  discardedWrites += count;
+  discardedListeners.forEach((listener) => listener());
 }
 
-/** Paused writes waiting for the network. */
+export function subscribeDiscardedWrites(listener: () => void) {
+  discardedListeners.add(listener);
+  return () => {
+    discardedListeners.delete(listener);
+  };
+}
+
+export const getDiscardedWrites = () => discardedWrites;
+
+export function clearDiscardedWrites() {
+  discardedWrites = 0;
+  discardedListeners.forEach((listener) => listener());
+}
+
+/** Writes not yet confirmed by the server: paused offline, or restored from disk. */
 export function countPausedWrites(): number {
-  return queryClient.getMutationCache().getAll().filter((m) => m.state.isPaused).length;
+  return queryClient.getMutationCache().getAll().filter((m) => m.state.status === "pending").length;
+}
+
+/**
+ * Replay every write restored from disk, in order. `resumePausedMutations` would skip transaction
+ * writes that were in flight when the app was killed (persisted by shouldPersistMutation): they
+ * aren't marked paused, so they'd stay pending forever. Continuing each one still respects the
+ * money scope, so they run one at a time.
+ */
+export function resumeRestoredWrites() {
+  for (const mutation of queryClient.getMutationCache().getAll()) {
+    if (mutation.state.status === "pending") void mutation.continue().catch(() => {});
+  }
 }
 
 /**

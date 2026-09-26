@@ -17,3 +17,19 @@ export function showSnackbar(message: SnackbarMessage) {
   if (sink) sink(message);
   else pending.push(message);
 }
+
+/**
+ * Called when a session ends. Clears every queued or visible message, so the old account's entry
+ * titles can't show to the next one, and discards any pending undo *without* committing it (the
+ * token is about to go). Returns how many undos were discarded, for the "weren't saved" count.
+ */
+let resetHandler: (() => number) | null = null;
+
+export function registerSnackbarReset(handler: (() => number) | null) {
+  resetHandler = handler;
+}
+
+export function resetSnackbarForPurge(): number {
+  pending.length = 0;
+  return resetHandler ? resetHandler() : 0;
+}

@@ -75,12 +75,15 @@ apiClient.interceptors.response.use(
   async (error) => {
     // Only a request that carried a session can lose one. A wrong password at login is also a 401,
     // and must not purge anything (threat S3).
+    // And only the *current* session: a 401 for a request sent under a previous one (arriving
+    // after someone else signed in) must not end theirs.
     const config = error.config;
-    const hadToken = Boolean(config?.headers?.get?.("Authorization") ?? config?.headers?.Authorization);
+    const sent = config?.headers?.get?.("Authorization") ?? config?.headers?.Authorization;
     const path: string = config?.url ?? "";
+    const current = error.response?.status === 401 && sent ? await getToken() : null;
     if (
-      error.response?.status === 401 &&
-      hadToken &&
+      current &&
+      sent === `Bearer ${current}` &&
       !CREDENTIAL_PATHS.some((p) => path.startsWith(p))
     ) {
       if (unauthorizedHandler) {

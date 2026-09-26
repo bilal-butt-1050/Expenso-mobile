@@ -35,6 +35,7 @@ import { radius, spacing } from "../../theme/spacing";
 import { NeedWant, PaymentMethod } from "../../types/models";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatAmountInput } from "../../utils/currency";
+import { typography } from "../../theme/typography";
 import { RootStackParamList } from "../../types/navigation";
 import { hapticRecordCreated, hapticDelete, hapticError, hapticWarning } from "../../utils/haptics";
 
@@ -52,7 +53,10 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const [date, setDate] = useState<Date>(editing ? new Date(editing.date) : new Date());
   // The month this expense lands in. Local, like the picker; the server derives the same key in
   // the user's timezone. (It used the UTC month, which is wrong for early-morning entries in PKT.)
-  const expenseMonth = toMonthKey(date);
+  // For an edit whose date is unchanged, the server's month key is authoritative (it's in the
+  // user's timezone, which can differ from the device's near a month boundary).
+  const expenseMonth =
+    editing && new Date(editing.date).getTime() === date.getTime() ? editing.month : toMonthKey(date);
 
   const { data: dashboardData } = useDashboard(expenseMonth);
   const { createTransaction, updateTransaction, deleteTransaction } = useTransactionMutations();
@@ -73,6 +77,9 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const [isSaving, setIsSaving] = useState(false);
 
   const amountRef = useRef<TextInput>(null);
+  // One id per form, reused on every Save tap. A save that timed out may still have succeeded, and
+  // retrying with the same id returns that row instead of creating a second one.
+  const clientIdRef = useRef(editing ? undefined : newTransactionId());
   useFocusAfterTransition(amountRef, !editing);
 
   const hasChanges = React.useMemo(() => {
@@ -149,7 +156,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       // Offline, the write is queued and this resolves at once; the client id means the new row
       // can still be highlighted, and a replay can't duplicate it.
       const title = description.trim() || selectedCategory?.name || "Expense";
-      const clientId = editing ? undefined : newTransactionId();
+      const clientId = clientIdRef.current;
       let savedId = editing?.id ?? clientId;
       if (editing) {
         await updateTransaction(editing.id, input, title);
@@ -367,7 +374,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 15, fontWeight: "600", color: colors.textSecondary, marginBottom: spacing.xs },
   fieldWrap: { marginBottom: spacing.md },
   error: { color: colors.danger, marginBottom: spacing.md, fontSize: 14 },
-  fieldError: { color: colors.danger, fontSize: 14, marginTop: spacing.xs },
+  fieldError: { ...typography.small, fontWeight: "500", color: colors.danger, marginTop: spacing.xs },
 
   dropdownTrigger: {
     height: 56,
@@ -388,7 +395,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dropdownText: { fontSize: 17, fontWeight: "600", color: colors.textPrimary },
-  dropdownPlaceholder: { fontSize: 17, color: colors.textSecondary },
+  dropdownPlaceholder: { ...typography.body, fontWeight: "400", color: colors.textSecondary },
 
   sheetHeader: {
     flexDirection: "row",

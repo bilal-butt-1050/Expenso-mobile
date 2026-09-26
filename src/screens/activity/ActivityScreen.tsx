@@ -346,12 +346,11 @@ export function ActivityScreen() {
       onExpire: () => {
         if (committedIds.current.has(tx.id)) return;
         committedIds.current.add(tx.id);
-        commitDelete(tx.id, item.title, {
-          // Failure: the defaults refetch the row and show "Couldn't delete"; stop hiding it.
-          onError: () => setHidden(tx.id, false),
-          // Success: the row is already out of the cache, so the hide is no longer needed.
-          onSettled: () => setHidden(tx.id, false),
-        });
+        // Either way the hide ends: on success the row is already out of the cache; on failure the
+        // defaults refetch it and show "Couldn't delete". Offline, this waits for the replay.
+        commitDelete(tx.id, item.title)
+          .catch(() => {})
+          .finally(() => setHidden(tx.id, false));
       },
     });
   };

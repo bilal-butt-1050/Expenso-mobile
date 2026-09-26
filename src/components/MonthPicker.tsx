@@ -235,6 +235,6 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: radius.pill,
     backgroundColor: colors.accent,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
 });
