@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { AccessibilityInfo, AppState, BackHandler } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
@@ -34,92 +34,117 @@ export interface SnackbarMessage {
 export interface SnackbarEntry extends SnackbarMessage {
   key: number;
   enqueuedAt: number;
+  /** Queued while a stack screen covered the tabs. Only these age out (lifecycle table). */
+  enqueuedAway: boolean;
 }
 
 interface SnackbarContextValue {
   show: (message: SnackbarMessage) => void;
   dismiss: () => void;
-  /** True when nothing is visible or queued. Callers of low-priority prompts (S-7) check this first. */
-  isIdle: () => boolean;
 }
 
 interface SnackbarHostValue {
   current: SnackbarEntry | null;
+  /** Nothing visible and nothing queued. Reactive, so prompts can wait for it. */
+  idle: boolean;
   setHostActive: (active: boolean) => void;
+  dismiss: () => void;
 }
 
-/** Messages waiting while a stack screen covered the tabs are dropped if older than this. */
-const MAX_QUEUED_AGE_MS = 10_000;
+/** A message queued while away is dropped if the tabs come back later than this. */
+const MAX_AWAY_AGE_MS = 10_000;
 /** Queued messages beyond this are dropped, lowest priority and oldest first (rule 4). */
 const MAX_QUEUED = 3;
 
-const SnackbarContext = createContext<SnackbarContextValue | null>(null);
-const SnackbarHostContext = createContext<SnackbarHostValue | null>(null);
+interface State {
+  current: SnackbarEntry | null;
+  queue: SnackbarEntry[];
+  hostActive: boolean;
+  nextKey: number;
+}
+
+type Action =
+  | { type: "show"; message: SnackbarMessage; now: number }
+  | { type: "dismiss"; key?: number; now: number }
+  | { type: "host"; active: boolean; now: number }
+  | { type: "background" };
 
 function byPriorityThenAge(a: SnackbarEntry, b: SnackbarEntry) {
   return a.priority - b.priority || a.key - b.key;
 }
 
-export function SnackbarProvider({ children }: { children: React.ReactNode }) {
-  const [current, setCurrent] = useState<SnackbarEntry | null>(null);
-  const [queue, setQueue] = useState<SnackbarEntry[]>([]);
-  const [hostActive, setHostActive] = useState(false);
-  const [screenReader, setScreenReader] = useState(false);
-  const nextKey = useRef(1);
+/** Fill the free slot from the queue, if the tabs are showing. Pure. */
+function promote(state: State, now: number): State {
+  if (state.current || !state.hostActive || state.queue.length === 0) return state;
+  const fresh = state.queue.filter((q) => !q.enqueuedAway || now - q.enqueuedAt <= MAX_AWAY_AGE_MS);
+  const [head, ...rest] = fresh;
+  return { ...state, current: head ?? null, queue: rest };
+}
 
-  // Refs so `show`/`isIdle` stay stable and never read a stale render (rn-review 2.1).
-  const currentRef = useRef(current);
-  const queueRef = useRef(queue);
-  currentRef.current = current;
-  queueRef.current = queue;
-
-  const show = useCallback((message: SnackbarMessage) => {
-    const already =
-      currentRef.current?.id === message.id || queueRef.current.some((q) => q.id === message.id);
-    if (already) return;
-    const entry: SnackbarEntry = { ...message, key: nextKey.current++, enqueuedAt: Date.now() };
-    setQueue((q) => {
-      const next = [...q, entry].sort(byPriorityThenAge);
-      while (next.length > MAX_QUEUED) {
-        // Drop the lowest-priority, oldest entry.
-        const worst = next.reduce((w, e) =>
+// One reducer, so enqueueing and promoting can never interleave and lose a message.
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case "show": {
+      const { message, now } = action;
+      if (state.current?.id === message.id || state.queue.some((q) => q.id === message.id)) return state;
+      const entry: SnackbarEntry = {
+        ...message,
+        key: state.nextKey,
+        enqueuedAt: now,
+        enqueuedAway: !state.hostActive,
+      };
+      const queue = [...state.queue, entry].sort(byPriorityThenAge);
+      while (queue.length > MAX_QUEUED) {
+        const worst = queue.reduce((w, e) =>
           e.priority > w.priority || (e.priority === w.priority && e.key < w.key) ? e : w
         );
-        next.splice(next.indexOf(worst), 1);
+        queue.splice(queue.indexOf(worst), 1);
       }
-      return next;
-    });
-  }, []);
+      return promote({ ...state, queue, nextKey: state.nextKey + 1 }, now);
+    }
+    case "dismiss": {
+      if (!state.current || (action.key !== undefined && state.current.key !== action.key)) return state;
+      return promote({ ...state, current: null }, action.now);
+    }
+    case "host": {
+      if (!action.active) {
+        // A stack screen covered the tabs: dismiss what's visible, keep the queue.
+        return { ...state, hostActive: false, current: null };
+      }
+      // Messages still queued from before leaving are no longer "away" once back.
+      return promote({ ...state, hostActive: true }, action.now);
+    }
+    case "background":
+      return { ...state, current: null, queue: [] };
+  }
+}
 
-  const dismiss = useCallback(() => setCurrent(null), []);
+const SnackbarContext = createContext<SnackbarContextValue | null>(null);
+const SnackbarHostContext = createContext<SnackbarHostValue | null>(null);
 
-  const isIdle = useCallback(
-    () => currentRef.current === null && queueRef.current.length === 0,
+export function SnackbarProvider({ children }: { children: React.ReactNode }) {
+  const [state, dispatch] = useReducer(reducer, { current: null, queue: [], hostActive: false, nextKey: 1 });
+  const [screenReader, setScreenReader] = useState(false);
+  const { current } = state;
+  const idle = current === null && state.queue.length === 0;
+
+  const show = useCallback(
+    (message: SnackbarMessage) => dispatch({ type: "show", message, now: Date.now() }),
+    []
+  );
+  const dismiss = useCallback(() => dispatch({ type: "dismiss", now: Date.now() }), []);
+  const setHostActive = useCallback(
+    (active: boolean) => dispatch({ type: "host", active, now: Date.now() }),
     []
   );
 
-  // Promote the next queued message whenever the slot is free and the tabs are showing.
-  useEffect(() => {
-    if (current || !hostActive || queue.length === 0) return;
-    const now = Date.now();
-    const fresh = queue.filter((q) => now - q.enqueuedAt <= MAX_QUEUED_AGE_MS);
-    const [head, ...rest] = fresh;
-    setQueue(rest);
-    if (head) setCurrent(head);
-  }, [current, hostActive, queue]);
-
-  // A stack screen covered the tabs: dismiss what's visible, keep the queue (lifecycle table).
-  useEffect(() => {
-    if (!hostActive) setCurrent(null);
-  }, [hostActive]);
-
-  // Auto-dismiss.
+  // Auto-dismiss. Keyed, so a late timer can never dismiss a newer message.
   const currentKey = current?.key;
   const currentDuration = current?.duration;
   useEffect(() => {
     if (currentKey === undefined || currentDuration === undefined) return;
     const timer = setTimeout(
-      () => setCurrent((c) => (c?.key === currentKey ? null : c)),
+      () => dispatch({ type: "dismiss", key: currentKey, now: Date.now() }),
       screenReader ? currentDuration * 2 : currentDuration
     );
     return () => clearTimeout(timer);
@@ -139,7 +164,7 @@ export function SnackbarProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (currentKey === undefined) return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      setCurrent(null);
+      dispatch({ type: "dismiss", key: currentKey, now: Date.now() });
       return true;
     });
     return () => sub.remove();
@@ -147,31 +172,29 @@ export function SnackbarProvider({ children }: { children: React.ReactNode }) {
 
   // Backgrounding dismisses the visible message and clears the queue.
   useEffect(() => {
-    const sub = AppState.addEventListener("change", (state) => {
-      if (state === "background") {
-        setCurrent(null);
-        setQueue([]);
-      }
+    const sub = AppState.addEventListener("change", (appState) => {
+      if (appState === "background") dispatch({ type: "background" });
     });
     return () => sub.remove();
   }, []);
 
+  const mounted = useRef(true);
   useEffect(() => {
-    let cancelled = false;
+    mounted.current = true;
     AccessibilityInfo.isScreenReaderEnabled()
       .then((on) => {
-        if (!cancelled) setScreenReader(on);
+        if (mounted.current) setScreenReader(on);
       })
       .catch(() => {});
     const sub = AccessibilityInfo.addEventListener("screenReaderChanged", setScreenReader);
     return () => {
-      cancelled = true;
+      mounted.current = false;
       sub.remove();
     };
   }, []);
 
-  const api = useMemo(() => ({ show, dismiss, isIdle }), [show, dismiss, isIdle]);
-  const host = useMemo(() => ({ current, setHostActive }), [current]);
+  const api = useMemo(() => ({ show, dismiss }), [show, dismiss]);
+  const host = useMemo(() => ({ current, idle, setHostActive, dismiss }), [current, idle, setHostActive, dismiss]);
 
   return (
     <SnackbarContext.Provider value={api}>

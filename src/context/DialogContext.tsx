@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRegisterOverlay } from "../lib/overlays";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
 import { radius, spacing } from "../theme/spacing";
@@ -35,8 +36,6 @@ export interface AlertOptions {
 interface DialogContextValue {
   confirm: (options: ConfirmOptions) => void;
   alert: (options: AlertOptions) => void;
-  /** A confirm or alert dialog is on screen. Low-priority prompts wait for it to close. */
-  isOpen: boolean;
 }
 
 const DialogContext = createContext<DialogContextValue | null>(null);
@@ -49,6 +48,7 @@ type DialogState =
 export function DialogProvider({ children }: { children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
   const [dialogState, setDialogState] = useState<DialogState>({ type: "none" });
+  useRegisterOverlay(dialogState.type !== "none");
 
   const modalAnim = useRef(new Animated.Value(0)).current;
 
@@ -118,7 +118,7 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
       : undefined;
 
   return (
-    <DialogContext.Provider value={{ confirm, alert, isOpen: dialogState.type !== "none" }}>
+    <DialogContext.Provider value={{ confirm, alert }}>
       {children}
 
       {/* Themed Custom Modal Dialog */}

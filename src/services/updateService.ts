@@ -10,6 +10,13 @@ class UpdateService {
   private updateReady = false;
   private readyListeners = new Set<() => void>();
 
+  /** "Update ready" is offered at most once per process, even across logout and login. */
+  private promptOffered = false;
+  public wasPromptOffered = (): boolean => this.promptOffered;
+  public markPromptOffered = (): void => {
+    this.promptOffered = true;
+  };
+
   /** For `useSyncExternalStore`: whether a downloaded update is waiting to be applied. */
   public isUpdateReady = (): boolean => this.updateReady;
 

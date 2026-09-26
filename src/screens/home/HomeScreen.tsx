@@ -12,6 +12,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { onlineManager } from "@tanstack/react-query";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useDashboard } from "../../hooks/useDashboard";
@@ -30,7 +31,7 @@ import { radius, size, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { formatCurrency } from "../../utils/currency";
 import { currentMonthKey, formatMonthLabel, formatMonthShort } from "../../utils/date";
-import { getErrorMessage } from "../../api/client";
+import { OFFLINE_MESSAGE, getErrorMessage } from "../../api/client";
 import { RootStackParamList } from "../../types/navigation";
 import { DashboardSummary } from "../../types/models";
 
@@ -51,27 +52,34 @@ export function HomeScreen() {
   const stacked = fontScale >= STACK_AT_FONT_SCALE;
   const { user } = useAuth();
   const { selectedMonth, setSelectedMonth } = useAppData();
-  const { data, error, refetch } = useDashboard();
+  const { data, error, isOffline, refetch } = useDashboard();
   const { loans, refresh: refreshLoans } = useLoans();
   const snackbar = useSnackbar();
   const [refreshing, setRefreshing] = useState(false);
 
   const isCurrentMonth = selectedMonth === currentMonthKey();
 
+  // Keep the figures already on screen; just say they're not fresh (S-6).
+  const showRefreshFailed = () =>
+    snackbar.show({
+      id: "S-6",
+      text: "Couldn't refresh. Showing saved figures.",
+      icon: "cloud-alert-outline",
+      duration: 4000,
+      priority: 3,
+    });
+
   const handleRefresh = async () => {
+    // Offline, TanStack pauses a refetch until the network returns instead of failing it, so
+    // awaiting it would leave the spinner running indefinitely.
+    if (!onlineManager.isOnline()) {
+      if (data) showRefreshFailed();
+      return;
+    }
     setRefreshing(true);
     try {
       const [dashboard] = await Promise.all([refetch(), refreshLoans()]);
-      // Keep the figures already on screen; just say they're not fresh (S-6).
-      if (dashboard.isError && dashboard.data) {
-        snackbar.show({
-          id: "S-6",
-          text: "Couldn't refresh. Showing saved figures.",
-          icon: "cloud-alert-outline",
-          duration: 4000,
-          priority: 3,
-        });
-      }
+      if (dashboard.isError && data) showRefreshFailed();
     } finally {
       setRefreshing(false);
     }
@@ -162,7 +170,7 @@ export function HomeScreen() {
             overdueCount={overdueLoans.length}
             onOpenLoans={navigateToLoans}
           />
-        ) : error ? (
+        ) : error || isOffline ? (
           <View style={styles.heroSection}>
             <Text style={styles.greetingText}>
               {greeting}, {firstName}
@@ -170,7 +178,7 @@ export function HomeScreen() {
             <View style={styles.errorBlock}>
               <MaterialCommunityIcons name="cloud-alert-outline" size={48} color={colors.textSecondary} />
               <Text style={styles.errorTitle}>Couldn't load your figures</Text>
-              <Text style={styles.errorSubtitle}>{getErrorMessage(error)}</Text>
+              <Text style={styles.errorSubtitle}>{error ? getErrorMessage(error) : OFFLINE_MESSAGE}</Text>
               <Button label="Try again" variant="secondary" onPress={() => refetch()} />
             </View>
           </View>

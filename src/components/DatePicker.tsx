@@ -11,6 +11,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
 import { radius, spacing } from "../theme/spacing";
+import { useRegisterOverlay } from "../lib/overlays";
 
 const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const MONTHS = [
@@ -35,6 +36,7 @@ const CELL_SIZE = 42;
 export function DatePicker({ value, onChange, label, maxDate }: Props) {
   const [open, setOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  useRegisterOverlay(modalVisible);
   const [viewYear, setViewYear] = useState(value.getFullYear());
   const [viewMonth, setViewMonth] = useState(value.getMonth());
 

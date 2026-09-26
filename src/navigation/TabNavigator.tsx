@@ -97,7 +97,7 @@ export function TabNavigator() {
 
       {/* After the button, so it layers above it. It sits above the button's top edge anyway. */}
       <SnackbarHost />
-      <UpdatePrompt sheetOpen={quickActionVisible} />
+      <UpdatePrompt />
 
       <QuickActionSheet
         visible={quickActionVisible}

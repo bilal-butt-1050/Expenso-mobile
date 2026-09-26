@@ -14,6 +14,7 @@ import {
 import { colors } from "../theme/colors";
 import { spacing } from "../theme/spacing";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRegisterOverlay } from "../lib/overlays";
 
 interface Props {
   visible: boolean;
@@ -31,6 +32,7 @@ export function BottomSheet({ visible, onClose, children }: Props) {
   const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
+  useRegisterOverlay(showModal);
 
   // Depends on `visible` alone. It previously also depended on `showModal`, which this effect
   // sets — so opening ran the entrance animation, re-ran the effect, and restarted it from
