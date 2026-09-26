@@ -4,6 +4,8 @@ import { colors } from "../theme/colors";
 import { radius, spacing } from "../theme/spacing";
 
 interface Props extends TextInputProps {
+  /** React 19 passes `ref` as a prop; it reaches the TextInput, so forms can focus a field. */
+  ref?: React.Ref<TextInput>;
   label?: string;
   error?: string | null;
   rightElement?: React.ReactNode;
