@@ -1,7 +1,19 @@
-import React, { useState } from "react";
-import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View, TextInput } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+  AccessibilityInfo,
+  FlatList,
+  LayoutAnimation,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  TextInput,
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { onlineManager } from "@tanstack/react-query";
 import { useDashboard } from "../../hooks/useDashboard";
+import { useSnackbar } from "../../components/snackbar/SnackbarContext";
 import { useBudgets } from "../../hooks/useBudgets";
 import { useCategories } from "../../hooks/useCategories";
 import { useAuth } from "../../context/AuthContext";
@@ -17,10 +29,12 @@ import { EmptyState } from "../../components/EmptyState";
 import { BudgetSkeleton } from "../../components/Skeleton";
 import { useTabBarPadding } from "../../hooks/useTabBarPadding";
 import { colors } from "../../theme/colors";
-import { radius, spacing } from "../../theme/spacing";
+import { radius, size, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { formatCurrency, formatAmountInput } from "../../utils/currency";
-import { getErrorMessage } from "../../api/client";
+import { OFFLINE_MESSAGE, getErrorMessage } from "../../api/client";
+import { formatMonthLabel } from "../../utils/date";
+import { hapticLight } from "../../utils/haptics";
 import { Category } from "../../types/models";
 import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
@@ -34,12 +48,55 @@ export function BudgetScreen() {
   const navigation = useNavigation<NavigationProp<TabParamList, "Budget">>();
   const { user, updateProfile } = useAuth();
   const { selectedMonth, setSelectedMonth } = useAppData();
-  const { data: summary, isLoading, refetch } = useDashboard();
+  const { data: summary, error, isOffline, refetch } = useDashboard();
   const { data: categories } = useCategories();
   const { setBudget, clearBudget } = useBudgets(selectedMonth);
   const { alert } = useDialog();
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const bottomPadding = useTabBarPadding();
+  const snackbar = useSnackbar();
+  // Collapsed on each mount; kept across month changes while the screen stays mounted (§S5).
+  const [unusedExpanded, setUnusedExpanded] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((on) => {
+        if (!cancelled) setReduceMotion(on);
+      })
+      .catch(() => {});
+    const sub = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, []);
+
+  // Same rule as Home: keep saved figures, say they're not fresh (S-6). Offline, TanStack pauses
+  // the refetch instead of failing it, so don't wait on it.
+  const handleRefresh = async () => {
+    const showRefreshFailed = () =>
+      snackbar.show({
+        id: "S-6",
+        text: "Couldn't refresh. Showing saved figures.",
+        icon: "cloud-alert-outline",
+        duration: 4000,
+        priority: 3,
+      });
+    if (!onlineManager.isOnline()) {
+      if (summary) showRefreshFailed();
+      return;
+    }
+    setRefreshing(true);
+    try {
+      const result = await refetch();
+      if (result.isError && summary) showRefreshFailed();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   React.useEffect(() => {
     if (route.params?.openCategoryId && categories) {
@@ -69,6 +126,53 @@ export function BudgetScreen() {
     return a.category.name.localeCompare(b.category.name);
   });
 
+  // "Unused" = no budget and nothing spent this month. They fold into one row so the list shows
+  // what matters, without hiding a category that has either (§S5, R-5).
+  const usedRows = rows.filter((r) => r.hasBudget || r.actual > 0);
+  const unusedRows = rows
+    .filter((r) => !r.hasBudget && r.actual === 0)
+    .sort((a, b) => a.category.name.localeCompare(b.category.name));
+  // With nothing in the main list, the group is the list, so it opens expanded.
+  const showUnused = unusedExpanded || usedRows.length === 0;
+  const unusedLabel = `${unusedRows.length} unused ${unusedRows.length === 1 ? "category" : "categories"}`;
+
+  const toggleUnused = () => {
+    hapticLight();
+    if (!reduceMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setUnusedExpanded((v) => !v);
+  };
+
+  const renderRow = (item: (typeof rows)[number]) => {
+    const progress = item.budget > 0 ? item.actual / item.budget : 0;
+    return (
+      <TouchableOpacity
+        key={item.category.id}
+        style={styles.capsule}
+        onPress={() => setEditingCategory(item.category)}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.category.name}, ${formatCurrency(item.actual)} of ${formatCurrency(item.budget)}`}
+      >
+        <View style={styles.capsuleHeader}>
+          <View style={styles.capsuleLeft}>
+            <CategoryPill icon={item.category.icon} color={item.category.color} size={42} />
+            <Text style={styles.capsuleLabel}>{item.category.name}</Text>
+          </View>
+          <View style={styles.capsuleRight}>
+            <Text style={styles.capsuleAmount}>{formatCurrency(item.actual)}</Text>
+            <Text style={styles.capsuleBudget}>
+              {item.hasBudget ? `of ${formatCurrency(item.budget)}` : "no budget"}
+            </Text>
+          </View>
+        </View>
+
+        {item.hasBudget && item.budget > 0 && (
+          <AnimatedProgressBar progress={progress} height={6} style={{ marginTop: spacing.sm }} />
+        )}
+      </TouchableOpacity>
+    );
+  };
+
   const totalBudgeted = rows.reduce((sum, r) => sum + r.budget, 0);
   const monthlyIncome = summary?.monthlyIncome ?? 0;
   const unallocated = monthlyIncome - totalBudgeted;
@@ -77,14 +181,22 @@ export function BudgetScreen() {
     <ScreenContainer>
       <Text style={styles.title}>Budget</Text>
 
-      {isLoading && !summary ? (
+      {!summary && (error || isOffline) ? (
+        // A failed load used to render the list with "BUDGETED Rs 0", which is false (§5.4).
+        <View style={styles.errorBlock}>
+          <MaterialCommunityIcons name="cloud-alert-outline" size={48} color={colors.textSecondary} />
+          <Text style={styles.errorTitle}>Couldn't load your budget</Text>
+          <Text style={styles.errorSubtitle}>{error ? getErrorMessage(error) : OFFLINE_MESSAGE}</Text>
+          <Button label="Try again" variant="secondary" onPress={() => refetch()} />
+        </View>
+      ) : !summary ? (
         <BudgetSkeleton />
       ) : (
         <FlatList
-          data={rows}
+          data={usedRows}
           keyExtractor={(item) => item.category.id}
-          refreshing={isLoading}
-          onRefresh={refetch}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
           contentContainerStyle={{ paddingBottom: bottomPadding }}
           ListHeaderComponent={
             <>
@@ -141,43 +253,41 @@ export function BudgetScreen() {
             </>
           }
           ListEmptyComponent={
-            <EmptyState icon="chart-donut" title="No categories yet" />
+            rows.length === 0 ? (
+              <EmptyState icon="chart-donut" title="No categories yet" />
+            ) : (
+              <Text style={styles.emptyMonthText}>
+                No budgets or spending in {formatMonthLabel(selectedMonth)}
+              </Text>
+            )
           }
-          renderItem={({ item }) => {
-            const progress = item.budget > 0 ? item.actual / item.budget : 0;
-            const isOver = item.actual > item.budget;
-
-            return (
-              <TouchableOpacity
-                style={styles.capsule}
-                onPress={() => setEditingCategory(item.category)}
-                activeOpacity={0.7}
-                accessibilityRole="button"
-                accessibilityLabel={`${item.category.name}, ${formatCurrency(item.actual)} of ${formatCurrency(item.budget)}`}
-              >
-                <View style={styles.capsuleHeader}>
-                  <View style={styles.capsuleLeft}>
-                    <CategoryPill icon={item.category.icon} color={item.category.color} size={42} />
-                    <Text style={styles.capsuleLabel}>{item.category.name}</Text>
-                  </View>
-                  <View style={styles.capsuleRight}>
-                    <Text style={styles.capsuleAmount}>{formatCurrency(item.actual)}</Text>
-                    <Text style={styles.capsuleBudget}>
-                      {item.hasBudget ? `of ${formatCurrency(item.budget)}` : "no budget"}
+          ListFooterComponent={
+            unusedRows.length > 0 ? (
+              <>
+                {usedRows.length > 0 && (
+                  <TouchableOpacity
+                    style={[styles.capsule, styles.groupRow]}
+                    onPress={toggleUnused}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: showUnused }}
+                    accessibilityLabel={unusedLabel}
+                  >
+                    <Text style={styles.groupLabel}>
+                      {showUnused ? `Hide ${unusedLabel}` : unusedLabel}
                     </Text>
-                  </View>
-                </View>
-
-                {item.hasBudget && item.budget > 0 && (
-                  <AnimatedProgressBar
-                    progress={progress}
-                    height={6}
-                    style={{ marginTop: spacing.sm }}
-                  />
+                    <MaterialCommunityIcons
+                      name={showUnused ? "chevron-up" : "chevron-down"}
+                      size={20}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
                 )}
-              </TouchableOpacity>
-            );
-          }}
+                {showUnused && unusedRows.map(renderRow)}
+              </>
+            ) : null
+          }
+          renderItem={({ item }) => renderRow(item)}
         />
       )}
 
@@ -364,6 +474,17 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 
+  groupRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: size.minTouch,
+  },
+  groupLabel: { ...typography.body, fontWeight: "600", color: colors.textSecondary, flexShrink: 1 },
+  emptyMonthText: { ...typography.caption, color: colors.textSecondary, marginBottom: spacing.md },
+  errorBlock: { alignItems: "center", gap: spacing.sm, paddingTop: spacing.xl },
+  errorTitle: { ...typography.body, fontWeight: "600", color: colors.textSecondary, textAlign: "center" },
+  errorSubtitle: { ...typography.caption, textAlign: "center", marginBottom: spacing.sm },
   sectionTitle: {
     ...typography.subtitle,
     fontSize: 18,
