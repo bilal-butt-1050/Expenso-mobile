@@ -30,6 +30,8 @@ export interface SnackbarMessage {
    * message: it pre-empts others (queue rules 2 and 3) and is never dropped.
    */
   onExpire?: () => void;
+  /** Never dropped by the queue cap or the away-age rule (S-8, S-9: lost writes must be reported). */
+  sticky?: boolean;
 }
 
 export interface SnackbarEntry extends SnackbarMessage {
@@ -63,12 +65,14 @@ function byPriorityThenAge(a: SnackbarEntry, b: SnackbarEntry) {
   return a.priority - b.priority || a.key - b.key;
 }
 
-/** Drop the lowest-priority, oldest droppable entries beyond the cap. Undo entries are never dropped. */
+const droppable = (e: SnackbarEntry) => !e.onExpire && !e.sticky;
+
+/** Drop the lowest-priority, oldest droppable entries beyond the cap. Undo and sticky entries stay. */
 function capQueue(queue: SnackbarEntry[]): SnackbarEntry[] {
   const next = [...queue];
-  while (next.filter((e) => !e.onExpire).length > MAX_QUEUED) {
+  while (next.filter(droppable).length > MAX_QUEUED) {
     const worst = next
-      .filter((e) => !e.onExpire)
+      .filter(droppable)
       .reduce((w, e) => (e.priority > w.priority || (e.priority === w.priority && e.key < w.key) ? e : w));
     next.splice(next.indexOf(worst), 1);
   }
@@ -78,7 +82,9 @@ function capQueue(queue: SnackbarEntry[]): SnackbarEntry[] {
 /** Fill the free slot from the queue, if the tabs are showing. Pure. */
 function promote(state: State, now: number): State {
   if (state.current || !state.hostActive || state.queue.length === 0) return state;
-  const fresh = state.queue.filter((q) => !q.enqueuedAway || now - q.enqueuedAt <= MAX_AWAY_AGE_MS);
+  const fresh = state.queue.filter(
+    (q) => q.sticky || !q.enqueuedAway || now - q.enqueuedAt <= MAX_AWAY_AGE_MS
+  );
   const [head, ...rest] = fresh;
   return { ...state, current: head ?? null, queue: rest };
 }

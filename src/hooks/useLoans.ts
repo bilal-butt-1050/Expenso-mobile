@@ -1,7 +1,16 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import * as loansApi from "../api/loans";
 import { Loan, LoanInput, LoansSummary, LoanStatus, LoanType } from "../types/models";
-import { invalidateMoney, queryKeys } from "../lib/queryClient";
+import { queryKeys } from "../lib/queryClient";
+import {
+  CreateLoanVars,
+  DeleteLoanVars,
+  SettleLoanVars,
+  UpdateLoanVars,
+  mutationKeys,
+  submitWrite,
+} from "../lib/mutations";
+import { useAuth } from "../context/AuthContext";
 
 /**
  * Loans and their summary.
@@ -12,8 +21,6 @@ import { invalidateMoney, queryKeys } from "../lib/queryClient";
  * the summary. Every screen mounting `useLoans` did that independently.
  */
 export function useLoans(filterType?: LoanType, filterStatus?: LoanStatus) {
-  const queryClient = useQueryClient();
-
   const loansQuery = useQuery({
     queryKey: queryKeys.loans(filterType, filterStatus),
     queryFn: () => loansApi.fetchLoans({ type: filterType, status: filterStatus }),
@@ -24,39 +31,19 @@ export function useLoans(filterType?: LoanType, filterStatus?: LoanStatus) {
     queryFn: loansApi.fetchLoansSummary,
   });
 
-  // A loan movement is cash, so it moves the dashboard and the transaction feed too.
-  const onChanged = () => invalidateMoney();
+  // Every write goes through the shared defaults in lib/mutations.ts (function, order, errors),
+  // tagged with the user so a restored queue can't replay under another account.
+  const { user } = useAuth();
+  const meta = { userId: user?.id };
+  const add = useMutation<Loan, Error, CreateLoanVars>({ mutationKey: mutationKeys.createLoan, meta });
+  const edit = useMutation<Loan, Error, UpdateLoanVars>({ mutationKey: mutationKeys.updateLoan, meta });
+  const settle = useMutation<Loan, Error, SettleLoanVars>({ mutationKey: mutationKeys.settleLoan, meta });
+  const remove = useMutation<void, Error, DeleteLoanVars>({ mutationKey: mutationKeys.deleteLoan, meta });
 
-  const add = useMutation({ mutationFn: (input: LoanInput) => loansApi.createLoan(input), onSuccess: onChanged });
-
-  const edit = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: Partial<LoanInput> }) =>
-      loansApi.updateLoan(id, input),
-    onSuccess: onChanged,
-  });
-
-  const settle = useMutation({
-    mutationFn: ({ id, amount }: { id: string; amount?: number }) =>
-      loansApi.settleLoan(id, amount),
-    onSuccess: onChanged,
-  });
-
-  const remove = useMutation({
-    mutationFn: (id: string) => loansApi.deleteLoan(id),
-    // Deleting a loan cascades its movements server-side, so the feed changes too.
-    onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: ["loans"] });
-      const snapshot = queryClient.getQueriesData({ queryKey: ["loans"] });
-      queryClient.setQueriesData({ queryKey: ["loans"] }, (old: any) =>
-        Array.isArray(old) ? old.filter((l: Loan) => l.id !== id) : old
-      );
-      return { snapshot };
-    },
-    onError: (_e, _id, ctx) => {
-      ctx?.snapshot?.forEach(([key, data]) => queryClient.setQueryData(key, data));
-    },
-    onSettled: onChanged,
-  });
+  const titleOf = (id: string) => {
+    const loan = (loansQuery.data as Loan[] | undefined)?.find((l) => l.id === id);
+    return loan ? `the loan with ${loan.personName}` : "a loan";
+  };
 
   return {
     loans: (loansQuery.data ?? []) as Loan[],
@@ -66,9 +53,10 @@ export function useLoans(filterType?: LoanType, filterStatus?: LoanStatus) {
     refresh: async () => {
       await Promise.all([loansQuery.refetch(), summaryQuery.refetch()]);
     },
-    addLoan: add.mutateAsync,
-    editLoan: (id: string, input: Partial<LoanInput>) => edit.mutateAsync({ id, input }),
-    recordPayment: (id: string, amount?: number) => settle.mutateAsync({ id, amount }),
-    removeLoan: remove.mutateAsync,
+    addLoan: (input: LoanInput) => submitWrite(add, { input, title: `the loan with ${input.personName}` }),
+    editLoan: (id: string, input: Partial<LoanInput>) => submitWrite(edit, { id, input, title: titleOf(id) }),
+    recordPayment: (id: string, amount?: number) =>
+      submitWrite(settle, { id, amount, title: `a payment on ${titleOf(id)}` }),
+    removeLoan: (id: string) => submitWrite(remove, { id, title: titleOf(id) }),
   };
 }

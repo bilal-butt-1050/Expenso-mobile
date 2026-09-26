@@ -28,6 +28,7 @@ import { useSnackbar } from "../../components/snackbar/SnackbarContext";
 import { useFocusAfterTransition } from "../../hooks/useFocusAfterTransition";
 import { navigationRef } from "../../navigation/navigationRef";
 import { budgetNoticeFor } from "../../utils/budgetNotice";
+import { newTransactionId } from "../../lib/newId";
 import { toMonthKey } from "../../utils/date";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
@@ -145,12 +146,16 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       };
 
       // Save first, always (R-3). A budget warning never stands between the user and their entry.
-      let newExpenseId: string | undefined;
+      // Offline, the write is queued and this resolves at once; the client id means the new row
+      // can still be highlighted, and a replay can't duplicate it.
+      const title = description.trim() || selectedCategory?.name || "Expense";
+      const clientId = editing ? undefined : newTransactionId();
+      let savedId = editing?.id ?? clientId;
       if (editing) {
-        await updateTransaction({ id: editing.id, input });
+        await updateTransaction(editing.id, input, title);
       } else {
-        const result = await createTransaction(input);
-        newExpenseId = result.id;
+        const created = await createTransaction({ ...input, id: clientId }, title);
+        savedId = created?.id ?? savedId;
       }
       hapticRecordCreated();
 
@@ -188,7 +193,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
       // Follow the saved entry to its month so it is actually visible.
       setSelectedMonth(expenseMonth);
-      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: editing ? editing.id : newExpenseId }));
+      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: savedId }));
       navigation.goBack();
     } catch (err) {
       hapticError();
@@ -208,7 +213,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       icon: "trash-can-outline",
       onConfirm: async () => {
         hapticDelete();
-        await deleteTransaction(editing.id);
+        await deleteTransaction(editing.id, editing.description || editing.category?.name || "this expense");
         navigation.goBack();
       },
     });

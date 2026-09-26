@@ -1,13 +1,17 @@
 import { useCallback } from "react";
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import * as api from "../api/transactions";
 import { Transaction, TransactionInput, TransactionKind } from "../types/models";
 import { useAppData } from "../context/AppDataContext";
-import { invalidateMoney, queryKeys } from "../lib/queryClient";
+import { queryKeys } from "../lib/queryClient";
+import {
+  CreateTransactionVars,
+  DeleteTransactionVars,
+  UpdateTransactionVars,
+  mutationKeys,
+  submitWrite,
+} from "../lib/mutations";
+import { useAuth } from "../context/AuthContext";
 
 interface Options {
   /** Defaults to the month selected app-wide. Pass `null` for all time. */
@@ -63,52 +67,39 @@ export function useTransactions(options: Options = {}) {
   };
 }
 
-/** Create / edit / delete, each invalidating everything the amount can move. */
+/**
+ * Create / edit / delete. The work lives in the shared defaults (lib/mutations.ts) so a write
+ * queued offline replays correctly after a restart. Online, these resolve with the server's
+ * answer. Offline, they queue the write and resolve at once with `undefined`.
+ */
 export function useTransactionMutations() {
-  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const meta = { userId: user?.id };
 
-  const create = useMutation({
-    mutationFn: (input: TransactionInput) => api.createTransaction(input),
-    onSuccess: invalidateMoney,
+  const create = useMutation<Transaction, Error, CreateTransactionVars>({
+    mutationKey: mutationKeys.createTransaction,
+    meta,
   });
-
-  const update = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: Partial<TransactionInput> }) =>
-      api.updateTransaction(id, input),
-    onSuccess: invalidateMoney,
+  const update = useMutation<Transaction, Error, UpdateTransactionVars>({
+    mutationKey: mutationKeys.updateTransaction,
+    meta,
   });
-
-  const remove = useMutation({
-    mutationFn: (id: string) => api.deleteTransaction(id),
-    // Drop the row immediately, then reconcile. Restores the previous pages if the server
-    // refuses — which it does for loan-linked rows, with a 409.
-    onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: ["transactions"] });
-      const snapshot = queryClient.getQueriesData({ queryKey: ["transactions"] });
-      queryClient.setQueriesData({ queryKey: ["transactions"] }, (old: any) => {
-        if (!old?.pages) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page: api.TransactionPage) => ({
-            ...page,
-            items: page.items.filter((t) => t.id !== id),
-          })),
-        };
-      });
-      return { snapshot };
-    },
-    onError: (_err, _id, context) => {
-      context?.snapshot?.forEach(([key, data]) => queryClient.setQueryData(key, data));
-    },
-    onSettled: invalidateMoney,
+  const remove = useMutation<void, Error, DeleteTransactionVars>({
+    mutationKey: mutationKeys.deleteTransaction,
+    meta,
   });
 
   return {
-    createTransaction: create.mutateAsync,
-    updateTransaction: update.mutateAsync,
-    deleteTransaction: remove.mutateAsync,
-    isCreating: create.isPending,
-    isUpdating: update.isPending,
-    isDeleting: remove.isPending,
+    /** `input.id` should be a fresh client id (newTransactionId) so a replay can't duplicate. */
+    createTransaction: (input: CreateTransactionVars["input"], title: string) =>
+      submitWrite(create, { input, title }),
+    updateTransaction: (id: string, input: Partial<TransactionInput>, title: string) =>
+      submitWrite(update, { id, input, title }),
+    deleteTransaction: (id: string, title: string) => submitWrite(remove, { id, title }),
+    /**
+     * Commit a delete nobody waits on (the swipe undo expiring). Failure shows in the snackbar
+     * (S-5) and the row comes back.
+     */
+    commitDelete: (id: string, title: string) => remove.mutate({ id, title, background: true }),
   };
 }

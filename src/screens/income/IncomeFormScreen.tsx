@@ -26,6 +26,7 @@ import { CategoryPill } from "../../components/CategoryPill";
 import { BottomSheet } from "../../components/BottomSheet";
 import { ChipGroup } from "../../components/ChipGroup";
 import { useFocusAfterTransition } from "../../hooks/useFocusAfterTransition";
+import { newTransactionId } from "../../lib/newId";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
@@ -120,12 +121,15 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         paymentMethod,
       };
 
-      let newIncomeId: string | undefined;
+      // Offline, the write is queued and this resolves at once (see ExpenseFormScreen).
+      const title = description.trim() || selectedPreset.source;
+      const clientId = editing ? undefined : newTransactionId();
+      let savedId = editing?.id ?? clientId;
       if (editing) {
-        await updateTransaction({ id: editing.id, input });
+        await updateTransaction(editing.id, input, title);
       } else {
-        const result = await createTransaction(input);
-        newIncomeId = result.id;
+        const created = await createTransaction({ ...input, id: clientId }, title);
+        savedId = created?.id ?? savedId;
       }
 
       hapticRecordCreated();
@@ -134,7 +138,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
       const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`;
       setSelectedMonth(monthKey);
 
-      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: editing ? editing.id : newIncomeId }));
+      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: savedId }));
       navigation.goBack();
     } catch (err) {
       hapticError();
@@ -154,7 +158,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
       icon: "trash-can-outline",
       onConfirm: async () => {
         hapticDelete();
-        await deleteTransaction(editing.id);
+        await deleteTransaction(editing.id, editing.description || editing.source || "this income");
         navigation.goBack();
       },
     });

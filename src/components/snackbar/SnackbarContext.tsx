@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { AccessibilityInfo, AppState, BackHandler } from "react-native";
 import { SnackbarEntry, SnackbarMessage, initialState, reducer } from "./snackbarQueue";
+import { registerSnackbarSink } from "./snackbarBridge";
 
 export type { SnackbarAction, SnackbarEntry, SnackbarMessage } from "./snackbarQueue";
 
@@ -128,6 +129,12 @@ export function SnackbarProvider({ children }: { children: React.ReactNode }) {
       sub.remove();
     };
   }, []);
+
+  // Mutation defaults report failed offline replays from outside React.
+  useEffect(() => {
+    registerSnackbarSink(show);
+    return () => registerSnackbarSink(null);
+  }, [show]);
 
   const api = useMemo(() => ({ show, dismiss }), [show, dismiss]);
   const host = useMemo(

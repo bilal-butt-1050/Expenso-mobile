@@ -10,13 +10,18 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
  * offset against a cache that could be a different length than the server had paginated, so
  * infinite scroll duplicated and dropped rows.
  */
+/** How long a cache (and any write queued offline in it) survives on disk. Was 24 h (D-41). */
+export const PERSIST_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       // Financial data is small and changes rarely; a short stale window keeps screens snappy
       // without hammering the API on every focus.
       staleTime: 30_000,
-      gcTime: 24 * 60 * 60 * 1000,
+      // Matches the persister's maxAge (D-41). TanStack keeps a persisted query only while it's
+      // within gcTime, and the persisted client (paused writes included) only within maxAge.
+      gcTime: PERSIST_MAX_AGE_MS,
       retry: (failureCount, error: any) => {
         // A 4xx will not become a 2xx by asking again. Retry only transport failures.
         const status = error?.response?.status;
@@ -49,8 +54,8 @@ export function persisterForUser(userId: string) {
   });
 }
 
-/** Wipe every cached query and any pending mutation. Called on logout. */
-export async function clearAllCaches(userId?: string): Promise<void> {
+/** Wipe every cached query and any pending mutation. Called by the session purge. */
+export async function clearAllCaches(): Promise<void> {
   queryClient.clear();
   try {
     const keys = await AsyncStorage.getAllKeys();
@@ -66,7 +71,6 @@ export async function clearAllCaches(userId?: string): Promise<void> {
   } catch {
     // Storage unavailable — the in-memory clear above is still the important half.
   }
-  void userId;
 }
 
 /** One place for query keys, so invalidation cannot drift from the fetchers. */

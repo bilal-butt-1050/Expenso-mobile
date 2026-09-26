@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { User } from "../types/models";
 import { getToken, clearToken, setUnauthorizedHandler } from "../api/client";
 import { setActiveCurrency } from "../utils/currency";
 import { clearAllCaches } from "../lib/queryClient";
+import { countPausedWrites, noteDiscardedWrites } from "../lib/mutations";
 import * as authApi from "../api/auth";
 
 interface AuthContextValue {
@@ -31,14 +32,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.currency]);
 
+  /**
+   * The one way a session ends: logout, a 401 on an authenticated request, or a 401 when the app
+   * revalidates at launch. Clears the token, every cached query and queued write, and the cached
+   * profile. The 401 paths used to clear only the token, leaving this account's data and queued
+   * writes behind for whoever signed in next (threat S3). Discarded writes are reported (S-9).
+   */
+  const purgeSession = useCallback(async () => {
+    noteDiscardedWrites(countPausedWrites());
+    await clearToken();
+    await clearAllCaches();
+    try {
+      await AsyncStorage.removeItem("@expenso_cached_user");
+    } catch {}
+    setUser(null);
+  }, []);
+
   useEffect(() => {
     setUnauthorizedHandler(() => {
-      setUser(null);
+      void purgeSession();
     });
     return () => {
       setUnauthorizedHandler(null);
     };
-  }, []);
+  }, [purgeSession]);
 
   // On app launch: restore the cached profile and release the splash immediately, then refresh
   // from the server in the background. Blocking startup on /auth/me meant every cold start paid a
@@ -76,9 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (err: any) {
         if (cancelled) return;
         if (err.response?.status === 401) {
-          await clearToken();
-          await AsyncStorage.removeItem("@expenso_cached_user");
-          setUser(null);
+          await purgeSession();
         }
       }
     })();
@@ -86,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [purgeSession]);
 
   const saveUserAndCache = async (userData: User | null) => {
     setUser(userData);
@@ -118,12 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           await authApi.logout();
         } catch {}
-        await clearToken();
-        // Every cached query and queued mutation goes too. Logout used to clear only the token
-        // and the cached profile, so signing in as a different account on the same device showed
-        // the previous user's transactions until the network replaced them.
-        await clearAllCaches(user?.id);
-        await saveUserAndCache(null);
+        await purgeSession();
       },
       refreshUser: async () => {
         const u = await authApi.fetchCurrentUser();
@@ -135,7 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       changePassword: async (currentPassword, newPassword) => await authApi.changePassword(currentPassword, newPassword),
     }),
-    [user, isLoading]
+    [user, isLoading, purgeSession]
   );
 
 

@@ -270,7 +270,7 @@ export function ActivityScreen() {
           if (item.type === "LOAN") {
             await removeLoan(item.rawId);
           } else {
-            await deleteTransaction(item.rawId);
+            await deleteTransaction(item.rawId, item.title);
           }
           LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
         } catch (err) {

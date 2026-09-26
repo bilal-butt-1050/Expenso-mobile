@@ -67,13 +67,26 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
   unauthorizedHandler = handler;
 }
 
+/** Endpoints where a 401 means "wrong credentials", not "your session has ended". */
+const CREDENTIAL_PATHS = ["/auth/login", "/auth/register", "/auth/google", "/auth/send-otp"];
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
-      await clearToken();
+    // Only a request that carried a session can lose one. A wrong password at login is also a 401,
+    // and must not purge anything (threat S3).
+    const config = error.config;
+    const hadToken = Boolean(config?.headers?.get?.("Authorization") ?? config?.headers?.Authorization);
+    const path: string = config?.url ?? "";
+    if (
+      error.response?.status === 401 &&
+      hadToken &&
+      !CREDENTIAL_PATHS.some((p) => path.startsWith(p))
+    ) {
       if (unauthorizedHandler) {
         unauthorizedHandler();
+      } else {
+        await clearToken();
       }
     }
     return Promise.reject(error);
