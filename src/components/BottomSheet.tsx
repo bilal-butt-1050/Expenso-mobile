@@ -32,6 +32,7 @@ export function BottomSheet({ visible, onClose, children }: Props) {
   const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
+  const keyboardHeight = useAndroidKeyboardHeight(showModal);
   useRegisterOverlay(showModal);
 
   // Depends on `visible` alone. It previously also depended on `showModal`, which this effect
@@ -110,18 +111,26 @@ export function BottomSheet({ visible, onClose, children }: Props) {
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleClose} />
       </Animated.View>
 
-      <KeyboardAvoidingView 
-        style={styles.sheetWrap} 
+      <KeyboardAvoidingView
+        // Android: the app is edge-to-edge, so the window doesn't resize for the keyboard, and a
+        // Modal gets no help from adjustResize either. The keyboard covered the lower fields, so
+        // the sheet lifts itself by the keyboard's height. The top padding keeps a tall sheet on
+        // screen; its content shrinks (and can scroll) instead.
+        style={[styles.sheetWrap, { paddingTop: insets.top + spacing.lg, marginBottom: keyboardHeight }]}
         // A ternary with two identical branches. On Android `padding` fights the window's own
         // adjustResize and lifts the sheet twice as far as the keyboard.
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         pointerEvents="box-none"
       >
         <Animated.View
-          style={[{ transform: [{ translateY: panY }] }]}
+          style={[styles.shrink, { transform: [{ translateY: panY }] }]}
           {...panResponder.panHandlers}
         >
-          <TouchableOpacity activeOpacity={1} style={[styles.sheetContent, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+          <TouchableOpacity activeOpacity={1} style={[
+              styles.sheetContent,
+              // With the keyboard up, it already covers the navigation bar area.
+              { paddingBottom: keyboardHeight > 0 ? spacing.lg : Math.max(insets.bottom, spacing.lg) },
+            ]}>
             <View style={styles.dragHandle} />
             {children}
           </TouchableOpacity>
@@ -131,7 +140,29 @@ export function BottomSheet({ visible, onClose, children }: Props) {
   );
 }
 
+/**
+ * The keyboard's height while it's open, on Android only (iOS uses KeyboardAvoidingView). Listens
+ * only while the sheet is showing.
+ */
+function useAndroidKeyboardHeight(active: boolean): number {
+  const [height, setHeight] = React.useState(0);
+  useEffect(() => {
+    if (Platform.OS !== "android" || !active) {
+      setHeight(0);
+      return;
+    }
+    const show = Keyboard.addListener("keyboardDidShow", (e) => setHeight(e.endCoordinates.height));
+    const hide = Keyboard.addListener("keyboardDidHide", () => setHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [active]);
+  return height;
+}
+
 const styles = StyleSheet.create({
+  shrink: { flexShrink: 1 },
   backdrop: {
     position: "absolute",
     top: 0,
@@ -145,6 +176,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheetContent: {
+    flexShrink: 1,
     backgroundColor: colors.surfaceRaised,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,

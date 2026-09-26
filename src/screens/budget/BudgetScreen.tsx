@@ -2,13 +2,11 @@ import React, { useState } from "react";
 import {
   FlatList,
   LayoutAnimation,
-  Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  TextInput,
-} from "react-native";
+  } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { onlineManager } from "@tanstack/react-query";
 import { useDashboard } from "../../hooks/useDashboard";
@@ -17,7 +15,6 @@ import { useBudgets } from "../../hooks/useBudgets";
 import { useCategories } from "../../hooks/useCategories";
 import { useAuth } from "../../context/AuthContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
-import { Card } from "../../components/Card";
 import { MonthPicker } from "../../components/MonthPicker";
 import { AnimatedProgressBar } from "../../components/AnimatedProgressBar";
 import { NeedWantAnalyticsCard } from "../../components/NeedWantAnalyticsCard";
@@ -38,7 +35,6 @@ import { useReduceMotion } from "../../hooks/useReduceMotion";
 import { Category } from "../../types/models";
 import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomSheet } from "../../components/BottomSheet";
 import { useRoute, useNavigation, RouteProp, NavigationProp } from "@react-navigation/native";
 import { TabParamList } from "../../types/navigation";
@@ -46,7 +42,6 @@ import { TabParamList } from "../../types/navigation";
 export function BudgetScreen() {
   const route = useRoute<RouteProp<TabParamList, "Budget">>();
   const navigation = useNavigation<NavigationProp<TabParamList, "Budget">>();
-  const { user, updateProfile } = useAuth();
   const { selectedMonth, setSelectedMonth } = useAppData();
   const { data: summary, error, isOffline, refetch } = useDashboard();
   const { data: categories } = useCategories();
@@ -320,7 +315,6 @@ function BudgetEditSheet({
   onSave: (amount: number) => void;
 }) {
   const { user } = useAuth();
-  const insets = useSafeAreaInsets();
   const [value, setValue] = useState(currentAmount ? formatAmountInput(String(currentAmount)) : "");
 
   if (!category) return null;

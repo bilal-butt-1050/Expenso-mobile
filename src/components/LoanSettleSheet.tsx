@@ -4,9 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
+  } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BottomSheet } from "./BottomSheet";
 import { TextField } from "./TextField";
@@ -17,7 +15,7 @@ import { typography } from "../theme/typography";
 import { formatCurrency, formatAmountInput } from "../utils/currency";
 import { Loan } from "../types/models";
 import { getErrorMessage } from "../api/client";
-import { hapticLight, hapticSuccess } from "../utils/haptics";
+import { hapticSuccess } from "../utils/haptics";
 
 interface LoanSettleSheetProps {
   loan: Loan | null;
@@ -63,7 +61,7 @@ export function LoanSettleSheet({
       await onSettle(shown.id);
       hapticSuccess();
       onClose();
-    } catch (err: any) {
+    } catch (err) {
       setError(getErrorMessage(err));
     } finally {
       setIsSubmitting(false);
@@ -88,7 +86,7 @@ export function LoanSettleSheet({
       await onSettle(shown.id, num);
       hapticSuccess();
       onClose();
-    } catch (err: any) {
+    } catch (err) {
       setError(getErrorMessage(err));
     } finally {
       setIsSubmitting(false);

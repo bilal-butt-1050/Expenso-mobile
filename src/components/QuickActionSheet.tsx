@@ -21,6 +21,7 @@ import { colors } from "../theme/colors";
 import { radius, spacing } from "../theme/spacing";
 import { hapticLight } from "../utils/haptics";
 import { useRegisterOverlay } from "../lib/overlays";
+import { useLatest } from "../hooks/useLatest";
 
 interface QuickActionSheetProps {
   visible: boolean;
@@ -45,6 +46,10 @@ export function QuickActionSheet({
   const [modalVisible, setModalVisible] = useState(visible);
   useRegisterOverlay(modalVisible);
   const isClosingRef = useRef(false);
+  // Read inside the open/close effect without re-running it: modalVisible is state that effect sets,
+  // and dismissSheet is a new function every render.
+  const modalVisibleRef = useLatest(modalVisible);
+  const dismissSheetRef = useRef<(callback?: () => void) => void>(() => {});
 
   const translateY = useSharedValue(600);
   const backdropOpacity = useSharedValue(0);
@@ -61,10 +66,10 @@ export function QuickActionSheet({
         mass: 0.8,
       });
       backdropOpacity.value = withTiming(1, { duration: 200 });
-    } else if (modalVisible && !isClosingRef.current) {
-      dismissSheet();
+    } else if (modalVisibleRef.current && !isClosingRef.current) {
+      dismissSheetRef.current();
     }
-  }, [visible]);
+  }, [visible, translateY, backdropOpacity, modalVisibleRef, dismissSheetRef]);
 
   const finalizeClose = (callback?: () => void) => {
     isClosingRef.current = false;
@@ -85,6 +90,9 @@ export function QuickActionSheet({
       }
     });
   };
+
+  // Assigned every render, so the effect above always calls the current dismissSheet.
+  dismissSheetRef.current = dismissSheet;
 
   const panResponder = useRef(
     PanResponder.create({

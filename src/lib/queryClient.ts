@@ -1,6 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 import { Mutation, dehydrate, defaultShouldDehydrateMutation } from "@tanstack/react-query";
 
 /**
@@ -23,9 +24,9 @@ export const queryClient = new QueryClient({
       // Matches the persister's maxAge (D-41). TanStack keeps a persisted query only while it's
       // within gcTime, and the persisted client (paused writes included) only within maxAge.
       gcTime: PERSIST_MAX_AGE_MS,
-      retry: (failureCount, error: any) => {
+      retry: (failureCount, error) => {
         // A 4xx will not become a 2xx by asking again. Retry only transport failures.
-        const status = error?.response?.status;
+        const status = axios.isAxiosError(error) ? error.response?.status : undefined;
         if (status && status >= 400 && status < 500) return false;
         return failureCount < 2;
       },

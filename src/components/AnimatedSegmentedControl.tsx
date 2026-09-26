@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { iconName } from "../utils/icons";
 import {
   View,
   Text,
@@ -69,7 +70,7 @@ export function AnimatedSegmentedControl<T extends string = string>({
         mass: 0.7,
       });
     }
-  }, [activeIndex, segmentWidth]);
+  }, [activeIndex, segmentWidth, translateX]);
 
   // Buttery smooth Reanimated UI-thread transform
   const indicatorStyle = useAnimatedStyle(() => {
@@ -110,7 +111,7 @@ export function AnimatedSegmentedControl<T extends string = string>({
             <View style={styles.segmentContent}>
               {opt.icon && (
                 <MaterialCommunityIcons
-                  name={opt.icon as any}
+                  name={iconName(opt.icon)}
                   size={16}
                   color={isSelected ? colors.textPrimary : colors.textMuted}
                   style={styles.icon}

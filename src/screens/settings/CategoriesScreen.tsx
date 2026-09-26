@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useLatest } from "../../hooks/useLatest";
 import { FlatList, StyleSheet, Text, TouchableOpacity, View, Animated, Easing, LayoutAnimation, Dimensions } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -80,7 +81,7 @@ export function CategoriesScreen() {
               LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
               try {
                 await removeCategory(item.id);
-              } catch (err: any) {
+              } catch (err) {
                 alert({
                   title: "Couldn't delete category",
                   message: getErrorMessage(err),
@@ -145,6 +146,8 @@ function CategoryItem({
 }) {
   const highlightAnim = useRef(new Animated.Value(isNewlyAdded ? 1 : 0)).current;
   const deleteAnim = useRef(new Animated.Value(0)).current;
+  // Read, not depended on: parents pass a new inline callback on every render.
+  const onDeleteAnimFinishRef = useLatest(onDeleteAnimFinish);
 
   useEffect(() => {
     if (isNewlyAdded) {
@@ -153,7 +156,7 @@ function CategoryItem({
         Animated.timing(highlightAnim, { toValue: 0, duration: 2000, delay: 500, useNativeDriver: false })
       ]).start();
     }
-  }, [isNewlyAdded]);
+  }, [isNewlyAdded, highlightAnim]);
 
   useEffect(() => {
     if (isDeleting) {
@@ -165,10 +168,10 @@ function CategoryItem({
           useNativeDriver: true,
         })
       ]).start(() => {
-        if (onDeleteAnimFinish) onDeleteAnimFinish();
+        onDeleteAnimFinishRef.current?.();
       });
     }
-  }, [isDeleting]);
+  }, [isDeleting, deleteAnim, onDeleteAnimFinishRef]);
 
   const isImmutable = item.name === "Other";
 

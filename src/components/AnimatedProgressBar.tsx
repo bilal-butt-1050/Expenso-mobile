@@ -45,7 +45,7 @@ export function AnimatedProgressBar({
     } else {
       animatedWidth.value = 0;
     }
-  }, [normalizedProgress, isFocused, animateOnFocus]);
+  }, [normalizedProgress, isFocused, animateOnFocus, animatedWidth]);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {

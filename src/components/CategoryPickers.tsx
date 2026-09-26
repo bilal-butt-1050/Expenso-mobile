@@ -1,4 +1,5 @@
 import React from "react";
+import { iconName } from "../utils/icons";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
@@ -64,7 +65,7 @@ export function IconPicker({ value, color, onChange }: IconProps) {
                 selected && { borderColor: color, borderWidth: 1.5 },
               ]}
             >
-              <MaterialCommunityIcons name={icon as any} size={20} color={selected ? color : colors.textSecondary} />
+              <MaterialCommunityIcons name={iconName(icon)} size={20} color={selected ? color : colors.textSecondary} />
             </TouchableOpacity>
           );
         })}

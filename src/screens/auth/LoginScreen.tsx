@@ -1,16 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   Text,
   View,
   TouchableOpacity,
-  ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { getFreshGoogleIdToken } from "../../services/googleSignIn";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../../context/AuthContext";
@@ -34,17 +33,6 @@ export function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    try {
-      GoogleSignin.configure({
-        webClientId: "166423632403-eah00rst0smqrkre0phm0i2s5uripqe6.apps.googleusercontent.com",
-        offlineAccess: true,
-      });
-    } catch (e) {
-      console.warn("GoogleSignin is not supported in Expo Go. Please use a development build.");
-    }
-  }, []);
-
   const handleEmailLogin = async () => {
     setError(null);
     if (!email.trim() || !password) {
@@ -65,20 +53,13 @@ export function LoginScreen() {
     setError(null);
     setIsLoading(true);
     try {
-      await GoogleSignin.hasPlayServices();
-      try {
-        await GoogleSignin.signOut();
-      } catch (e) {
-        // Ignore errors if already signed out
+      // null: the user closed the account picker.
+      const idToken = await getFreshGoogleIdToken();
+      if (idToken) {
+        await loginWithGoogle(idToken);
       }
-      const userInfo = await GoogleSignin.signIn();
-      if (userInfo.data?.idToken) {
-        await loginWithGoogle(userInfo.data.idToken);
-      }
-    } catch (err: any) {
-      if (err.code !== "SIGN_IN_CANCELLED") {
-        setError(getErrorMessage(err));
-      }
+    } catch (err) {
+      setError(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }

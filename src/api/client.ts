@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosHeaders } from "axios";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
@@ -51,12 +51,8 @@ export const apiClient = axios.create({ baseURL: apiUrl, timeout: 15000 });
 apiClient.interceptors.request.use(async (config) => {
   const token = await getToken();
   if (token) {
-    if (!config.headers) {
-      config.headers = {} as any;
-    }
-    if (typeof (config.headers as any).set === "function") {
-      (config.headers as any).set("Authorization", `Bearer ${token}`);
-    }
+    config.headers = AxiosHeaders.from(config.headers);
+    config.headers.set("Authorization", `Bearer ${token}`);
   }
   return config;
 });

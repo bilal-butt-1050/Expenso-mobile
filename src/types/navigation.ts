@@ -38,8 +38,12 @@ export type RootStackParamList = {
   OnboardingTour: { fromSettings?: boolean } | undefined;
 };
 
+// React Navigation's documented way to type useNavigation() app-wide needs a global namespace and an
+// interface merge, which these two rules can't express otherwise.
+/* eslint-disable @typescript-eslint/no-namespace, @typescript-eslint/no-empty-object-type */
 declare global {
   namespace ReactNavigation {
     interface RootParamList extends RootStackParamList {}
   }
 }
+/* eslint-enable @typescript-eslint/no-namespace, @typescript-eslint/no-empty-object-type */
