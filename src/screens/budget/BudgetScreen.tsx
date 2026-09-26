@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
-  AccessibilityInfo,
   FlatList,
   LayoutAnimation,
   Modal,
@@ -35,6 +34,7 @@ import { formatCurrency, formatAmountInput } from "../../utils/currency";
 import { OFFLINE_MESSAGE, getErrorMessage } from "../../api/client";
 import { formatMonthLabel } from "../../utils/date";
 import { hapticLight } from "../../utils/haptics";
+import { useReduceMotion } from "../../hooks/useReduceMotion";
 import { Category } from "../../types/models";
 import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
@@ -58,21 +58,7 @@ export function BudgetScreen() {
   // Collapsed on each mount; kept across month changes while the screen stays mounted (§S5).
   const [unusedExpanded, setUnusedExpanded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [reduceMotion, setReduceMotion] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((on) => {
-        if (!cancelled) setReduceMotion(on);
-      })
-      .catch(() => {});
-    const sub = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
-    return () => {
-      cancelled = true;
-      sub.remove();
-    };
-  }, []);
+  const reduceMotion = useReduceMotion();
 
   // Same rule as Home: keep saved figures, say they're not fresh (S-6). Offline, TanStack pauses
   // the refetch instead of failing it, so don't wait on it.

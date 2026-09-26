@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { ScreenContainer } from "../../components/ScreenContainer";
 import { MonthPicker } from "../../components/MonthPicker";
 import { AnimatedSegmentedControl, SegmentOption } from "../../components/AnimatedSegmentedControl";
 import { EmptyState } from "../../components/EmptyState";
+import { Button } from "../../components/Button";
 import { ListScreenSkeleton } from "../../components/Skeleton";
 import {
   SwipeableActivityRow,
@@ -34,6 +35,8 @@ import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
 import { getErrorMessage } from "../../api/client";
 import { hapticLight, hapticDelete } from "../../utils/haptics";
+import { useSnackbar } from "../../components/snackbar/SnackbarContext";
+import { useReduceMotion } from "../../hooks/useReduceMotion";
 import { TabParamList, RootStackParamList } from "../../types/navigation";
 import { CASH_SIGN, Loan, Transaction, TransactionKind } from "../../types/models";
 
@@ -67,6 +70,12 @@ export function ActivityScreen() {
   );
   const [settlingLoan, setSettlingLoan] = useState<Loan | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Swipe-deleted rows waiting out the undo window, or queued while offline. Hidden here and only
+  // committed when the undo expires (R-4). Undo just removes the id, so the row returns in place.
+  const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(() => new Set());
+  const committedIds = useRef(new Set<string>());
+  const snackbar = useSnackbar();
+  const reduceMotion = useReduceMotion();
   // Real count of writes waiting on connectivity. The previous state was declared and never
   // set, so this banner could not appear and offline changes were invisible.
   const pendingWrites = usePendingWriteCount();
@@ -91,17 +100,19 @@ export function ActivityScreen() {
   const {
     items: transactions,
     isLoading: txLoading,
+    error: txError,
     isRefreshing,
     hasMore,
     refetch: refetchTransactions,
     loadMore,
   } = useTransactions({ kinds });
-  const { deleteTransaction } = useTransactionMutations();
+  const { commitDelete } = useTransactionMutations();
 
   const {
     loans,
     summary: loansSummary,
     isLoading: loansLoading,
+    error: loansError,
     refresh: refetchLoans,
     recordPayment,
     removeLoan,
@@ -149,7 +160,7 @@ export function ActivityScreen() {
     }
 
     // Already ordered by the server on (date desc, id desc).
-    return (transactions || []).map((tx) => {
+    return (transactions || []).filter((tx) => !hiddenIds.has(tx.id)).map((tx) => {
       const isIncoming = CASH_SIGN[tx.kind] > 0;
       const isLoanRow = Boolean(tx.loanId);
 
@@ -188,7 +199,7 @@ export function ActivityScreen() {
         raw: tx,
       };
     });
-  }, [transactions, loans, activeTab]);
+  }, [transactions, loans, activeTab, hiddenIds]);
 
   // Group into clean date sections
   const sections = useMemo(() => {
@@ -250,36 +261,97 @@ export function ActivityScreen() {
     }
   };
 
-  const confirmDeleteItem = (item: UnifiedActivityItem) => {
-    const typeLabel =
-      item.type === "EXPENSE" ? "Expense" : item.type === "INCOME" ? "Income" : "Loan";
-    const deleteMessage =
-      item.type === "LOAN"
-        ? `${(item.raw as Loan).personName} · ${formatCurrency(item.amount)}. Any payments recorded against it go too.`
-        : `"${item.title}" for ${formatCurrency(item.amount)}. This cannot be undone.`;
+  const animateLayout = () => {
+    if (!reduceMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  };
 
+  const setHidden = (id: string, hidden: boolean) =>
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      if (hidden) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+
+  /** A whole loan cascades its payments, so it keeps a confirm and gets no undo (D-33). */
+  const confirmDeleteLoan = (item: UnifiedActivityItem) => {
     confirm({
-      title: `Delete ${typeLabel}?`,
-      message: deleteMessage,
+      title: "Delete loan?",
+      message: `${(item.raw as Loan).personName} · ${formatCurrency(item.amount)}. Any payments recorded against it go too.`,
       destructive: true,
       confirmText: "Delete",
       onConfirm: async () => {
         hapticDelete();
         setDeletingId(item.id);
         try {
-          if (item.type === "LOAN") {
-            await removeLoan(item.rawId);
-          } else {
-            await deleteTransaction(item.rawId, item.title);
-          }
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
+          await removeLoan(item.rawId);
+          animateLayout();
         } catch (err) {
-          // The API refuses to delete a loan-linked row (409) so the loan's balance cannot
-          // silently diverge from its payment record.
           alert({ title: "Couldn't delete", message: getErrorMessage(err) });
         } finally {
           setDeletingId(null);
         }
+      },
+    });
+  };
+
+  /**
+   * Swipe to delete, with undo (R-4, DESIGN §S4). The row disappears at once and nothing reaches
+   * the server during the undo window. The delete commits exactly once when the window ends by
+   * timeout, Android back, leaving the tabs or the app going to the background.
+   */
+  const swipeDelete = (item: UnifiedActivityItem) => {
+    if (item.type === "LOAN") {
+      confirmDeleteLoan(item);
+      return;
+    }
+
+    const tx = item.raw as Transaction;
+    // A loan's movements belong to the loan; deleting one here would desynchronise its balance.
+    if (tx.loanId) {
+      const loan = loans.find((l) => l.id === tx.loanId);
+      hapticLight();
+      snackbar.show({
+        id: `S-4-${tx.id}`,
+        text: loan
+          ? `This is part of the loan with ${loan.personName}. Change it from the loan.`
+          : "This is part of a loan. Change it from the loan.",
+        icon: "link-variant",
+        iconColor: colors.textSecondary,
+        action: loan
+          ? { label: "Open loan", a11yLabel: `Open the loan with ${loan.personName}`, onPress: () => setSettlingLoan(loan) }
+          : undefined,
+        duration: 6000,
+        priority: 2,
+      });
+      return;
+    }
+
+    hapticDelete();
+    animateLayout();
+    setHidden(tx.id, true);
+    snackbar.show({
+      id: `S-1-${tx.id}`,
+      text: `Deleted ${item.title} · ${formatCurrency(item.amount)}`,
+      action: {
+        label: "Undo",
+        a11yLabel: `Undo deleting ${item.title}`,
+        onPress: () => {
+          animateLayout();
+          setHidden(tx.id, false);
+        },
+      },
+      duration: 5000,
+      priority: 1,
+      onExpire: () => {
+        if (committedIds.current.has(tx.id)) return;
+        committedIds.current.add(tx.id);
+        commitDelete(tx.id, item.title, {
+          // Failure: the defaults refetch the row and show "Couldn't delete"; stop hiding it.
+          onError: () => setHidden(tx.id, false),
+          // Success: the row is already out of the cache, so the hide is no longer needed.
+          onSettled: () => setHidden(tx.id, false),
+        });
       },
     });
   };
@@ -317,6 +389,16 @@ export function ActivityScreen() {
       {/* Transaction Feed */}
       {isLoading ? (
         <ListScreenSkeleton />
+      ) : sections.length === 0 && (activeTab === "LOANS" ? loansError : txError) ? (
+        // A failed load used to say "No transactions", which is false (§5.4).
+        <View style={styles.errorBlock}>
+          <MaterialCommunityIcons name="cloud-alert-outline" size={48} color={colors.textSecondary} />
+          <Text style={styles.errorTitle}>Couldn't load your activity</Text>
+          <Text style={styles.errorSubtitle}>
+            {activeTab === "LOANS" ? "Something went wrong. Please try again." : getErrorMessage(txError)}
+          </Text>
+          <Button label="Try again" variant="secondary" onPress={() => void handleRefresh()} />
+        </View>
       ) : sections.length === 0 ? (
         <EmptyState
           title="No transactions"
@@ -370,7 +452,7 @@ export function ActivityScreen() {
               isNewlyAdded={item.rawId === highlightId}
               isDeleting={item.id === deletingId}
               onPress={() => handleRowPress(item)}
-              onDelete={() => confirmDeleteItem(item)}
+              onDelete={() => swipeDelete(item)}
             />
           )}
         />
@@ -386,7 +468,7 @@ export function ActivityScreen() {
         }}
         onDelete={(loanId) => {
           const matching = unifiedItems.find((u) => u.rawId === loanId);
-          if (matching) confirmDeleteItem(matching);
+          if (matching) confirmDeleteLoan(matching);
         }}
       />
     </ScreenContainer>
@@ -394,6 +476,9 @@ export function ActivityScreen() {
 }
 
 const styles = StyleSheet.create({
+  errorBlock: { alignItems: "center", gap: spacing.sm, paddingTop: spacing.xl, paddingHorizontal: spacing.lg },
+  errorTitle: { ...typography.body, fontWeight: "600", color: colors.textSecondary, textAlign: "center" },
+  errorSubtitle: { ...typography.caption, textAlign: "center", marginBottom: spacing.sm },
   noPad: { paddingHorizontal: 0 },
   header: {
     paddingHorizontal: spacing.lg,
