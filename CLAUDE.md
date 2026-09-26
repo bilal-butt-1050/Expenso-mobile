@@ -14,6 +14,7 @@ npm install
 npm run start            # Metro
 npm run android          # connected device / emulator
 npm run typecheck        # tsc --noEmit — must be 0 errors before any commit
+npm run lint             # ESLint — must be 0 errors before any commit
 ```
 
 ## Layout
@@ -37,9 +38,9 @@ src/
 
 1. **Never commit to `main`.** Branch per task: `feat/`, `fix/`, `refactor/`, `chore/`.
 2. **`npm run typecheck` passes with 0 errors** before every commit.
-3. **No `any`.** API responses, props and route params are all typed. There is currently no
-   linter — `npm run lint` was removed because ESLint was never installed and no config existed,
-   so the gate it implied was fiction. Reinstating it properly is tracked in the plan.
+3. **No `any`.** API responses, props and route params are all typed. `npm run lint` enforces
+   this, plus the hooks rules, as errors. Colour and spacing literals outside `src/theme/` are
+   warnings for now: don't add new ones.
 4. **Design system is the authority** — see [docs/design-system.md](docs/design-system.md). Never
    invent colours or ad-hoc spacing; use `src/theme/` tokens.
 5. **Touch targets ≥ 44×44pt.** Buttons and inputs are 54–56pt tall.
@@ -73,6 +74,5 @@ manual testing on device → PR to `main` → review → merge → production OT
 
 ## Current work
 
-Architecture is mid-overhaul. See `../IMPLEMENTATION_PLAN.md` (outside both repos) for the batch plan
-and the decisions behind it — in particular the move to a unified `Transaction` ledger, TanStack Query,
-and React Navigation 7.
+Planning lives outside both repos, in `../docs/`: `STATE.md` (where things stand), `PLAN.md`
+(milestones), `DECISIONS.md` (why), `TEST_SPEC.md` (test IDs).
