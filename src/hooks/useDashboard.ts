@@ -15,7 +15,8 @@ export function useDashboard(overrideMonth?: string) {
   return {
     data: query.data ?? null,
     isLoading: query.isLoading,
-    error: query.error ? String(query.error) : null,
+    // The raw error, so screens can pass it to getErrorMessage.
+    error: query.error,
     refetch: query.refetch,
   };
 }

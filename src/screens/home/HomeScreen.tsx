@@ -9,68 +9,105 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useLoans } from "../../hooks/useLoans";
-import { useTransactions } from "../../hooks/useTransactions";
 import { useAppData } from "../../context/AppDataContext";
 import { useAuth } from "../../context/AuthContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { MonthPicker } from "../../components/MonthPicker";
 import { HomeSkeleton } from "../../components/Skeleton";
+import { MoneyText } from "../../components/MoneyText";
+import { Button } from "../../components/Button";
+import { useSnackbar } from "../../components/snackbar/SnackbarContext";
 import { useTabBarPadding } from "../../hooks/useTabBarPadding";
 import { colors } from "../../theme/colors";
-import { radius, spacing } from "../../theme/spacing";
+import { radius, size, spacing } from "../../theme/spacing";
+import { typography } from "../../theme/typography";
 import { formatCurrency } from "../../utils/currency";
+import { currentMonthKey, formatMonthLabel, formatMonthShort } from "../../utils/date";
+import { getErrorMessage } from "../../api/client";
 import { RootStackParamList } from "../../types/navigation";
-import { CASH_SIGN } from "../../types/models";
+import { DashboardSummary } from "../../types/models";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+/** Font scale at which two-column figure rows stack (DESIGN NFR-4, rule 2). */
+const STACK_AT_FONT_SCALE = 1.3;
+
+/**
+ * Home is one month's balance sheet (D-9, DESIGN §S1). Every balance figure is measured at one
+ * instant: "today" for the current month, the end of the month for a past one. Everything on the
+ * screen is scoped by the month picker, which is why the all-time Recent Activity card left (D-29).
+ */
 export function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const bottomPadding = useTabBarPadding();
+  const { fontScale } = useWindowDimensions();
+  const stacked = fontScale >= STACK_AT_FONT_SCALE;
   const { user } = useAuth();
   const { selectedMonth, setSelectedMonth } = useAppData();
-  const { data, isLoading, refetch } = useDashboard();
-  const { loans, summary: loansSummary, refresh: refreshLoans } = useLoans();
-  // The whole feed, not just expenses. This card was labelled "Recent Activity" while
-  // reading expenses only, so income never appeared and every row was prefixed with a minus.
-  const { items: recentItems, refetch: refetchTransactions } = useTransactions({ pageSize: 5 });
+  const { data, error, refetch } = useDashboard();
+  const { loans, refresh: refreshLoans } = useLoans();
+  const snackbar = useSnackbar();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const isCurrentMonth = selectedMonth === currentMonthKey();
 
   const handleRefresh = async () => {
-    await Promise.all([refetch(), refreshLoans(), refetchTransactions()]);
+    setRefreshing(true);
+    try {
+      const [dashboard] = await Promise.all([refetch(), refreshLoans()]);
+      // Keep the figures already on screen; just say they're not fresh (S-6).
+      if (dashboard.isError && dashboard.data) {
+        snackbar.show({
+          id: "S-6",
+          text: "Couldn't refresh. Showing saved figures.",
+          icon: "cloud-alert-outline",
+          duration: 4000,
+          priority: 3,
+        });
+      }
+    } finally {
+      setRefreshing(false);
+    }
   };
 
-  // Opens the dedicated Loans screen rather than filtering the Activity feed. Loans are
-  // positions, not events — they belong somewhere they can be edited and settled, not as
-  // untitled rows in a transaction list.
+  // Loans are positions, not events: they're edited and settled on their own screen.
   const navigateToLoans = () => navigation.navigate("Loans");
 
-  const overdueLoans = (loans ?? []).filter((l) => {
-    if (l.status === "SETTLED" || !l.dueDate) return false;
-    const due = new Date(l.dueDate).getTime();
-    return !isNaN(due) && due < Date.now();
-  });
+  // "Overdue" is a fact about today, so it only shows on the current month (DESIGN §S1).
+  const overdueLoans = isCurrentMonth
+    ? (loans ?? []).filter((l) => {
+        if (l.status === "SETTLED" || !l.dueDate) return false;
+        const due = new Date(l.dueDate).getTime();
+        return !isNaN(due) && due < Date.now();
+      })
+    : [];
 
   const [googlePhoto, setGooglePhoto] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     if (user?.avatarUrl) return;
+    let cancelled = false;
     (async () => {
       try {
         const currentUser = await GoogleSignin.getCurrentUser();
-        if (currentUser?.user?.photo) {
+        if (!cancelled && currentUser?.user?.photo) {
           setGooglePhoto(currentUser.user.photo);
         }
-      } catch (e) {
-        // Ignore
+      } catch {
+        // No Google session: fall back to the Gravatar below.
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [user?.avatarUrl]);
 
   const email = user?.email || "";
@@ -86,9 +123,8 @@ export function HomeScreen() {
 
   return (
     <ScreenContainer style={styles.noPad}>
-      {/* Top Header Row */}
       <View style={styles.topRow}>
-        <View style={{ flex: 1, marginRight: spacing.md }}>
+        <View style={styles.pickerWrap}>
           <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
         </View>
         <TouchableOpacity
@@ -105,278 +141,196 @@ export function HomeScreen() {
               onError={() => setImageError(true)}
             />
           ) : (
-            <Text style={styles.headerAvatarText}>
-              {firstName[0].toUpperCase()}
-            </Text>
+            <Text style={styles.headerAvatarText}>{firstName[0].toUpperCase()}</Text>
           )}
         </TouchableOpacity>
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: bottomPadding }]}
+        contentContainerStyle={{ paddingBottom: bottomPadding }}
         refreshControl={
-          <RefreshControl
-            refreshing={isLoading}
-            onRefresh={handleRefresh}
-            tintColor={colors.accent}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.accent} />
         }
         showsVerticalScrollIndicator={false}
       >
-        {!data ? (
-          <HomeSkeleton />
+        {data ? (
+          <BalanceSheet
+            data={data}
+            greeting={`${greeting}, ${firstName}`}
+            isCurrentMonth={isCurrentMonth}
+            stacked={stacked}
+            overdueCount={overdueLoans.length}
+            onOpenLoans={navigateToLoans}
+          />
+        ) : error ? (
+          <View style={styles.heroSection}>
+            <Text style={styles.greetingText}>
+              {greeting}, {firstName}
+            </Text>
+            <View style={styles.errorBlock}>
+              <MaterialCommunityIcons name="cloud-alert-outline" size={48} color={colors.textSecondary} />
+              <Text style={styles.errorTitle}>Couldn't load your figures</Text>
+              <Text style={styles.errorSubtitle}>{getErrorMessage(error)}</Text>
+              <Button label="Try again" variant="secondary" onPress={() => refetch()} />
+            </View>
+          </View>
         ) : (
-          <>
-            {/* HERO SECTION — Calm, Welcoming & Minimal */}
-            <View style={styles.heroSection}>
-              <Text style={styles.greetingText}>
-                {greeting}, {firstName}
-              </Text>
-              <Text style={styles.heroAmount} numberOfLines={1} adjustsFontSizeToFit>
-                {formatCurrency(data.netWorth ?? data.cashOnHand ?? 0)}
-              </Text>
-              {/* Net worth: cash, plus what is owed to you, minus what you owe. The old figure
-                  was cumulative income minus expenses, which ignored debt entirely and moved
-                  whenever the month picker changed. */}
-              <Text style={styles.heroLabel}>Net Worth</Text>
-
-              {data.dailyAllowance != null && data.dailyAllowance > 0 && (
-                <View style={styles.allowancePill}>
-                  <MaterialCommunityIcons
-                    name="shield-check-outline"
-                    size={14}
-                    color={colors.accent}
-                  />
-                  <Text style={styles.allowanceText}>
-                    {formatCurrency(data.dailyAllowance)}/day safe to spend
-                    {data.daysRemaining ? ` • ${data.daysRemaining}d left` : ""}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* QUIET ALERTS (Only shown when action is needed) */}
-            {overdueLoans.length > 0 && (
-              <View style={styles.alertsContainer}>
-                <TouchableOpacity
-                  style={[styles.alertCard, styles.alertCardDanger]}
-                  onPress={navigateToLoans}
-                  activeOpacity={0.75}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${overdueLoans.length} loans overdue`}
-                >
-                  <MaterialCommunityIcons
-                    name="alert-circle-outline"
-                    size={18}
-                    color={colors.danger}
-                  />
-                  <Text style={styles.alertText}>
-                    {overdueLoans.length}{" "}
-                    {overdueLoans.length === 1 ? "overdue loan requires" : "overdue loans require"}{" "}
-                    attention
-                  </Text>
-                  <MaterialCommunityIcons
-                    name="chevron-right"
-                    size={18}
-                    color={colors.textMuted}
-                  />
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* UNIFIED CASHFLOW CARD */}
-            <View style={styles.card}>
-              <Text style={styles.cardHeaderTitle}>Monthly Cashflow</Text>
-
-              {/* Income vs Spent */}
-              <View style={styles.flowRow}>
-                <View style={styles.flowItem}>
-                  <View style={styles.flowLabelRow}>
-                    <MaterialCommunityIcons
-                      name="arrow-down-left"
-                      size={16}
-                      color={colors.success}
-                    />
-                    <Text style={styles.flowLabel}>Income</Text>
-                  </View>
-                  <Text style={[styles.flowAmount, { color: colors.success }]}>
-                    {formatCurrency(data.monthlyIncome)}
-                  </Text>
-                </View>
-
-                <View style={styles.flowDivider} />
-
-                <View style={styles.flowItem}>
-                  <View style={styles.flowLabelRow}>
-                    <MaterialCommunityIcons
-                      name="arrow-up-right"
-                      size={16}
-                      color={colors.textPrimary}
-                    />
-                    <Text style={styles.flowLabel}>Spent</Text>
-                  </View>
-                  <Text style={styles.flowAmount}>
-                    {formatCurrency(data.totalExpenses)}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Net Savings & Ratio */}
-              <View style={styles.savingsRow}>
-                <Text style={styles.savingsLabel}>
-                  {(data.remainingBalance ?? 0) < 0 ? "Overspent by" : "Net saved"}
-                </Text>
-                <Text
-                  style={[
-                    styles.savingsValue,
-                    (data.remainingBalance ?? 0) < 0 && { color: colors.danger },
-                  ]}
-                >
-                  {formatCurrency(Math.abs(data.remainingBalance ?? 0))}
-                </Text>
-              </View>
-
-              {/* Slim Progress Track */}
-              <View style={styles.savingsTrack}>
-                <View
-                  style={[
-                    styles.savingsFill,
-                    {
-                      width: `${Math.min(100, Math.max(0, data.spentPercentage ?? 0))}%`,
-                      backgroundColor:
-                        (data.remainingBalance ?? 0) < 0 ? colors.danger : colors.accent,
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-
-            {/* NET DEBT POSITION */}
-            {loansSummary && (loansSummary.totalLentPending > 0 || loansSummary.totalBorrowedPending > 0) && (
-              <TouchableOpacity
-                style={styles.card}
-                onPress={navigateToLoans}
-                activeOpacity={0.75}
-                accessibilityRole="button"
-                accessibilityLabel="Open debt and loans"
-              >
-                <View style={styles.cardHeaderRow}>
-                  <Text style={styles.cardHeaderTitle}>Debts & Loans</Text>
-                  <MaterialCommunityIcons
-                    name="chevron-right"
-                    size={18}
-                    color={colors.textMuted}
-                  />
-                </View>
-
-                <View style={styles.flowRow}>
-                  <View style={styles.flowItem}>
-                    <Text style={styles.debtSubLabel}>Owed to you</Text>
-                    <Text style={[styles.flowAmount, { color: colors.success }]}>
-                      {formatCurrency(loansSummary.totalLentPending)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.flowDivider} />
-
-                  <View style={styles.flowItem}>
-                    <Text style={styles.debtSubLabel}>You owe</Text>
-                    <Text style={[styles.flowAmount, { color: colors.danger }]}>
-                      {formatCurrency(loansSummary.totalBorrowedPending)}
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            )}
-
-            {/* RECENT ACTIVITY PREVIEW */}
-            <View style={styles.card}>
-              <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardHeaderTitle}>Recent Activity</Text>
-                <TouchableOpacity
-                  onPress={() => navigation.navigate("Tabs", { screen: "Activity" })}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={styles.seeAllText}>See All →</Text>
-                </TouchableOpacity>
-              </View>
-
-              {recentItems.length === 0 ? (
-                <Text style={styles.emptyRecentText}>No recent activity logged this month</Text>
-              ) : (
-                <View style={styles.recentList}>
-                  {recentItems.slice(0, 3).map((item, idx) => {
-                    const incoming = CASH_SIGN[item.kind] > 0;
-                    const isLoanRow = Boolean(item.loanId);
-                    const tint = isLoanRow
-                      ? colors.textSecondary
-                      : item.kind === "SPEND"
-                        ? item.category?.color || colors.accent
-                        : colors.success;
-                    const title = isLoanRow
-                      ? item.description || "Loan movement"
-                      : item.kind === "SPEND"
-                        ? item.category?.name || item.description || "Expense"
-                        : item.source || item.description || "Income";
-
-                    return (
-                      <TouchableOpacity
-                        key={item.id}
-                        style={[styles.recentRow, idx > 0 && styles.recentRowBorder]}
-                        activeOpacity={0.7}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${title}, ${formatCurrency(item.amount)}`}
-                        // Opens the record itself. Every row used to dump the user on the
-                        // Activity tab regardless of which one they tapped.
-                        onPress={() => {
-                          if (isLoanRow) {
-                            navigation.navigate("Loans");
-                          } else if (item.kind === "SPEND") {
-                            navigation.navigate("ExpenseForm", { transaction: item });
-                          } else {
-                            navigation.navigate("IncomeForm", { transaction: item });
-                          }
-                        }}
-                      >
-                        <View style={[styles.recentIconBox, { backgroundColor: `${tint}1F` }]}>
-                          <MaterialCommunityIcons
-                            name={
-                              (isLoanRow
-                                ? incoming
-                                  ? "arrow-bottom-left"
-                                  : "arrow-top-right"
-                                : item.kind === "SPEND"
-                                  ? item.category?.icon || "credit-card-outline"
-                                  : item.sourceIcon || "wallet-plus-outline") as any
-                            }
-                            size={18}
-                            color={tint}
-                          />
-                        </View>
-                        <View style={styles.recentInfo}>
-                          <Text style={styles.recentTitle} numberOfLines={1}>
-                            {title}
-                          </Text>
-                        </View>
-                        <Text
-                          style={[
-                            styles.recentAmount,
-                            incoming && { color: colors.success },
-                          ]}
-                        >
-                          {incoming ? "+" : "-"}
-                          {formatCurrency(item.amount)}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-          </>
+          <HomeSkeleton />
         )}
       </ScrollView>
     </ScreenContainer>
+  );
+}
+
+interface BalanceSheetProps {
+  data: DashboardSummary;
+  greeting: string;
+  isCurrentMonth: boolean;
+  stacked: boolean;
+  overdueCount: number;
+  onOpenLoans: () => void;
+}
+
+function BalanceSheet({ data, greeting, isCurrentMonth, stacked, overdueCount, onOpenLoans }: BalanceSheetProps) {
+  const monthName = formatMonthShort(data.month);
+  const monthLabel = formatMonthLabel(data.month);
+
+  // Opening → closing continuity. Aug's closing figure and Sep's "Started Sep at" come from the
+  // same backend instant, so they are equal by construction.
+  const change = Math.round(data.closingNetWorth - data.openingNetWorth);
+  const overspent = data.savingsThisMonth < 0;
+  const debt = data.netDebtSnapshot;
+  const showDebts = debt.totalLent > 0 || debt.totalBorrowed > 0;
+
+  return (
+    <>
+      <View style={styles.heroSection}>
+        <Text style={styles.greetingText}>{greeting}</Text>
+        <MoneyText amount={data.closingNetWorth} style={styles.heroAmount} />
+        <Text style={styles.heroLabel}>
+          {isCurrentMonth ? "Net worth · today" : `Net worth · end of ${monthLabel}`}
+        </Text>
+        <Text style={styles.openingLine}>
+          Started {monthName} at {formatCurrency(data.openingNetWorth)} ·{" "}
+          {change === 0 ? (
+            "no change"
+          ) : (
+            <Text style={{ color: change > 0 ? colors.success : colors.danger }}>
+              {change > 0 ? "up" : "down"} {formatCurrency(Math.abs(change))}
+            </Text>
+          )}
+        </Text>
+
+        {isCurrentMonth && data.dailyAllowance > 0 && (
+          <View style={styles.allowancePill}>
+            <MaterialCommunityIcons name="shield-check-outline" size={14} color={colors.accent} />
+            <Text style={styles.allowanceText}>
+              {formatCurrency(data.dailyAllowance)}/day safe to spend
+              {data.daysRemaining ? ` • ${data.daysRemaining}d left` : ""}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {overdueCount > 0 && (
+        <View style={styles.alertsContainer}>
+          <TouchableOpacity
+            style={[styles.alertCard, styles.alertCardDanger]}
+            onPress={onOpenLoans}
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel={`${overdueCount} ${overdueCount === 1 ? "loan" : "loans"} overdue`}
+          >
+            <MaterialCommunityIcons name="alert-circle-outline" size={18} color={colors.danger} />
+            <Text style={styles.alertText}>
+              {overdueCount} {overdueCount === 1 ? "overdue loan needs" : "overdue loans need"} attention
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <View style={styles.card}>
+        <Text style={styles.cardHeaderTitle}>Monthly cashflow</Text>
+
+        <View style={[styles.flowRow, stacked && styles.flowRowStacked]}>
+          <View style={styles.flowItem}>
+            <View style={styles.flowLabelRow}>
+              <MaterialCommunityIcons name="arrow-down-left" size={16} color={colors.success} />
+              <Text style={styles.flowLabel}>Income</Text>
+            </View>
+            <MoneyText amount={data.monthlyIncome} style={[styles.flowAmount, { color: colors.success }]} />
+          </View>
+
+          {!stacked && <View style={styles.flowDivider} />}
+
+          <View style={styles.flowItem}>
+            <View style={styles.flowLabelRow}>
+              <MaterialCommunityIcons name="arrow-up-right" size={16} color={colors.textPrimary} />
+              <Text style={styles.flowLabel}>Spent</Text>
+            </View>
+            <MoneyText amount={data.totalExpenses} style={styles.flowAmount} />
+          </View>
+        </View>
+
+        <View style={[styles.figureRow, styles.savingsRow, stacked && styles.figureRowStacked]}>
+          <Text style={styles.figureLabel}>{overspent ? "Overspent by" : "Net saved"}</Text>
+          <MoneyText
+            amount={Math.abs(data.savingsThisMonth)}
+            style={[styles.figureValue, overspent && { color: colors.danger }]}
+          />
+        </View>
+
+        <View style={styles.savingsTrack}>
+          <View
+            style={[
+              styles.savingsFill,
+              {
+                width: `${Math.min(100, Math.max(0, data.spentPercentage ?? 0))}%`,
+                backgroundColor: overspent ? colors.danger : colors.accent,
+              },
+            ]}
+          />
+        </View>
+
+        <View style={[styles.figureRow, styles.cashRow, stacked && styles.figureRowStacked]}>
+          <Text style={styles.figureLabel}>{isCurrentMonth ? "Cash today" : `Cash, end of ${monthName}`}</Text>
+          <MoneyText amount={data.closingCash} style={styles.figureValue} />
+        </View>
+      </View>
+
+      {showDebts && (
+        <TouchableOpacity
+          style={styles.card}
+          onPress={onOpenLoans}
+          activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityLabel={isCurrentMonth ? "Debts and loans" : `Debts and loans, end of ${monthName}`}
+          accessibilityHint="Opens your loans as of today"
+        >
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardHeaderTitle}>
+              {isCurrentMonth ? "Debts & loans" : `Debts & loans · end of ${monthName}`}
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textMuted} />
+          </View>
+
+          <View style={[styles.flowRow, styles.debtRow, stacked && styles.flowRowStacked]}>
+            <View style={styles.flowItem}>
+              <Text style={styles.debtSubLabel}>Owed to you</Text>
+              <MoneyText amount={debt.totalLent} style={[styles.flowAmount, { color: colors.success }]} />
+            </View>
+
+            {!stacked && <View style={styles.flowDivider} />}
+
+            <View style={styles.flowItem}>
+              <Text style={styles.debtSubLabel}>You owe</Text>
+              <MoneyText amount={debt.totalBorrowed} style={[styles.flowAmount, { color: colors.danger }]} />
+            </View>
+          </View>
+        </TouchableOpacity>
+      )}
+    </>
   );
 }
 
@@ -392,10 +346,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     zIndex: 10,
   },
+  pickerWrap: { flex: 1, marginRight: spacing.md },
   headerAvatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: size.minTouch,
+    height: size.minTouch,
+    borderRadius: radius.pill,
     backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
     borderColor: colors.borderLight,
@@ -406,8 +361,6 @@ const styles = StyleSheet.create({
   headerAvatarImage: { width: "100%", height: "100%" },
   headerAvatarText: { fontSize: 17, fontWeight: "700", color: colors.accent },
 
-  scroll: {},
-
   heroSection: {
     alignItems: "center",
     paddingTop: spacing.xl,
@@ -415,23 +368,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   greetingText: {
-    fontSize: 14,
-    fontWeight: "500",
+    ...typography.small,
     color: colors.textSecondary,
-    marginBottom: 6,
+    marginBottom: spacing.xs,
+    textAlign: "center",
   },
-  heroAmount: {
-    fontSize: 48,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    letterSpacing: -1.2,
-    marginBottom: 4,
+  heroAmount: { ...typography.display, textAlign: "center" },
+  heroLabel: { ...typography.caption, color: colors.textSecondary, textAlign: "center" },
+  openingLine: {
+    ...typography.small,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    textAlign: "center",
   },
-  heroLabel: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: colors.textMuted,
-  },
+
+  errorBlock: { alignItems: "center", gap: spacing.sm, paddingTop: spacing.xl, alignSelf: "stretch" },
+  errorTitle: { ...typography.body, fontWeight: "600", color: colors.textSecondary, textAlign: "center" },
+  errorSubtitle: { ...typography.caption, textAlign: "center", marginBottom: spacing.sm },
 
   alertsContainer: {
     paddingHorizontal: spacing.lg,
@@ -470,6 +423,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderLight,
   },
   cardHeaderTitle: {
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: "600",
     color: colors.textPrimary,
@@ -487,9 +441,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: spacing.md,
   },
-  flowItem: {
-    flex: 1,
-  },
+  flowRowStacked: { flexDirection: "column", alignItems: "stretch", gap: spacing.sm },
+  debtRow: { marginBottom: 0 },
+  flowItem: { flex: 1 },
   flowLabelRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -513,29 +467,22 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
   },
 
-  savingsRow: {
+  figureRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  figureRowStacked: { flexDirection: "column", alignItems: "flex-start", gap: 0 },
+  savingsRow: {
     paddingTop: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
-  savingsLabel: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: colors.textMuted,
-  },
-  savingsValue: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.textPrimary,
-  },
-  savingsRate: {
-    color: colors.success,
-    fontWeight: "700",
-  },
+  cashRow: { marginTop: spacing.sm },
+  figureLabel: { ...typography.small, color: colors.textSecondary, flexShrink: 1 },
+  figureValue: { ...typography.small, color: colors.textPrimary },
   savingsTrack: {
     height: 4,
     borderRadius: 2,
@@ -551,7 +498,7 @@ const styles = StyleSheet.create({
   debtSubLabel: {
     fontSize: 12,
     fontWeight: "500",
-    color: colors.textMuted,
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   allowancePill: {
@@ -570,50 +517,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: colors.textSecondary,
-  },
-  seeAllText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.accent,
-  },
-  emptyRecentText: {
-    fontSize: 13,
-    color: colors.textMuted,
-    paddingVertical: spacing.sm,
-  },
-  recentList: {
-    marginTop: -spacing.xs,
-  },
-  recentRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-  },
-  recentRowBorder: {
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
-  },
-  recentIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: spacing.md,
-  },
-  recentInfo: {
-    flex: 1,
-    justifyContent: "center",
-    paddingRight: spacing.sm,
-  },
-  recentTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: colors.textPrimary,
-  },
-  recentAmount: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: colors.textPrimary,
   },
 });

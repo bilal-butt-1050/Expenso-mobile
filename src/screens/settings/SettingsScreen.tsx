@@ -20,6 +20,7 @@ import { spacing, radius } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { formatCurrency } from "../../utils/currency";
 import { RootStackParamList } from "../../types/navigation";
+import { describeRunningUpdate } from "../../services/updateService";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -134,6 +135,8 @@ export function SettingsScreen() {
   };
 
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  // Fixed for the life of the process: a reload is what changes the running bundle.
+  const [runningUpdate] = useState(describeRunningUpdate);
 
   const handleCheckForUpdates = async () => {
     if (__DEV__ || !Updates.isEnabled) {
@@ -245,7 +248,8 @@ export function SettingsScreen() {
         <SettingsRow
           icon="cloud-sync-outline"
           label={isCheckingUpdate ? "Checking for Updates..." : "Check for Updates"}
-          subtitle={`Channel: ${Updates.channel || "development"} • v1.0.0`}
+          // The channel moved to the footer; the hardcoded "v1.0.0" was never true (§5.4).
+          subtitle="Get the latest version"
           onPress={handleCheckForUpdates}
         />
 
@@ -260,6 +264,10 @@ export function SettingsScreen() {
           <MaterialCommunityIcons name="logout" size={18} color={colors.danger} />
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
+
+        <Text style={styles.buildFooter} selectable accessibilityLabel={runningUpdate.a11y}>
+          {runningUpdate.text}
+        </Text>
       </ScrollView>
 
       <BottomSheet visible={isEditNameOpen} onClose={() => setIsEditNameOpen(false)}>
@@ -419,6 +427,12 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
   logoutText: { color: colors.danger, fontWeight: "700", fontSize: 15 },
+  buildFooter: {
+    ...typography.small,
+    color: colors.textSecondary,
+    marginTop: spacing.xl,
+    textAlign: "center",
+  },
   modalContent: { padding: spacing.xl, gap: spacing.md },
   modalTitle: { ...typography.title, fontSize: 20, marginBottom: spacing.sm },
   modalActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.md },

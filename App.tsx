@@ -6,6 +6,7 @@ import { QueryProvider } from "./src/lib/QueryProvider";
 import { AuthProvider } from "./src/context/AuthContext";
 import { AppDataProvider } from "./src/context/AppDataContext";
 import { DialogProvider } from "./src/context/DialogContext";
+import { SnackbarProvider } from "./src/components/snackbar/SnackbarContext";
 import { RootNavigator } from "./src/navigation/RootNavigator";
 import { colors } from "./src/theme/colors";
 import { updateService } from "./src/services/updateService";
@@ -27,8 +28,10 @@ export default function App() {
         <QueryProvider>
         <AppDataProvider>
           <DialogProvider>
-            <StatusBar style="light" />
-            <RootNavigator />
+            <SnackbarProvider>
+              <StatusBar style="light" />
+              <RootNavigator />
+            </SnackbarProvider>
           </DialogProvider>
         </AppDataProvider>
         </QueryProvider>

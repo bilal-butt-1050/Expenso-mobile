@@ -35,6 +35,8 @@ export interface AlertOptions {
 interface DialogContextValue {
   confirm: (options: ConfirmOptions) => void;
   alert: (options: AlertOptions) => void;
+  /** A confirm or alert dialog is on screen. Low-priority prompts wait for it to close. */
+  isOpen: boolean;
 }
 
 const DialogContext = createContext<DialogContextValue | null>(null);
@@ -116,7 +118,7 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
       : undefined;
 
   return (
-    <DialogContext.Provider value={{ confirm, alert }}>
+    <DialogContext.Provider value={{ confirm, alert, isOpen: dialogState.type !== "none" }}>
       {children}
 
       {/* Themed Custom Modal Dialog */}

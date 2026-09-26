@@ -15,6 +15,8 @@ import { BudgetScreen } from "../screens/budget/BudgetScreen";
 import { QuickActionSheet } from "../components/QuickActionSheet";
 import { hapticMedium } from "../utils/haptics";
 import { dockHeight, dockPaddingBottom } from "./dock";
+import { SnackbarHost } from "../components/snackbar/SnackbarHost";
+import { UpdatePrompt } from "../components/UpdatePrompt";
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
@@ -92,6 +94,10 @@ export function TabNavigator() {
       >
         <MaterialCommunityIcons name="plus" size={24} color={colors.accentForeground} />
       </Pressable>
+
+      {/* After the button, so it layers above it. It sits above the button's top edge anyway. */}
+      <SnackbarHost />
+      <UpdatePrompt sheetOpen={quickActionVisible} />
 
       <QuickActionSheet
         visible={quickActionVisible}
