@@ -16,6 +16,11 @@ export const colors = {
   accent: "#6366F1",
   accentMuted: "rgba(99, 102, 241, 0.15)",
   accentForeground: "#FFFFFF",
+  // Accent-coloured *text* (links, text buttons). `accent` as text fails 4.5:1 on our surfaces.
+  accentText: "#818CF8",
+
+  // shadowColor for floating elements; use through `elevation.floating`, never directly.
+  shadow: "#000000",
 
   // Unified Neutral Icon Tokens
   iconNeutral: "#E5E7EB",

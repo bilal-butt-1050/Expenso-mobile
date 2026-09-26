@@ -15,3 +15,10 @@ export const radius = {
   lg: 20,
   pill: 999,
 } as const;
+
+export const size = {
+  /** Minimum hit area for anything tappable. */
+  minTouch: 44,
+  /** Floating action button diameter. */
+  fab: 56,
+} as const;

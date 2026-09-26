@@ -124,15 +124,24 @@ export interface UpcomingObligation {
 export interface DashboardSummary {
   month: string;
 
-  /** Sum of every cash movement to the end of this month. */
+  // Balance sheet: measured at one instant, the END of `month` (D-9).
+  /** Sum of every cash movement to the end of this month. Equals `closingCash`. */
   cashOnHand: number;
-  /** Cash + what is owed to you − what you owe. The honest headline figure. */
+  /** Cash + what is owed to you − what you owe, as of the end of this month. Equals `closingNetWorth`. */
   netWorth: number;
+  /** Close of the previous month. `openingCash + netCashThisMonth === closingCash`. */
+  openingCash: number;
+  closingCash: number;
+  /** Close of the previous month. `openingNetWorth + savingsThisMonth === closingNetWorth`. */
+  openingNetWorth: number;
+  closingNetWorth: number;
   netCashThisMonth: number;
 
   monthlyIncome: number;
   totalExpenses: number;
-  /** Signed: negative means the month is overspent. Never clamped. */
+  /** Income − spending this month. Signed: negative means the month is overspent. Never clamped. */
+  savingsThisMonth: number;
+  /** @deprecated Use `savingsThisMonth`. The backend keeps sending it for older installed builds. */
   remainingBalance: number;
   plannedSavings: number;
   rolloverSavings: number;
