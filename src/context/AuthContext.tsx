@@ -25,7 +25,7 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   updateProfile: (data: { name?: string; currency?: string; avatarUrl?: string | null }) => Promise<void>;
-  changePassword: (currentPassword?: string, newPassword?: string) => Promise<void>;
+  changePassword: (body: { currentPassword?: string; newPassword: string; googleIdToken?: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -161,7 +161,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const u = await authApi.updateProfile(data);
         await saveUserAndCache(u);
       },
-      changePassword: async (currentPassword, newPassword) => await authApi.changePassword(currentPassword, newPassword),
+      changePassword: async (body) => {
+        await authApi.changePassword(body);
+        if (user) await saveUserAndCache({ ...user, hasPassword: true });
+      },
     }),
     [user, isLoading, purgeSession]
   );

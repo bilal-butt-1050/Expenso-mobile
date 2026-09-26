@@ -46,6 +46,15 @@ export async function updateProfile(data: {
   const { data: user } = await apiClient.patch<User>("/auth/profile", data);
   return user;
 }
-export async function changePassword(currentPassword?: string, newPassword?: string) {
-  await apiClient.patch("/auth/password", { currentPassword, newPassword });
+/**
+ * Changes the password, or sets the first one with a fresh Google ID token. The server ends every
+ * session, this one included, and returns a new token for this device.
+ */
+export async function changePassword(body: {
+  currentPassword?: string;
+  newPassword: string;
+  googleIdToken?: string;
+}): Promise<void> {
+  const { data } = await apiClient.patch<{ token: string }>("/auth/password", body);
+  await setToken(data.token);
 }

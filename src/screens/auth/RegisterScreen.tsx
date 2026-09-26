@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { GoogleSignin, isErrorWithCode, statusCodes } from "@react-native-google-signin/google-signin";
+import { getFreshGoogleIdToken } from "../../services/googleSignIn";
 import { AuthStackParamList } from "../../types/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { getErrorMessage } from "../../api/client";
@@ -50,20 +50,6 @@ export function RegisterScreen({ navigation }: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    try {
-      GoogleSignin.configure({
-        webClientId:
-          "166423632403-eah00rst0smqrkre0phm0i2s5uripqe6.apps.googleusercontent.com",
-        offlineAccess: true,
-      });
-    } catch {
-      console.warn(
-        "GoogleSignin is not supported in Expo Go. Please use a development build.",
-      );
-    }
-  }, []);
 
   useEffect(() => {
     if (step !== "code") return;
@@ -142,20 +128,13 @@ export function RegisterScreen({ navigation }: Props) {
     setError(null);
     setIsLoading(true);
     try {
-      await GoogleSignin.hasPlayServices();
-      try {
-        await GoogleSignin.signOut();
-      } catch {
-        // Ignore errors if already signed out
-      }
-      const userInfo = await GoogleSignin.signIn();
-      if (userInfo.data?.idToken) {
-        await loginWithGoogle(userInfo.data.idToken);
+      // null: the user closed the account picker.
+      const idToken = await getFreshGoogleIdToken();
+      if (idToken) {
+        await loginWithGoogle(idToken);
       }
     } catch (err) {
-      if (!(isErrorWithCode(err) && err.code === statusCodes.SIGN_IN_CANCELLED)) {
-        setError(getErrorMessage(err));
-      }
+      setError(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }

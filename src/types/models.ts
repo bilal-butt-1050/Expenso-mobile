@@ -10,6 +10,8 @@ export interface User {
   avatarUrl?: string | null;
   /** ISO time the account was created. Missing from older servers. */
   createdAt?: string | null;
+  /** Whether the account has a password (Google-only accounts don't). Missing from older servers. */
+  hasPassword?: boolean;
 }
 
 export interface Category {
