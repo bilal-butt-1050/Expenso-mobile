@@ -1,4 +1,5 @@
 import React from "react";
+import { iconName } from "../utils/icons";
 import { StyleSheet, Text, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
@@ -13,7 +14,7 @@ interface Props {
 export function EmptyState({ icon, title, subtitle }: Props) {
   return (
     <View style={styles.container}>
-      <MaterialCommunityIcons name={icon as any} size={48} color={colors.textMuted} />
+      <MaterialCommunityIcons name={iconName(icon)} size={48} color={colors.textMuted} />
       <Text style={styles.title}>{title}</Text>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
     </View>

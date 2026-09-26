@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { iconName } from "../../utils/icons";
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import md5 from "md5";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,7 +18,6 @@ import { getErrorMessage } from "../../api/client";
 import { colors } from "../../theme/colors";
 import { spacing, radius } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
-import { formatCurrency } from "../../utils/currency";
 import { RootStackParamList } from "../../types/navigation";
 import { describeRunningUpdate } from "../../services/updateService";
 
@@ -27,7 +27,7 @@ export function SettingsScreen() {
   const navigation = useNavigation<Nav>();
   // A root stack screen, so there is no tab bar underneath — safe-area inset is the right clearance.
   const insets = useSafeAreaInsets();
-  const { user, logout, updateProfile, changePassword } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const { confirm, alert } = useDialog();
 
   const [isEditNameOpen, setIsEditNameOpen] = useState(false);
@@ -35,17 +35,6 @@ export function SettingsScreen() {
   const [isSavingName, setIsSavingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
 
-  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmNewPassword, setConfirmNewPassword] = useState("");
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [currentPasswordError, setCurrentPasswordError] = useState<string | null>(null);
-  const [newPasswordError, setNewPasswordError] = useState<string | null>(null);
-  const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
 
   // The avatar used to fall back to the phone's Google session and then *save* it to this account,
   // so whoever last used Google sign-in on the phone had their photo copied onto every other
@@ -66,46 +55,6 @@ export function SettingsScreen() {
       setNameError(getErrorMessage(error));
     } finally {
       setIsSavingName(false);
-    }
-  };
-
-  const handleChangePassword = async () => {
-    setCurrentPasswordError(null);
-    setNewPasswordError(null);
-    setConfirmPasswordError(null);
-
-    let hasError = false;
-    if (newPassword.length < 8) {
-      setNewPasswordError("New password must be at least 8 characters");
-      hasError = true;
-    }
-    if (newPassword !== confirmNewPassword) {
-      setConfirmPasswordError("New passwords do not match");
-      hasError = true;
-    }
-    if (hasError) return;
-
-    setIsChangingPassword(true);
-    try {
-      await changePassword(currentPassword, newPassword);
-      setIsChangePasswordOpen(false);
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmNewPassword("");
-      alert({
-        title: "Success",
-        message: "Password updated successfully.",
-        icon: "check-circle-outline",
-      });
-    } catch (error) {
-      const msg = getErrorMessage(error);
-      if (msg.toLowerCase().includes("current password")) {
-        setCurrentPasswordError(msg);
-      } else {
-        setNewPasswordError(msg);
-      }
-    } finally {
-      setIsChangingPassword(false);
     }
   };
 
@@ -162,7 +111,7 @@ export function SettingsScreen() {
           icon: "check-circle-outline",
         });
       }
-    } catch (err) {
+    } catch {
       alert({
         title: "Update Check Failed",
         message: "Unable to reach update servers. Please check your internet connection.",
@@ -280,62 +229,6 @@ export function SettingsScreen() {
         </View>
       </BottomSheet>
 
-      {/* 
-      <BottomSheet visible={isChangePasswordOpen} onClose={() => setIsChangePasswordOpen(false)}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Change Password</Text>
-          <TextField
-            label="Current Password"
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-            secureTextEntry={!showCurrentPassword}
-            placeholder="Enter current password"
-            error={currentPasswordError}
-            rightElement={
-              <TouchableOpacity onPress={() => setShowCurrentPassword(!showCurrentPassword)} style={{ padding: spacing.xs }}>
-                <MaterialCommunityIcons name={showCurrentPassword ? "eye-off" : "eye"} size={22} color={colors.textMuted} />
-              </TouchableOpacity>
-            }
-          />
-          <TextField
-            label="New Password"
-            value={newPassword}
-            onChangeText={setNewPassword}
-            secureTextEntry={!showNewPassword}
-            placeholder="Minimum 8 characters"
-            error={newPasswordError}
-            rightElement={
-              <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)} style={{ padding: spacing.xs }}>
-                <MaterialCommunityIcons name={showNewPassword ? "eye-off" : "eye"} size={22} color={colors.textMuted} />
-              </TouchableOpacity>
-            }
-          />
-          <TextField
-            label="Confirm New Password"
-            value={confirmNewPassword}
-            onChangeText={setConfirmNewPassword}
-            secureTextEntry={!showConfirmPassword}
-            placeholder="Re-enter new password"
-            error={confirmPasswordError}
-            rightElement={
-              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={{ padding: spacing.xs }}>
-                <MaterialCommunityIcons name={showConfirmPassword ? "eye-off" : "eye"} size={22} color={colors.textMuted} />
-              </TouchableOpacity>
-            }
-          />
-          <View style={styles.modalActions}>
-            <Button label="Cancel" variant="secondary" onPress={() => setIsChangePasswordOpen(false)} style={{ flex: 1 }} />
-            <Button 
-              label="Update" 
-              onPress={handleChangePassword} 
-              loading={isChangingPassword} 
-              disabled={confirmNewPassword.length === 0}
-              style={{ flex: 1 }} 
-            />
-          </View>
-        </View>
-      </BottomSheet>
-      */}
     </ScreenContainer>
   );
 }
@@ -355,7 +248,7 @@ function SettingsRow({
     <TouchableOpacity onPress={onPress}>
       <Card style={styles.row}>
         <View style={styles.rowIcon}>
-          <MaterialCommunityIcons name={icon as any} size={20} color={colors.accent} />
+          <MaterialCommunityIcons name={iconName(icon)} size={20} color={colors.accent} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.rowLabel}>{label}</Text>

@@ -1,4 +1,5 @@
 import React from "react";
+import { iconName } from "../utils/icons";
 import { StyleSheet, Text, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { radius, spacing } from "../theme/spacing";
@@ -16,7 +17,8 @@ interface Props {
  * Gives all list items (expenses, incomes, categories, settings) a calm,
  * cohesive, and premium aesthetic without visual clutter.
  */
-export function CategoryPill({ icon, color, size = 38 }: Props) {
+// `color` is accepted for callers but unused: pills are deliberately neutral (see above).
+export function CategoryPill({ icon, size = 38 }: Props) {
   return (
     <View
       style={[
@@ -29,7 +31,7 @@ export function CategoryPill({ icon, color, size = 38 }: Props) {
       ]}
     >
       <MaterialCommunityIcons
-        name={icon as any}
+        name={iconName(icon)}
         size={size * 0.48}
         color={colors.iconNeutral}
       />

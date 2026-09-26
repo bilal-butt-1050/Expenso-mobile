@@ -1,4 +1,6 @@
 import React, { useRef, useEffect } from "react";
+import { iconName } from "../utils/icons";
+import { useLatest } from "../hooks/useLatest";
 import {
   Animated,
   View,
@@ -9,7 +11,8 @@ import {
   Dimensions,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
+import Swipeable, { type SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
+import type { Loan, Transaction } from "../types/models";
 import { formatCurrency } from "../utils/currency";
 import { colors } from "../theme/colors";
 import { spacing } from "../theme/spacing";
@@ -29,7 +32,8 @@ export interface UnifiedActivityItem {
   icon: string;
   isIncome?: boolean;
   isSettled?: boolean;
-  raw: any;
+  /** The transaction, or the whole loan for rows in the Loans segment. */
+  raw: Transaction | Loan;
 }
 
 interface SwipeableActivityRowProps {
@@ -51,8 +55,10 @@ export function SwipeableActivityRow({
 }: SwipeableActivityRowProps) {
   const highlightAnim = useRef(new Animated.Value(isNewlyAdded ? 1 : 0)).current;
   const deleteAnim = useRef(new Animated.Value(0)).current;
+  // Read, not depended on: parents pass a new inline callback on every render.
+  const onDeleteAnimFinishRef = useLatest(onDeleteAnimFinish);
   const fadeAnim = useRef(new Animated.Value(1)).current;
-  const swipeableRef = useRef<any>(null);
+  const swipeableRef = useRef<SwipeableMethods>(null);
 
   useEffect(() => {
     if (isNewlyAdded) {
@@ -70,7 +76,7 @@ export function SwipeableActivityRow({
         }),
       ]).start();
     }
-  }, [isNewlyAdded]);
+  }, [isNewlyAdded, highlightAnim]);
 
   useEffect(() => {
     if (isDeleting) {
@@ -87,10 +93,10 @@ export function SwipeableActivityRow({
           useNativeDriver: true,
         }),
       ]).start(() => {
-        if (onDeleteAnimFinish) onDeleteAnimFinish();
+        onDeleteAnimFinishRef.current?.();
       });
     }
-  }, [isDeleting]);
+  }, [isDeleting, deleteAnim, fadeAnim, onDeleteAnimFinishRef]);
 
   // Revealed by swiping right-to-left, matching Mail, Gmail and every other list.
   const renderRightActions = () => {
@@ -118,12 +124,13 @@ export function SwipeableActivityRow({
   const getIconBg = () => {
     if (item.type === "INCOME") return "rgba(16, 185, 129, 0.14)";
     if (item.type === "LOAN") {
-      return item.raw?.type === "LENT"
+      return (item.raw as Loan).type === "LENT"
         ? "rgba(96, 165, 250, 0.14)"
         : "rgba(245, 158, 11, 0.14)";
     }
-    if (item.raw?.category?.color) {
-      return `${item.raw.category.color}22`;
+    const categoryColor = "category" in item.raw ? item.raw.category?.color : undefined;
+    if (categoryColor) {
+      return `${categoryColor}22`;
     }
     return "rgba(99, 102, 241, 0.14)";
   };
@@ -131,10 +138,11 @@ export function SwipeableActivityRow({
   const getIconColor = () => {
     if (item.type === "INCOME") return colors.success;
     if (item.type === "LOAN") {
-      return item.raw?.type === "LENT" ? "#60A5FA" : colors.warning;
+      return (item.raw as Loan).type === "LENT" ? "#60A5FA" : colors.warning;
     }
-    if (item.raw?.category?.color) {
-      return item.raw.category.color;
+    const categoryColor = "category" in item.raw ? item.raw.category?.color : undefined;
+    if (categoryColor) {
+      return categoryColor;
     }
     return colors.accent;
   };
@@ -192,7 +200,7 @@ export function SwipeableActivityRow({
               {/* Bubbly soft icon circle */}
               <View style={[styles.iconCircle, { backgroundColor: getIconBg() }]}>
                 <MaterialCommunityIcons
-                  name={item.icon as any}
+                  name={iconName(item.icon)}
                   size={20}
                   color={getIconColor()}
                 />

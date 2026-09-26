@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { User } from "../types/models";
 import { getToken, clearToken, setUnauthorizedHandler } from "../api/client";
@@ -107,9 +108,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
         setUser(me);
         await AsyncStorage.setItem("@expenso_cached_user", JSON.stringify(me));
-      } catch (err: any) {
+      } catch (err) {
         if (cancelled) return;
-        if (err.response?.status === 401) {
+        if (axios.isAxiosError(err) && err.response?.status === 401) {
           await purgeSession();
         }
       }

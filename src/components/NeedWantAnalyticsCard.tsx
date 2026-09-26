@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, StyleProp, ViewStyle } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
 import { radius, spacing } from "../theme/spacing";
-import { typography } from "../theme/typography";
 import { formatCurrency } from "../utils/currency";
 
 interface NeedWantAnalyticsProps {

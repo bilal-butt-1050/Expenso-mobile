@@ -3,7 +3,6 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useCategories } from "../../hooks/useCategories";
-import { useDialog } from "../../context/DialogContext";
 import { getErrorMessage } from "../../api/client";
 import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
@@ -20,7 +19,6 @@ export function CategoryFormScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const editing = route.params?.category;
   const { addCategory, editCategory } = useCategories();
-  const { alert } = useDialog();
 
   const [name, setName] = useState(editing?.name ?? "");
   const [icon, setIcon] = useState(editing?.icon ?? "shape-outline");
@@ -34,18 +32,13 @@ export function CategoryFormScreen({ route, navigation }: Props) {
     setError(null);
     setIsSaving(true);
     try {
-      let categoryId = editing?.id;
       if (editing) {
         await editCategory(editing.id, { name: name.trim(), icon, color });
       } else {
-        const result = await addCategory({ name: name.trim(), icon, color });
-        categoryId = result.id;
+        await addCategory({ name: name.trim(), icon, color });
       }
-      navigation.navigate({
-        name: "Categories",
-        params: { highlightId: categoryId },
-        merge: true,
-      } as any);
+      // The form is only opened from Categories. (It used to pass a highlightId that no screen read.)
+      navigation.goBack();
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {

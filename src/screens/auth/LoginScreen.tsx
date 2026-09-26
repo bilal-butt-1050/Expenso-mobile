@@ -4,13 +4,12 @@ import {
   Text,
   View,
   TouchableOpacity,
-  ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { GoogleSignin, isErrorWithCode, statusCodes } from "@react-native-google-signin/google-signin";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../../context/AuthContext";
@@ -40,7 +39,7 @@ export function LoginScreen() {
         webClientId: "166423632403-eah00rst0smqrkre0phm0i2s5uripqe6.apps.googleusercontent.com",
         offlineAccess: true,
       });
-    } catch (e) {
+    } catch {
       console.warn("GoogleSignin is not supported in Expo Go. Please use a development build.");
     }
   }, []);
@@ -68,15 +67,15 @@ export function LoginScreen() {
       await GoogleSignin.hasPlayServices();
       try {
         await GoogleSignin.signOut();
-      } catch (e) {
+      } catch {
         // Ignore errors if already signed out
       }
       const userInfo = await GoogleSignin.signIn();
       if (userInfo.data?.idToken) {
         await loginWithGoogle(userInfo.data.idToken);
       }
-    } catch (err: any) {
-      if (err.code !== "SIGN_IN_CANCELLED") {
+    } catch (err) {
+      if (!(isErrorWithCode(err) && err.code === statusCodes.SIGN_IN_CANCELLED)) {
         setError(getErrorMessage(err));
       }
     } finally {

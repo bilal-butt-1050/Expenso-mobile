@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRegisterOverlay } from "../lib/overlays";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
-import { radius, spacing } from "../theme/spacing";
+import { spacing } from "../theme/spacing";
 
 export interface ConfirmOptions {
   title: string;

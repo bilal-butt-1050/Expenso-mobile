@@ -15,7 +15,7 @@ import { RootStackParamList } from "../../types/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { Button } from "../../components/Button";
 import { colors } from "../../theme/colors";
-import { radius, spacing } from "../../theme/spacing";
+import { spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { hapticSuccess, hapticLight } from "../../utils/haptics";
 

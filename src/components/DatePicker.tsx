@@ -12,6 +12,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
 import { radius, spacing } from "../theme/spacing";
 import { useRegisterOverlay } from "../lib/overlays";
+import { useLatest } from "../hooks/useLatest";
 
 const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const MONTHS = [
@@ -42,6 +43,7 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
 
   // Single animated value for enter/exit
   const anim = useRef(new Animated.Value(0)).current;
+  const modalVisibleRef = useLatest(modalVisible);
 
   useEffect(() => {
     if (open) {
@@ -55,7 +57,7 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
           useNativeDriver: true,
         }).start();
       });
-    } else if (modalVisible) {
+    } else if (modalVisibleRef.current) {
       // Animate out, then unmount modal
       Animated.timing(anim, {
         toValue: 0,
@@ -65,7 +67,7 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
         setModalVisible(false);
       });
     }
-  }, [open]);
+  }, [open, anim, modalVisibleRef]);
 
   const formatted = `${value.getDate()} ${MONTHS[value.getMonth()].slice(0, 3)} ${value.getFullYear()}`;
 

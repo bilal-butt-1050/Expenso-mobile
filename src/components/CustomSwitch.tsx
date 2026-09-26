@@ -16,7 +16,7 @@ export function CustomSwitch({ value, onValueChange }: CustomSwitchProps) {
       duration: 150,
       useNativeDriver: false,
     }).start();
-  }, [value]);
+  }, [value, anim]);
 
   const backgroundColor = anim.interpolate({
     inputRange: [0, 1],

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef } from "react";
-import { Animated, Easing, StyleSheet, Text } from "react-native";
+import { Animated, Easing, StyleSheet } from "react-native";
 import { colors } from "../theme/colors";
 
 interface Props {
