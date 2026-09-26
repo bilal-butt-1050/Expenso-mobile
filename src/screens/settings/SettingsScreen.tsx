@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import md5 from "md5";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import * as Updates from "expo-updates";
 import { useAuth } from "../../context/AuthContext";
 import { useDialog } from "../../context/DialogContext";
@@ -48,23 +47,10 @@ export function SettingsScreen() {
   const [newPasswordError, setNewPasswordError] = useState<string | null>(null);
   const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
 
-  const [googlePhoto, setGooglePhoto] = useState<string | null>(null);
+  // The avatar used to fall back to the phone's Google session and then *save* it to this account,
+  // so whoever last used Google sign-in on the phone had their photo copied onto every other
+  // account opened here. The server sets Google accounts' pictures itself at sign-in.
   const [imageError, setImageError] = useState(false);
-
-  useEffect(() => {
-    if (user?.avatarUrl) return;
-    (async () => {
-      try {
-        const currentUser = await GoogleSignin.getCurrentUser();
-        if (currentUser?.user?.photo) {
-          setGooglePhoto(currentUser.user.photo);
-          updateProfile({ avatarUrl: currentUser.user.photo }).catch(() => {});
-        }
-      } catch (e) {
-        // Ignore if not signed in via Google
-      }
-    })();
-  }, [user?.avatarUrl, updateProfile]);
 
   const handleSaveName = async () => {
     setNameError(null);
@@ -192,7 +178,7 @@ export function SettingsScreen() {
   const displayName = user?.name || nameFromEmail || "Expenso User";
   const emailHash = md5(email.trim().toLowerCase());
   const fallbackAvatarUrl = `https://www.gravatar.com/avatar/${emailHash}?d=identicon&s=150`;
-  const avatarUrl = user?.avatarUrl || googlePhoto || fallbackAvatarUrl;
+  const avatarUrl = user?.avatarUrl || fallbackAvatarUrl;
 
   return (
     <ScreenContainer>

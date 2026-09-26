@@ -22,6 +22,9 @@ import { AnimatedSplash } from "../components/AnimatedSplash";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
+/** How long after signup an account still counts as new for the first-run tour. */
+const NEW_ACCOUNT_MS = 24 * 60 * 60 * 1000;
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const navigationTheme = {
@@ -52,6 +55,15 @@ export function RootNavigator() {
       return;
     }
 
+    // The tour is for new accounts. It used to depend only on a flag stored on this phone, so an
+    // existing account (data and all) got it again in a new install, or in the other of the
+    // preview and production apps. Without createdAt (an older server), keep the old behaviour.
+    const isNewAccount = user.createdAt ? Date.now() - new Date(user.createdAt).getTime() < NEW_ACCOUNT_MS : true;
+    if (!isNewAccount) {
+      setNeedsTour(false);
+      return;
+    }
+
     let cancelled = false;
     AsyncStorage.getItem(`@expenso_tour_completed_${user.id}`)
       .then((val) => {
@@ -64,7 +76,7 @@ export function RootNavigator() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, isLoading]);
+  }, [user?.id, user?.createdAt, isLoading]);
 
   // Dismiss native splash immediately on mount —
   // our custom AnimatedSplash is already mounted and covering the screen with zero flicker.

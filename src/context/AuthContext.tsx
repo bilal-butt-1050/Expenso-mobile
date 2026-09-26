@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { User } from "../types/models";
 import { getToken, clearToken, setUnauthorizedHandler } from "../api/client";
 import { setActiveCurrency } from "../utils/currency";
@@ -55,6 +56,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await clearAllCaches();
     try {
       await AsyncStorage.removeItem("@expenso_cached_user");
+    } catch {}
+    // End the phone's Google session too, so the next person signing in on this device doesn't
+    // inherit it (the account picker opens fresh).
+    try {
+      await GoogleSignin.signOut();
     } catch {}
     setUser(null);
   }, []);

@@ -8,6 +8,8 @@ export interface User {
   name: string | null;
   currency: string;
   avatarUrl?: string | null;
+  /** ISO time the account was created. Missing from older servers. */
+  createdAt?: string | null;
 }
 
 export interface Category {
