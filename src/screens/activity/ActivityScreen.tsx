@@ -3,10 +3,10 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   SectionList,
   RefreshControl,
   LayoutAnimation,
+  ActivityIndicator,
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -101,11 +101,13 @@ export function ActivityScreen() {
     items: transactions,
     isLoading: txLoading,
     error: txError,
-    isRefreshing,
     hasMore,
+    isFetchingMore,
     refetch: refetchTransactions,
     loadMore,
   } = useTransactions({ kinds });
+  // The pull-to-refresh spinner shows a refresh the user asked for, not the first load.
+  const [refreshing, setRefreshing] = useState(false);
   const { commitDelete } = useTransactionMutations();
 
   const {
@@ -121,7 +123,12 @@ export function ActivityScreen() {
   const isLoading = (activeTab === "LOANS" ? loansLoading : txLoading) || false;
 
   const handleRefresh = useCallback(async () => {
-    await Promise.all([refetchTransactions(), refetchLoans()]);
+    setRefreshing(true);
+    try {
+      await Promise.all([refetchTransactions(), refetchLoans()]);
+    } finally {
+      setRefreshing(false);
+    }
   }, [refetchTransactions, refetchLoans]);
 
   /**
@@ -416,10 +423,17 @@ export function ActivityScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
-              refreshing={isLoading}
+              refreshing={refreshing}
               onRefresh={handleRefresh}
               tintColor={colors.accent}
             />
+          }
+          // The feed is paged (30 per page). Without this, rows past the first page of a month were
+          // never loaded, so older transactions silently didn't appear.
+          onEndReached={activeTab !== "LOANS" && hasMore ? loadMore : undefined}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            isFetchingMore ? <ActivityIndicator color={colors.accent} style={styles.pageSpinner} /> : null
           }
           ListHeaderComponent={
             activeTab === "LOANS" && loansSummary ? (
@@ -475,6 +489,7 @@ export function ActivityScreen() {
 }
 
 const styles = StyleSheet.create({
+  pageSpinner: { paddingVertical: spacing.lg },
   errorBlock: { alignItems: "center", gap: spacing.sm, paddingTop: spacing.xl, paddingHorizontal: spacing.lg },
   errorTitle: { ...typography.body, fontWeight: "600", color: colors.textSecondary, textAlign: "center" },
   errorSubtitle: { ...typography.caption, textAlign: "center", marginBottom: spacing.sm },
