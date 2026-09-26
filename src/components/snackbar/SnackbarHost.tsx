@@ -27,7 +27,7 @@ const STACK_AT_FONT_SCALE = 1.3;
  * TabNavigator, so it tracks whether the tabs are showing (a pushed stack screen hides it).
  */
 export function SnackbarHost() {
-  const { current, setHostActive, dismiss } = useSnackbarHost();
+  const { current, setHostActive, dismissForAction } = useSnackbarHost();
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const { fontScale } = useWindowDimensions();
@@ -135,7 +135,7 @@ export function SnackbarHost() {
           accessibilityRole="button"
           accessibilityLabel={shown.action.a11yLabel}
           onPress={() => {
-            dismiss();
+            dismissForAction();
             shown.action?.onPress();
           }}
           style={({ pressed }) => [styles.action, stacked && styles.actionStacked, pressed && styles.actionPressed]}
