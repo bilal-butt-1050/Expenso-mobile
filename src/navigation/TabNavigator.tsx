@@ -17,6 +17,7 @@ import { hapticMedium } from "../utils/haptics";
 import { dockHeight, dockPaddingBottom } from "./dock";
 import { SnackbarHost } from "../components/snackbar/SnackbarHost";
 import { UpdatePrompt } from "../components/UpdatePrompt";
+import { DiscardedWritesNotice } from "../components/DiscardedWritesNotice";
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
@@ -98,6 +99,7 @@ export function TabNavigator() {
       {/* After the button, so it layers above it. It sits above the button's top edge anyway. */}
       <SnackbarHost />
       <UpdatePrompt />
+      <DiscardedWritesNotice />
 
       <QuickActionSheet
         visible={quickActionVisible}

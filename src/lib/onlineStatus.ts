@@ -5,10 +5,9 @@ import { useMutationState } from "@tanstack/react-query";
 /**
  * Teaches TanStack Query whether the device is actually online.
  *
- * Without this the default online manager reports "online" permanently on React Native, so a
- * mutation made with no connectivity would fail outright instead of pausing — exactly the gap
- * the old hand-rolled outbox existed to fill. With it, writes made offline stay paused and
- * replay on reconnect, with no bespoke queue to keep in sync.
+ * Without this the default online manager reports "online" permanently on React Native. Together
+ * with the mutations' `networkMode: "online"` (queryClient.ts), a write made offline is paused
+ * rather than attempted, persisted, and replayed on reconnect.
  */
 export function startOnlineTracking(): () => void {
   // setEventListener returns void; it stores the unsubscribe internally and calls it when

@@ -1,6 +1,5 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,35 +17,29 @@ import { useTransactionMutations } from "../../hooks/useTransactions";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
-import { useBudgets } from "../../hooks/useBudgets";
 import { getErrorMessage } from "../../api/client";
 import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
 import { DatePicker } from "../../components/DatePicker";
 import { CategoryPill } from "../../components/CategoryPill";
 import { BottomSheet } from "../../components/BottomSheet";
+import { ChipGroup } from "../../components/ChipGroup";
+import { useSnackbar } from "../../components/snackbar/SnackbarContext";
+import { useFocusAfterTransition } from "../../hooks/useFocusAfterTransition";
+import { navigationRef } from "../../navigation/navigationRef";
+import { budgetNoticeFor } from "../../utils/budgetNotice";
+import { newTransactionId } from "../../lib/newId";
+import { toMonthKey } from "../../utils/date";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
-import { typography } from "../../theme/typography";
 import { NeedWant, PaymentMethod } from "../../types/models";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { formatCurrency, formatAmountInput } from "../../utils/currency";
+import { formatAmountInput } from "../../utils/currency";
+import { typography } from "../../theme/typography";
 import { RootStackParamList } from "../../types/navigation";
 import { hapticRecordCreated, hapticDelete, hapticError, hapticWarning } from "../../utils/haptics";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ExpenseForm">;
-
-interface BudgetAlertInfo {
-  categoryName: string;
-  categoryIcon: string;
-  categoryColor: string;
-  budget: number;
-  actualBefore: number;
-  actualAfter: number;
-  isOver: boolean;
-  overAmount: number;
-  pct: number;
-}
 
 const PAYMENT_METHODS: PaymentMethod[] = ["Cash", "Bank Transfer", "Card", "Cheque"];
 const NEED_WANT: NeedWant[] = ["Need", "Want"];
@@ -58,14 +51,18 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const { data: categories } = useCategories();
 
   const [date, setDate] = useState<Date>(editing ? new Date(editing.date) : new Date());
-  const expenseMonth = date.toISOString().slice(0, 7);
+  // The month this expense lands in. Local, like the picker; the server derives the same key in
+  // the user's timezone. (It used the UTC month, which is wrong for early-morning entries in PKT.)
+  // For an edit whose date is unchanged, the server's month key is authoritative (it's in the
+  // user's timezone, which can differ from the device's near a month boundary).
+  const expenseMonth =
+    editing && new Date(editing.date).getTime() === date.getTime() ? editing.month : toMonthKey(date);
 
   const { data: dashboardData } = useDashboard(expenseMonth);
   const { createTransaction, updateTransaction, deleteTransaction } = useTransactionMutations();
   const { setSelectedMonth } = useAppData();
-  const { confirm, alert } = useDialog();
-
-  const { setBudget } = useBudgets(expenseMonth);
+  const { confirm } = useDialog();
+  const snackbar = useSnackbar();
 
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? "");
   const [description, setDescription] = useState(editing?.description ?? "");
@@ -75,11 +72,15 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   );
   const [needWant, setNeedWant] = useState<NeedWant>(editing?.needWant ?? "Need");
   const [error, setError] = useState<string | null>(null);
+  const [amountError, setAmountError] = useState<string | null>(null);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [isBudgetSheetOpen, setIsBudgetSheetOpen] = useState(false);
-  const [budgetInputValue, setBudgetInputValue] = useState("");
-  const [isSavingBudget, setIsSavingBudget] = useState(false);
+  const amountRef = useRef<TextInput>(null);
+  // One id per form, reused on every Save tap. A save that timed out may still have succeeded, and
+  // retrying with the same id returns that row instead of creating a second one.
+  const clientIdRef = useRef(editing ? undefined : newTransactionId());
+  useFocusAfterTransition(amountRef, !editing);
 
   const hasChanges = React.useMemo(() => {
     if (!editing) return true;
@@ -106,8 +107,6 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
     setIsPickerOpen(false);
   }, []);
 
-  const [budgetAlert, setBudgetAlert] = useState<BudgetAlertInfo | null>(null);
-
   const selectedCategory = (categories ?? []).find((c) => c.id === categoryId);
   const filteredCategories = (categories ?? [])
     .filter((c) => c.name.toLowerCase().includes(searchQuery.toLowerCase().trim()))
@@ -118,21 +117,31 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       return a.name.localeCompare(b.name);
     });
 
-  const handleSave = async (forceSave = false) => {
+  const handleSave = async () => {
     setError(null);
     const parsedAmount = Number(amount.replace(/,/g, ""));
-    if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
-      setError("Please enter a valid amount");
+    const amountInvalid = !amount || isNaN(parsedAmount) || parsedAmount <= 0;
+    setAmountError(amountInvalid ? "Enter an amount above 0" : null);
+    setCategoryError(!categoryId ? "Choose a category" : null);
+    if (amountInvalid) {
+      amountRef.current?.focus();
       return;
     }
     if (!categoryId) {
-      setError("Please select a category");
+      openSheet();
       return;
     }
 
+    // Read before saving: the budget position this save starts from, in the expense's own month.
+    const budgetItem = dashboardData?.budgetVsActual.find((b) => b.categoryId === categoryId);
+    // An edit that stays in the same category and month has its old amount already counted.
+    const alreadyCounted =
+      editing && editing.categoryId === categoryId && editing.month === expenseMonth ? editing.amount : 0;
+    const before = budgetItem?.actual ?? 0;
+    const after = before - alreadyCounted + parsedAmount;
+
     try {
       setIsSaving(true);
-      const parsedAmount = Number(amount.replace(/,/g, ""));
       const input = {
         kind: "SPEND" as const,
         categoryId,
@@ -143,72 +152,55 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         needWant,
       };
 
-      const budgetItem = dashboardData?.budgetVsActual.find((b) => b.categoryId === categoryId);
-
-      // No "you haven't set a budget" interruption. It fired on *every* save into an
-      // unbudgeted category — including edits to months-old expenses — turning a three-tap
-      // action into a modal dismissal, forever, with no way to opt out. Budgets are set on the
-      // Budget screen, which is one tab away and exists for exactly that.
-
-      const diff = editing ? parsedAmount - editing.amount : parsedAmount;
-      const newActual = (budgetItem?.actual ?? 0) + diff;
-
-      // Warn BEFORE saving
-      if (!forceSave && budgetItem && budgetItem.budget > 0) {
-        if (newActual > budgetItem.budget) {
-          hapticWarning();
-          setBudgetAlert({
-            categoryName: budgetItem.name,
-            categoryIcon: budgetItem.icon,
-            categoryColor: budgetItem.color,
-            budget: budgetItem.budget,
-            actualBefore: budgetItem.actual,
-            actualAfter: newActual,
-            isOver: true,
-            overAmount: newActual - budgetItem.budget,
-            pct: (newActual / budgetItem.budget) * 100,
-          });
-          setIsSaving(false);
-          return;
-        } else if (
-          newActual >= budgetItem.budget * 0.8 &&
-          (budgetItem.actual ?? 0) < budgetItem.budget * 0.8
-        ) {
-          hapticWarning();
-          setBudgetAlert({
-            categoryName: budgetItem.name,
-            categoryIcon: budgetItem.icon,
-            categoryColor: budgetItem.color,
-            budget: budgetItem.budget,
-            actualBefore: budgetItem.actual,
-            actualAfter: newActual,
-            isOver: false,
-            overAmount: 0,
-            pct: (newActual / budgetItem.budget) * 100,
-          });
-          setIsSaving(false);
-          return;
-        }
-      }
-
-      // Actually save the expense
-      let newExpenseId: string | undefined;
+      // Save first, always (R-3). A budget warning never stands between the user and their entry.
+      // Offline, the write is queued and this resolves at once; the client id means the new row
+      // can still be highlighted, and a replay can't duplicate it.
+      const title = description.trim() || selectedCategory?.name || "Expense";
+      const clientId = clientIdRef.current;
+      let savedId = editing?.id ?? clientId;
       if (editing) {
-        await updateTransaction({ id: editing.id, input });
+        await updateTransaction(editing.id, input, title);
       } else {
-        const result = await createTransaction(input);
-        newExpenseId = result.id;
+        const created = await createTransaction({ ...input, id: clientId }, title);
+        savedId = created?.id ?? savedId;
+      }
+      hapticRecordCreated();
+
+      // Then, if this save crossed a line in that month's budget, say so without blocking. No
+      // cached budget for that month (e.g. offline) simply means no notice.
+      const notice = budgetItem
+        ? budgetNoticeFor({
+            categoryName: budgetItem.name,
+            month: expenseMonth,
+            budget: budgetItem.budget,
+            before,
+            after,
+          })
+        : null;
+      if (notice) {
+        hapticWarning();
+        snackbar.show({
+          id: notice.id,
+          text: notice.text,
+          icon: "alert-outline",
+          iconColor: notice.id === "S-2" ? colors.danger : colors.warning,
+          action: {
+            label: "Adjust budget",
+            a11yLabel: `Adjust the ${budgetItem!.name} budget`,
+            onPress: () => {
+              if (navigationRef.isReady()) {
+                navigationRef.navigate("Tabs", { screen: "Budget", params: { openCategoryId: categoryId } });
+              }
+            },
+          },
+          duration: 6000,
+          priority: 2,
+        });
       }
 
-      hapticRecordCreated();
-      setBudgetAlert(null);
-      
-      // Follow the saved entry to its month so it is actually visible. The server owns the
-      // month key (derived in the user's timezone); this mirrors it for the picker.
-      const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`;
-      setSelectedMonth(monthKey);
-
-      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: editing ? editing.id : newExpenseId }));
+      // Follow the saved entry to its month so it is actually visible.
+      setSelectedMonth(expenseMonth);
+      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: savedId }));
       navigation.goBack();
     } catch (err) {
       hapticError();
@@ -228,7 +220,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       icon: "trash-can-outline",
       onConfirm: async () => {
         hapticDelete();
-        await deleteTransaction(editing.id);
+        await deleteTransaction(editing.id, editing.description || editing.category?.name || "this expense");
         navigation.goBack();
       },
     });
@@ -259,26 +251,36 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         showsVerticalScrollIndicator={false}
       >
         <TextField
+          ref={amountRef}
+          label={`Amount (${user?.currency || "PKR"})`}
           keyboardType="decimal-pad"
           value={amount}
-          onChangeText={(val) => setAmount(formatAmountInput(val))}
-          placeholder={`Amount (${user?.currency || "PKR"})`}
+          onChangeText={(val) => {
+            setAmount(formatAmountInput(val));
+            if (amountError) setAmountError(null);
+          }}
+          placeholder="0"
+          error={amountError}
         />
 
         <TextField
+          label="Description (optional)"
           value={description}
           onChangeText={setDescription}
-          placeholder="Description (optional)"
+          placeholder="e.g. Lunch at Kolachi"
           maxLength={40}
           numberOfLines={1}
         />
 
-        {/* Category Dropdown */}
+        {/* Category */}
         <View style={styles.fieldWrap}>
+          <Text style={styles.label}>Category</Text>
           <TouchableOpacity
-            style={styles.dropdownTrigger}
+            style={[styles.dropdownTrigger, categoryError ? styles.dropdownTriggerError : null]}
             onPress={openSheet}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={selectedCategory ? `Category, ${selectedCategory.name}` : "Choose a category"}
           >
             {selectedCategory ? (
               <View style={styles.dropdownSelectedRow}>
@@ -286,21 +288,22 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
                 <Text style={styles.dropdownText}>{selectedCategory.name}</Text>
               </View>
             ) : (
-              <Text style={styles.dropdownPlaceholder}>Category</Text>
+              <Text style={styles.dropdownPlaceholder}>Choose a category</Text>
             )}
-            <MaterialCommunityIcons name="chevron-down" size={20} color={colors.textMuted} />
+            <MaterialCommunityIcons name="chevron-down" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
+          {categoryError ? <Text style={styles.fieldError}>{categoryError}</Text> : null}
         </View>
 
         {/* Date */}
         <DatePicker value={date} onChange={setDate} label="Date" maxDate={new Date()} />
 
-        <SegmentedControl label="Payment Method" options={PAYMENT_METHODS} value={paymentMethod} onChange={setPaymentMethod} />
-        <SegmentedControl label="Need or Want" options={NEED_WANT} value={needWant} onChange={setNeedWant} />
+        <ChipGroup label="Payment method" options={PAYMENT_METHODS} value={paymentMethod} onChange={setPaymentMethod} />
+        <ChipGroup label="Need or want" options={NEED_WANT} value={needWant} onChange={setNeedWant} />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Button label={editing ? "Save Changes" : "Add Expense"} onPress={() => handleSave(false)} loading={isSaving} disabled={!hasChanges} />
+        <Button label={editing ? "Save changes" : "Add expense"} onPress={handleSave} loading={isSaving} disabled={!hasChanges} />
       </ScrollView>
 
       {/* Category Sheet */}
@@ -340,6 +343,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
                 style={[styles.optionRow, isSelected && styles.optionRowSelected]}
                 onPress={() => {
                   setCategoryId(c.id);
+                  setCategoryError(null);
                   closeSheet();
                 }}
                 activeOpacity={0.7}
@@ -360,157 +364,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         </ScrollView>
       </BottomSheet>
 
-      {/* Budget Alert Modal */}
-      <Modal
-        visible={Boolean(budgetAlert)}
-        transparent
-        animationType="fade"
-        // Dismissing the warning returns to the form. It used to call goBack(), silently
-        // throwing away everything the user had typed.
-        onRequestClose={() => setBudgetAlert(null)}
-      >
-        <View style={styles.alertBackdrop}>
-          <View style={styles.alertCard}>
-            <View style={[styles.alertIconBadge, budgetAlert?.isOver ? styles.alertIconOver : styles.alertIconWarn]}>
-              <MaterialCommunityIcons
-                name={budgetAlert?.isOver ? "alert-octagon-outline" : "bell-ring-outline"}
-                size={32}
-                color={budgetAlert?.isOver ? colors.danger : colors.warning}
-              />
-            </View>
-
-            <Text style={styles.alertTitle}>
-              {budgetAlert?.isOver ? "Over Budget" : "Almost There"}
-            </Text>
-
-            {budgetAlert && (
-              <View style={styles.alertConsole}>
-                <View style={styles.alertRow}>
-                  <Text style={styles.alertLabel}>Spent</Text>
-                  <Text style={[styles.alertValue, { color: budgetAlert.isOver ? colors.danger : colors.warning }]}>
-                    {formatCurrency(budgetAlert.actualAfter)}
-                  </Text>
-                </View>
-                <View style={styles.alertRow}>
-                  <Text style={styles.alertLabel}>Budget</Text>
-                  <Text style={styles.alertValue}>{formatCurrency(budgetAlert.budget)}</Text>
-                </View>
-                {budgetAlert.isOver && (
-                  <View style={styles.alertRow}>
-                    <Text style={styles.alertLabel}>Over by</Text>
-                    <Text style={[styles.alertValue, { color: colors.danger }]}>
-                      +{formatCurrency(budgetAlert.overAmount)}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            )}
-
-            <View style={styles.alertActions}>
-              <View style={{ flexDirection: "row", gap: spacing.sm, marginBottom: spacing.sm }}>
-                <Button
-                  label="Cancel"
-                  variant="secondary"
-                  onPress={() => setBudgetAlert(null)}
-                  style={{ flex: 1 }}
-                />
-                <Button
-                  label="Add Anyway"
-                  onPress={() => handleSave(true)}
-                  style={{ flex: 1 }}
-                />
-              </View>
-              <Button
-                label="Adjust Budget"
-                variant="secondary"
-                onPress={() => {
-                  if (budgetAlert) {
-                    setBudgetInputValue(formatAmountInput(String(budgetAlert.budget)));
-                  } else {
-                    setBudgetInputValue("");
-                  }
-                  setBudgetAlert(null);
-                  setIsBudgetSheetOpen(true);
-                }}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Inline Budget Edit Sheet */}
-      <BottomSheet visible={isBudgetSheetOpen} onClose={() => setIsBudgetSheetOpen(false)}>
-        <View style={{ paddingBottom: spacing.md }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.lg }}>
-            <CategoryPill icon={selectedCategory?.icon || "help"} color={selectedCategory?.color} size={38} />
-            <Text style={{ ...typography.subtitle, color: colors.textPrimary, fontSize: 20 }}>
-              {selectedCategory?.name}
-            </Text>
-          </View>
-          <TextField
-            label={`Monthly budget (${user?.currency || "PKR"})`}
-            keyboardType="decimal-pad"
-            value={budgetInputValue}
-            onChangeText={(val) => setBudgetInputValue(formatAmountInput(val))}
-            autoFocus
-            placeholder="0"
-          />
-          <View style={{ flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm }}>
-            <Button label="Cancel" variant="secondary" onPress={() => setIsBudgetSheetOpen(false)} style={{ flex: 1 }} />
-            <Button
-              label="Save & Continue"
-              loading={isSavingBudget}
-              onPress={async () => {
-                if (!categoryId) return;
-                try {
-                  setIsSavingBudget(true);
-                  const numValue = Number(budgetInputValue.replace(/,/g, "")) || 0;
-                  await setBudget(categoryId, numValue);
-                  setIsBudgetSheetOpen(false);
-                  // Auto-resume expense saving logic bypass budget constraint check
-                  handleSave(true);
-                } catch (err: any) {
-                  alert({ title: "Couldn't save budget", message: getErrorMessage(err) });
-                } finally {
-                  setIsSavingBudget(false);
-                }
-              }}
-              style={{ flex: 1 }}
-            />
-          </View>
-        </View>
-      </BottomSheet>
     </>
-  );
-}
-
-function SegmentedControl<T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: T[];
-  value: T;
-  onChange: (v: T) => void;
-}) {
-  return (
-    <View style={styles.fieldWrap}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={styles.segmentRow}>
-        {options.map((opt) => (
-          <TouchableOpacity
-            key={opt}
-            style={[styles.segment, value === opt && styles.segmentActive]}
-            onPress={() => onChange(opt)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.segmentText, value === opt && styles.segmentTextActive]}>{opt}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
   );
 }
 
@@ -520,6 +374,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 15, fontWeight: "600", color: colors.textSecondary, marginBottom: spacing.xs },
   fieldWrap: { marginBottom: spacing.md },
   error: { color: colors.danger, marginBottom: spacing.md, fontSize: 14 },
+  fieldError: { ...typography.small, fontWeight: "500", color: colors.danger, marginTop: spacing.xs },
 
   dropdownTrigger: {
     height: 56,
@@ -532,6 +387,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  dropdownTriggerError: { borderColor: colors.danger },
   dropdownSelectedRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -539,21 +395,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dropdownText: { fontSize: 17, fontWeight: "600", color: colors.textPrimary },
-  dropdownPlaceholder: { fontSize: 17, color: colors.textMuted },
-
-  segmentRow: { flexDirection: "row", gap: spacing.xs },
-  segment: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: radius.sm,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-  },
-  segmentActive: { backgroundColor: "rgba(255,255,255,0.12)", borderColor: colors.borderLight },
-  segmentText: { fontSize: 14, fontWeight: "600", color: colors.textSecondary, textAlign: "center" },
-  segmentTextActive: { color: colors.textPrimary, fontWeight: "700", textAlign: "center" },
+  dropdownPlaceholder: { ...typography.body, fontWeight: "400", color: colors.textSecondary },
 
   sheetHeader: {
     flexDirection: "row",
@@ -593,57 +435,4 @@ const styles = StyleSheet.create({
   optionRowSelected: { backgroundColor: "rgba(255,255,255,0.08)" },
   optionText: { flex: 1, fontSize: 17, fontWeight: "500", color: colors.textSecondary },
   optionTextSelected: { color: colors.textPrimary, fontWeight: "700" },
-
-  // Budget Alert
-  alertBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.78)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: spacing.lg,
-  },
-  alertCard: {
-    width: "100%",
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.xl,
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  alertIconBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  alertIconOver: { backgroundColor: "rgba(255,82,82,0.15)" },
-  alertIconWarn: { backgroundColor: "rgba(255,179,0,0.15)" },
-  alertTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    textAlign: "center",
-  },
-  alertConsole: {
-    width: "100%",
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  alertRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  alertLabel: { fontSize: 15, fontWeight: "600", color: colors.textSecondary },
-  alertValue: { fontSize: 17, fontWeight: "800", color: colors.textPrimary },
-  alertActions: {
-    flexDirection: "column",
-    width: "100%",
-    marginTop: spacing.xs,
-  },
 });

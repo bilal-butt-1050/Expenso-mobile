@@ -1,6 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Mutation, dehydrate, defaultShouldDehydrateMutation } from "@tanstack/react-query";
 
 /**
  * Replaces the hand-rolled caching in `useAsyncData` / `useInfiniteData` / `syncService`.
@@ -10,13 +11,18 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
  * offset against a cache that could be a different length than the server had paginated, so
  * infinite scroll duplicated and dropped rows.
  */
+/** How long a cache (and any write queued offline in it) survives on disk. Was 24 h (D-41). */
+export const PERSIST_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       // Financial data is small and changes rarely; a short stale window keeps screens snappy
       // without hammering the API on every focus.
       staleTime: 30_000,
-      gcTime: 24 * 60 * 60 * 1000,
+      // Matches the persister's maxAge (D-41). TanStack keeps a persisted query only while it's
+      // within gcTime, and the persisted client (paused writes included) only within maxAge.
+      gcTime: PERSIST_MAX_AGE_MS,
       retry: (failureCount, error: any) => {
         // A 4xx will not become a 2xx by asking again. Retry only transport failures.
         const status = error?.response?.status;
@@ -26,9 +32,11 @@ export const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
     },
     mutations: {
-      // Mutations made offline stay paused and replay when connectivity returns, rather than
-      // failing into a bespoke outbox.
-      networkMode: "offlineFirst",
+      // "online": a write started while offline is *paused* before it runs, persisted, and
+      // replayed when the network returns. It was "offlineFirst", which always runs the request
+      // once and only pauses before a retry. With retry: 0 there never was a retry, so an offline
+      // write failed at once and was dropped: the offline queue never queued anything.
+      networkMode: "online",
       retry: 0,
     },
   },
@@ -41,16 +49,42 @@ export const queryClient = new QueryClient({
  * cleared only the auth token — so signing in as a different account on the same device showed
  * the previous user's transactions until the network call replaced them.
  */
+const cacheKeyFor = (userId: string) => `@expenso_query_cache_${userId}`;
+
 export function persisterForUser(userId: string) {
   return createAsyncStoragePersister({
     storage: AsyncStorage,
-    key: `@expenso_query_cache_${userId}`,
+    key: cacheKeyFor(userId),
     throttleTime: 1000,
   });
 }
 
-/** Wipe every cached query and any pending mutation. Called on logout. */
-export async function clearAllCaches(userId?: string): Promise<void> {
+/**
+ * Which writes go to disk. Paused ones (queued offline), as TanStack does by default, plus
+ * transaction writes still in flight: a committed undo usually starts exactly as the app goes to
+ * the background, and a kill mid-request would otherwise lose it. Only transaction writes qualify,
+ * because only they are safe to send twice: creates carry a client id, updates set the same values,
+ * and a delete that gets 404 counts as success. Loan writes aren't idempotent, so they don't.
+ */
+export function shouldPersistMutation(mutation: Mutation<unknown, Error, unknown, unknown>): boolean {
+  if (defaultShouldDehydrateMutation(mutation)) return true;
+  return mutation.state.status === "pending" && mutation.options.mutationKey?.[0] === "transactions";
+}
+
+export const dehydrateOptions = { shouldDehydrateMutation: shouldPersistMutation };
+
+/**
+ * Write the cache to disk now. The persister throttles saves to once a second, and a timer may never
+ * fire once the app is backgrounded, so this bypasses it. The format matches what
+ * PersistQueryClientProvider restores.
+ */
+export async function saveCacheNow(userId: string): Promise<void> {
+  const persisted = { buster: "", timestamp: Date.now(), clientState: dehydrate(queryClient, dehydrateOptions) };
+  await AsyncStorage.setItem(cacheKeyFor(userId), JSON.stringify(persisted));
+}
+
+/** Wipe every cached query and any pending mutation. Called by the session purge. */
+export async function clearAllCaches(): Promise<void> {
   queryClient.clear();
   try {
     const keys = await AsyncStorage.getAllKeys();
@@ -66,7 +100,6 @@ export async function clearAllCaches(userId?: string): Promise<void> {
   } catch {
     // Storage unavailable — the in-memory clear above is still the important half.
   }
-  void userId;
 }
 
 /** One place for query keys, so invalidation cannot drift from the fetchers. */

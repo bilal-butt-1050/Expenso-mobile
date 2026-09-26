@@ -8,6 +8,7 @@ import { useAuth } from "../context/AuthContext";
 import { colors } from "../theme/colors";
 import { RootStackParamList } from "../types/navigation";
 import { AuthNavigator } from "./AuthNavigator";
+import { navigationRef } from "./navigationRef";
 import { TabNavigator } from "./TabNavigator";
 import { ExpenseFormScreen } from "../screens/expenses/ExpenseFormScreen";
 import { IncomeFormScreen } from "../screens/income/IncomeFormScreen";
@@ -79,7 +80,7 @@ export function RootNavigator() {
 
   return (
     <View style={styles.root}>
-      <NavigationContainer theme={navigationTheme}>
+      <NavigationContainer ref={navigationRef} theme={navigationTheme}>
         {isNavigatorReady && (
           <Stack.Navigator
             key={user ? (needsTour ? "tour-stack" : "tabs-stack") : "auth-stack"}

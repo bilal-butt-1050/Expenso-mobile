@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ScrollView,
+  TextInput,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -23,6 +24,9 @@ import { DatePicker } from "../../components/DatePicker";
 import { MonthPicker } from "../../components/MonthPicker";
 import { CategoryPill } from "../../components/CategoryPill";
 import { BottomSheet } from "../../components/BottomSheet";
+import { ChipGroup } from "../../components/ChipGroup";
+import { useFocusAfterTransition } from "../../hooks/useFocusAfterTransition";
+import { newTransactionId } from "../../lib/newId";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
@@ -88,13 +92,22 @@ export function IncomeFormScreen({ route, navigation }: Props) {
   }, []);
 
   const [error, setError] = useState<string | null>(null);
+  const [amountError, setAmountError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  const amountRef = useRef<TextInput>(null);
+  // One id per form, reused on retries (see ExpenseFormScreen).
+  const clientIdRef = useRef(editing ? undefined : newTransactionId());
+  useFocusAfterTransition(amountRef, !editing);
 
   const handleSave = async () => {
     const parsedAmount = Number(amount.replace(/,/g, ""));
     if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
-      return setError("Enter a valid amount");
+      setAmountError("Enter an amount above 0");
+      amountRef.current?.focus();
+      return;
     }
+    setAmountError(null);
 
     setError(null);
     setIsSaving(true);
@@ -110,12 +123,15 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         paymentMethod,
       };
 
-      let newIncomeId: string | undefined;
+      // Offline, the write is queued and this resolves at once (see ExpenseFormScreen).
+      const title = description.trim() || selectedPreset.source;
+      const clientId = clientIdRef.current;
+      let savedId = editing?.id ?? clientId;
       if (editing) {
-        await updateTransaction({ id: editing.id, input });
+        await updateTransaction(editing.id, input, title);
       } else {
-        const result = await createTransaction(input);
-        newIncomeId = result.id;
+        const created = await createTransaction({ ...input, id: clientId }, title);
+        savedId = created?.id ?? savedId;
       }
 
       hapticRecordCreated();
@@ -124,7 +140,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
       const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`;
       setSelectedMonth(monthKey);
 
-      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: editing ? editing.id : newIncomeId }));
+      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: savedId }));
       navigation.goBack();
     } catch (err) {
       hapticError();
@@ -144,7 +160,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
       icon: "trash-can-outline",
       onConfirm: async () => {
         hapticDelete();
-        await deleteTransaction(editing.id);
+        await deleteTransaction(editing.id, editing.description || editing.source || "this income");
         navigation.goBack();
       },
     });
@@ -175,31 +191,40 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         showsVerticalScrollIndicator={false}
       >
         <TextField
+          ref={amountRef}
+          label={`Amount (${user?.currency || "PKR"})`}
           keyboardType="decimal-pad"
           value={amount}
-          onChangeText={(val) => setAmount(formatAmountInput(val))}
-          placeholder={`Amount (${user?.currency || "PKR"})`}
+          onChangeText={(val) => {
+            setAmount(formatAmountInput(val));
+            if (amountError) setAmountError(null);
+          }}
+          placeholder="0"
+          error={amountError}
         />
 
         <TextField
+          label="Description (optional)"
           value={description}
           onChangeText={setDescription}
-          placeholder="Description (optional)"
+          placeholder="e.g. September salary"
           maxLength={40}
           numberOfLines={1}
         />
 
-        {/* Source Dropdown */}
+        {/* Source */}
         <View style={styles.fieldWrap}>
+          <Text style={styles.label}>Source</Text>
           <TouchableOpacity
             style={styles.dropdownTrigger}
             onPress={openSheet}
             activeOpacity={0.7}
-            accessibilityLabel="Select Income Source"
+            accessibilityRole="button"
+            accessibilityLabel={`Source, ${selectedPreset.source}`}
           >
             <CategoryPill icon={selectedPreset.icon} size={28} />
             <Text style={styles.dropdownText}>{selectedPreset.source}</Text>
-            <MaterialCommunityIcons name="chevron-down" size={20} color={colors.textMuted} />
+            <MaterialCommunityIcons name="chevron-down" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -220,32 +245,12 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         )}
 
 
-        {/* Payment Method */}
-        <View style={styles.fieldWrap}>
-          <Text style={styles.label}>Method</Text>
-          <View style={styles.segmentRow}>
-            {PAYMENT_METHODS.map((method) => {
-              const isActive = paymentMethod === method;
-              return (
-                <TouchableOpacity
-                  key={method}
-                  style={[styles.segment, isActive && styles.segmentActive]}
-                  onPress={() => setPaymentMethod(method)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.segmentText, isActive && styles.segmentTextActive]}>
-                    {method}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
+        <ChipGroup label="Payment method" options={PAYMENT_METHODS} value={paymentMethod} onChange={setPaymentMethod} />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <Button
-          label={editing ? "Save Changes" : "Log Income"}
+          label={editing ? "Save changes" : "Log income"}
           onPress={handleSave}
           loading={isSaving}
           disabled={!hasChanges}
@@ -314,22 +319,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
 
-  segmentRow: { flexDirection: "row", gap: spacing.xs },
-  segment: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: radius.sm,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-  },
-  segmentActive: {
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
-    borderColor: colors.borderLight,
-  },
-  segmentText: { fontSize: 14, fontWeight: "600", color: colors.textSecondary, textAlign: "center" },
-  segmentTextActive: { color: colors.textPrimary, fontWeight: "700", textAlign: "center" },
 
   sheetHeader: {
     flexDirection: "row",
