@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TextInputProps, TouchableOpacity, View } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BottomSheet } from "./BottomSheet";
 import { TextField } from "./TextField";
 import { Button } from "./Button";
@@ -69,7 +70,13 @@ export function PasswordSheet({
 
   return (
     <BottomSheet visible={visible} onClose={onClose}>
-      <View style={styles.content}>
+      {/* Scrolls when the keyboard leaves too little room for the whole form. */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.title}>{hasPassword ? "Change Password" : "Set a Password"}</Text>
         {!hasPassword ? (
           <Text style={styles.note}>
@@ -78,29 +85,26 @@ export function PasswordSheet({
           </Text>
         ) : null}
         {hasPassword ? (
-          <TextField
+          <PasswordField
             label="Current Password"
             value={currentPassword}
             onChangeText={setCurrentPassword}
-            secureTextEntry
             autoComplete="current-password"
             textContentType="password"
           />
         ) : null}
-        <TextField
+        <PasswordField
           label="New Password"
           value={newPassword}
           onChangeText={setNewPassword}
-          secureTextEntry
           placeholder={`At least ${MIN_LENGTH} characters`}
           autoComplete="new-password"
           textContentType="newPassword"
         />
-        <TextField
+        <PasswordField
           label="Confirm New Password"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
-          secureTextEntry
           autoComplete="new-password"
           textContentType="newPassword"
           error={error}
@@ -114,13 +118,37 @@ export function PasswordSheet({
             style={styles.action}
           />
         </View>
-      </View>
+      </ScrollView>
     </BottomSheet>
   );
 }
 
+/** A password input with its own show/hide toggle, as on the sign-in screen. */
+function PasswordField(props: TextInputProps & { label: string; error?: string | null }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <TextField
+      {...props}
+      secureTextEntry={!visible}
+      autoCapitalize="none"
+      autoCorrect={false}
+      rightElement={
+        <TouchableOpacity
+          onPress={() => setVisible((v) => !v)}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel={visible ? `Hide ${props.label.toLowerCase()}` : `Show ${props.label.toLowerCase()}`}
+        >
+          <MaterialCommunityIcons name={visible ? "eye-off-outline" : "eye-outline"} size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+      }
+    />
+  );
+}
+
 const styles = StyleSheet.create({
-  content: { padding: spacing.xl, gap: spacing.md },
+  scroll: { flexShrink: 1 },
+  content: { paddingHorizontal: spacing.xl, paddingVertical: spacing.sm, gap: spacing.md },
   title: { ...typography.subtitle, color: colors.textPrimary },
   note: { ...typography.caption, color: colors.textSecondary },
   actions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.md },
