@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
+  TextInput,
   Platform,
   ScrollView,
   StyleSheet,
@@ -18,6 +19,7 @@ import { LoanType } from "../../types/models";
 import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
 import { DatePicker } from "../../components/DatePicker";
+import { useFocusAfterTransition } from "../../hooks/useFocusAfterTransition";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
@@ -49,28 +51,33 @@ export function LoanFormScreen({ route, navigation }: Props) {
    */
   const [recordCashflow, setRecordCashflow] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [amountError, setAmountError] = useState<string | null>(null);
+  const [personError, setPersonError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const amountRef = useRef<TextInput>(null);
+  const personRef = useRef<TextInput>(null);
+  useFocusAfterTransition(amountRef, !editing);
 
   const currencySymbol = user?.currency || "PKR";
 
   const handleAmountChange = (text: string) => {
     setRawAmount(formatAmountInput(text));
+    if (amountError) setAmountError(null);
   };
 
   const handleSave = async () => {
     setError(null);
 
+    // Fields top to bottom, so focus lands on the first one that needs attention.
     const cleanName = personName.trim();
-    if (!cleanName) {
-      setError("Please enter the person or institution's name");
-      hapticError();
-      return;
-    }
-
     const numericAmount = parseFloat(rawAmount.replace(/,/g, ""));
-    if (isNaN(numericAmount) || numericAmount <= 0) {
-      setError("Please enter a valid amount greater than 0");
+    const amountInvalid = isNaN(numericAmount) || numericAmount <= 0;
+    setAmountError(amountInvalid ? "Enter an amount above 0" : null);
+    setPersonError(!cleanName ? "Enter who this loan is with" : null);
+    if (amountInvalid || !cleanName) {
       hapticError();
+      (amountInvalid ? amountRef : personRef).current?.focus();
       return;
     }
 
@@ -188,22 +195,28 @@ export function LoanFormScreen({ route, navigation }: Props) {
         </View>
         )}
 
-        {/* Person / Counterparty Name */}
+        {/* Amount first, like the other forms (D-33). */}
         <TextField
-          label="Person / Entity Name"
-          value={personName}
-          onChangeText={setPersonName}
-          placeholder={type === "LENT" ? "e.g. Ahmed, Usman" : "e.g. Ali, Bank Alfalah"}
-          autoCapitalize="words"
-        />
-
-        {/* Amount Input */}
-        <TextField
+          ref={amountRef}
           label={`Amount (${currencySymbol})`}
           value={rawAmount}
           onChangeText={handleAmountChange}
           placeholder="0"
-          keyboardType="numeric"
+          keyboardType="decimal-pad"
+          error={amountError}
+        />
+
+        <TextField
+          ref={personRef}
+          label="Person"
+          value={personName}
+          onChangeText={(text) => {
+            setPersonName(text);
+            if (personError) setPersonError(null);
+          }}
+          placeholder={type === "LENT" ? "e.g. Ahmed" : "e.g. Ali, Bank Alfalah"}
+          autoCapitalize="words"
+          error={personError}
         />
 
         {!editing && (
@@ -243,7 +256,7 @@ export function LoanFormScreen({ route, navigation }: Props) {
           {hasDueDate && (
             <View style={styles.datePickerWrap}>
               <DatePicker
-                label="Due Date"
+                label="Due date"
                 value={dueDate}
                 onChange={setDueDate}
               />
@@ -253,7 +266,7 @@ export function LoanFormScreen({ route, navigation }: Props) {
 
         {/* Optional Notes */}
         <TextField
-          label="Notes (Optional)"
+          label="Notes (optional)"
           value={notes}
           onChangeText={setNotes}
           placeholder="e.g. For group dinner, split rental deposit"
