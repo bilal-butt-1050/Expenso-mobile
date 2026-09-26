@@ -73,6 +73,7 @@ manual testing on device → PR to `main` → review → merge → production OT
 
 ## Current work
 
-Architecture is mid-overhaul. See `../IMPLEMENTATION_PLAN.md` (outside both repos) for the batch plan
-and the decisions behind it — in particular the move to a unified `Transaction` ledger, TanStack Query,
-and React Navigation 7.
+Planning lives outside both repos, in `../docs/`. `STATE.md` is where things stand now, `PLAN.md` holds
+the milestones, `DECISIONS.md` records why things are the way they are (including the unified ledger, TanStack Query and React Navigation 7),
+and `TEST_SPEC.md` has the test IDs. Those docs exist only on Bilal's machine. The PR descriptions carry
+the reasoning into this repo's history.
