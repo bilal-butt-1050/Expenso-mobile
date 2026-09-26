@@ -4,7 +4,12 @@ import { User } from "../types/models";
 import { getToken, clearToken, setUnauthorizedHandler } from "../api/client";
 import { setActiveCurrency } from "../utils/currency";
 import { clearAllCaches } from "../lib/queryClient";
-import { countPausedWrites, noteDiscardedWrites } from "../lib/mutations";
+import {
+  cancelPendingFailureReports,
+  countUnconfirmedWrites,
+  noteDiscardedWrites,
+  setActiveWriteUser,
+} from "../lib/mutations";
 import { resetSnackbarForPurge } from "../components/snackbar/snackbarBridge";
 import * as authApi from "../api/auth";
 
@@ -40,9 +45,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * writes behind for whoever signed in next (threat S3). Discarded writes are reported (S-9).
    */
   const purgeSession = useCallback(async () => {
-    // Before the token goes: discard any pending undo rather than let it commit tokenless, and count
-    // it with the queued writes about to be dropped.
-    noteDiscardedWrites(resetSnackbarForPurge() + countPausedWrites());
+    // Synchronously, before anything awaits: from here no failure is reported for this account
+    // (N3). Discard any pending undo rather than let it commit tokenless, and count it with the
+    // unconfirmed writes about to be dropped.
+    setActiveWriteUser(null);
+    cancelPendingFailureReports();
+    noteDiscardedWrites(resetSnackbarForPurge() + countUnconfirmedWrites());
     await clearToken();
     await clearAllCaches();
     try {

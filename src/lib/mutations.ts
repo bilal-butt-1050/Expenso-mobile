@@ -47,12 +47,34 @@ export type DeleteLoanVars = WriteMeta & { id: string };
 /** Writes that move money replay one at a time, in order: a queued create runs before its delete. */
 const MONEY_SCOPE = { id: "money" };
 
+/**
+ * Transaction writes retry a transport failure (no response at all), up to 3 times with backoff.
+ * On reconnect the network often isn't really usable yet (reachability still unknown, a captive
+ * portal), and without this the first replayed write failed and was dropped. Between attempts the
+ * retryer pauses if the device goes offline again. Safe because transaction writes are idempotent:
+ * creates carry a client id, updates set the same values, and a delete that gets 404 is success.
+ * Timeouts aren't retried: three 15 s waits would leave a form spinning, and a manual retry reuses
+ * the same client id. Loan writes aren't idempotent, so they never retry.
+ */
+const TRANSPORT_RETRY = {
+  retry: (failureCount: number, error: unknown) =>
+    axios.isAxiosError(error) && !error.response && error.code !== "ECONNABORTED" && failureCount < 3,
+  retryDelay: (attempt: number) => Math.min(1000 * 2 ** attempt, 8000),
+};
+
 const statusOf = (error: unknown) => (axios.isAxiosError(error) ? error.response?.status : undefined);
 
 // --- Reporting failed background writes (S-8) ------------------------------------------------
 // Failures that land together (one reconnect replaying a queue) become one message, not a stack.
 let failedTitles: string[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** A session ended: drop failures batched for the old account before they're shown (N3). */
+export function cancelPendingFailureReports() {
+  failedTitles = [];
+  if (flushTimer) clearTimeout(flushTimer);
+  flushTimer = null;
+}
 
 function reportFailedSave(title: string, error: unknown) {
   failedTitles.push(title);
@@ -90,21 +112,23 @@ export function setActiveWriteUser(userId: string | null) {
  */
 function shouldReport(error: unknown, context: MutationFunctionContext | undefined): boolean {
   if (context?.meta?.userId !== activeUserId) return false;
-  if (statusOf(error) === 401) {
-    noteDiscardedWrites(1);
-    return false;
-  }
-  return true;
+  // A 401 purges the session, which already counts this still-pending write as not saved.
+  return statusOf(error) !== 401;
 }
+
+/** A write replayed from disk after a restart has no screen waiting on it (N4). */
+const isUnattended = (vars: WriteMeta, context: MutationFunctionContext | undefined) =>
+  Boolean(vars.background || context?.meta?.restored);
 
 function onWriteError(error: unknown, vars: WriteMeta, context: MutationFunctionContext | undefined) {
   // Show the server's truth again, whatever the optimistic state was.
   invalidateMoney();
-  if (vars.background && shouldReport(error, context)) reportFailedSave(vars.title, error);
+  if (isUnattended(vars, context) && shouldReport(error, context)) reportFailedSave(vars.title, error);
 }
 
 // --- Transactions ----------------------------------------------------------------------------
 queryClient.setMutationDefaults(mutationKeys.createTransaction, {
+  ...TRANSPORT_RETRY,
   mutationFn: (vars: CreateTransactionVars) => txApi.createTransaction(vars.input),
   scope: MONEY_SCOPE,
   onSuccess: invalidateMoney,
@@ -113,6 +137,7 @@ queryClient.setMutationDefaults(mutationKeys.createTransaction, {
 });
 
 queryClient.setMutationDefaults(mutationKeys.updateTransaction, {
+  ...TRANSPORT_RETRY,
   mutationFn: (vars: UpdateTransactionVars) => txApi.updateTransaction(vars.id, vars.input),
   scope: MONEY_SCOPE,
   onSuccess: invalidateMoney,
@@ -121,6 +146,7 @@ queryClient.setMutationDefaults(mutationKeys.updateTransaction, {
 });
 
 queryClient.setMutationDefaults(mutationKeys.deleteTransaction, {
+  ...TRANSPORT_RETRY,
   // A 404 means the row is already gone (a replayed or doubled delete): that's success.
   mutationFn: async (vars: DeleteTransactionVars) => {
     try {
@@ -151,7 +177,7 @@ queryClient.setMutationDefaults(mutationKeys.deleteTransaction, {
     context?: MutationFunctionContext
   ) => {
     invalidateMoney();
-    if (!vars.background || !shouldReport(error, context)) return;
+    if (!isUnattended(vars, context) || !shouldReport(error, context)) return;
     showSnackbar({
       id: `S-5-${vars.id}`,
       text: `Couldn't delete ${vars.title}. ${getErrorMessage(error)}`,
@@ -257,8 +283,11 @@ export function clearDiscardedWrites() {
   discardedListeners.forEach((listener) => listener());
 }
 
-/** Writes not yet confirmed by the server: paused offline, or restored from disk. */
-export function countPausedWrites(): number {
+/**
+ * Writes not yet confirmed by the server: paused offline, restored from disk, or in flight. A purge
+ * counts them all as "not saved"; for one in flight that later succeeds, this errs on reporting.
+ */
+export function countUnconfirmedWrites(): number {
   return queryClient.getMutationCache().getAll().filter((m) => m.state.status === "pending").length;
 }
 
@@ -270,7 +299,10 @@ export function countPausedWrites(): number {
  */
 export function resumeRestoredWrites() {
   for (const mutation of queryClient.getMutationCache().getAll()) {
-    if (mutation.state.status === "pending") void mutation.continue().catch(() => {});
+    if (mutation.state.status !== "pending") continue;
+    // Nobody is waiting on a restored write, so its failure goes to the snackbar.
+    mutation.setOptions({ ...mutation.options, meta: { ...mutation.options.meta, restored: true } });
+    void mutation.continue().catch(() => {});
   }
 }
 
