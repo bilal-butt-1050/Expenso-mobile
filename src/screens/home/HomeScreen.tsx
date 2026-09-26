@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import md5 from "md5";
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import {
   Image,
   RefreshControl,
@@ -97,26 +96,7 @@ export function HomeScreen() {
       })
     : [];
 
-  const [googlePhoto, setGooglePhoto] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
-
-  useEffect(() => {
-    if (user?.avatarUrl) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const currentUser = await GoogleSignin.getCurrentUser();
-        if (!cancelled && currentUser?.user?.photo) {
-          setGooglePhoto(currentUser.user.photo);
-        }
-      } catch {
-        // No Google session: fall back to the Gravatar below.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.avatarUrl]);
 
   const email = user?.email || "";
   const nameFromEmail = email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
@@ -124,7 +104,9 @@ export function HomeScreen() {
   const firstName = displayName.split(" ")[0];
   const emailHash = md5(email.trim().toLowerCase());
   const fallbackAvatarUrl = `https://www.gravatar.com/avatar/${emailHash}?d=identicon&s=150`;
-  const avatarUrl = user?.avatarUrl || googlePhoto || fallbackAvatarUrl;
+  // Only this account's own picture (stored by the server for Google accounts) or its Gravatar.
+  // Never the phone's Google session, which belongs to whoever last used Google sign-in here.
+  const avatarUrl = user?.avatarUrl || fallbackAvatarUrl;
 
   const currentHour = new Date().getHours();
   const greeting = currentHour < 12 ? "Good morning" : currentHour < 17 ? "Good afternoon" : "Good evening";
