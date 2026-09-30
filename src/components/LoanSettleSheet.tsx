@@ -22,6 +22,8 @@ interface LoanSettleSheetProps {
   onClose: () => void;
   onSettle: (loanId: string, amount?: number) => Promise<void>;
   onDelete: (loanId: string) => void;
+  /** Opens the loan form for this loan (R-29). */
+  onEdit: (loan: Loan) => void;
 }
 
 export function LoanSettleSheet({
@@ -29,6 +31,7 @@ export function LoanSettleSheet({
   onClose,
   onSettle,
   onDelete,
+  onEdit,
 }: LoanSettleSheetProps) {
   const [partialAmount, setPartialAmount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -120,19 +123,30 @@ export function LoanSettleSheet({
                 {isLent ? "MONEY LENT" : "MONEY BORROWED"}
               </Text>
             </View>
-            <TouchableOpacity
-              onPress={() => {
-                onClose();
-                if (shown) onDelete(shown.id);
-              }}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <MaterialCommunityIcons
-                name="trash-can-outline"
-                size={20}
-                color={colors.danger}
-              />
-            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                onPress={() => {
+                  onClose();
+                  if (shown) onEdit(shown);
+                }}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel="Edit loan"
+              >
+                <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  onClose();
+                  if (shown) onDelete(shown.id);
+                }}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel="Delete loan"
+              >
+                <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <Text style={styles.personName}>{shown?.personName}</Text>
@@ -217,6 +231,11 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: 4,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.lg,
   },
   titleRow: {
     flexDirection: "row",

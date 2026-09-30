@@ -17,7 +17,6 @@ import { useAuth } from "../../context/AuthContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { MonthPicker } from "../../components/MonthPicker";
 import { AnimatedProgressBar } from "../../components/AnimatedProgressBar";
-import { NeedWantAnalyticsCard } from "../../components/NeedWantAnalyticsCard";
 import { CategoryPill } from "../../components/CategoryPill";
 import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
@@ -37,17 +36,27 @@ import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
 import { BottomSheet } from "../../components/BottomSheet";
 import { useRoute, useNavigation, RouteProp, NavigationProp } from "@react-navigation/native";
-import { TabParamList } from "../../types/navigation";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { RootStackParamList, TabParamList } from "../../types/navigation";
+
+/** Category limits, as the old Categories screen enforced them. */
+const MIN_CATEGORIES = 5;
+const MAX_CATEGORIES = 20;
+/** Where a deleted category's expenses go, so it can't itself be changed. */
+const FALLBACK_CATEGORY = "Other";
 
 export function BudgetScreen() {
   const route = useRoute<RouteProp<TabParamList, "Budget">>();
   const navigation = useNavigation<NavigationProp<TabParamList, "Budget">>();
+  const rootNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { selectedMonth, setSelectedMonth } = useAppData();
   const { data: summary, error, isOffline, refetch } = useDashboard();
-  const { data: categories } = useCategories();
+  const { data: categories, removeCategory } = useCategories();
   const { setBudget, clearBudget } = useBudgets(selectedMonth);
-  const { alert } = useDialog();
+  const { alert, confirm } = useDialog();
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  // Long-pressed category: its Edit / Delete sheet (R-33).
+  const [managingCategory, setManagingCategory] = useState<Category | null>(null);
   const bottomPadding = useTabBarPadding();
   const snackbar = useSnackbar();
   // Collapsed on each mount; kept across month changes while the screen stays mounted (§S5).
@@ -123,16 +132,77 @@ export function BudgetScreen() {
     setUnusedExpanded((v) => !v);
   };
 
+  const categoryCount = categories?.length ?? 0;
+
+  const addCategory = () => {
+    hapticLight();
+    if (categoryCount >= MAX_CATEGORIES) {
+      alert({
+        title: "Category limit reached",
+        message: `You can have up to ${MAX_CATEGORIES} categories, to keep your budget manageable.`,
+        icon: "alert-circle-outline",
+      });
+      return;
+    }
+    rootNavigation.navigate("CategoryForm", undefined);
+  };
+
+  const manageCategory = (category: Category) => {
+    hapticLight();
+    if (category.name === FALLBACK_CATEGORY) {
+      alert({
+        title: `"${FALLBACK_CATEGORY}" can't be changed`,
+        message: "Expenses from deleted categories move here, so it always stays.",
+        icon: "information-outline",
+      });
+      return;
+    }
+    setManagingCategory(category);
+  };
+
+  const deleteCategory = (category: Category) => {
+    setManagingCategory(null);
+    if (categoryCount <= MIN_CATEGORIES) {
+      alert({
+        title: "Minimum categories reached",
+        message: `You need at least ${MIN_CATEGORIES} categories. Add a new one before deleting this one.`,
+        icon: "alert-circle-outline",
+      });
+      return;
+    }
+    confirm({
+      title: `Delete "${category.name}"?`,
+      message: `Any expenses in this category will move to "${FALLBACK_CATEGORY}", so nothing gets lost.`,
+      confirmText: "Delete",
+      destructive: true,
+      icon: "trash-can-outline",
+      onConfirm: async () => {
+        try {
+          if (!reduceMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          await removeCategory(category.id);
+        } catch (err) {
+          alert({ title: "Couldn't delete category", message: getErrorMessage(err), icon: "alert-circle-outline" });
+        }
+      },
+    });
+  };
+
   const renderRow = (item: (typeof rows)[number]) => {
     const progress = item.budget > 0 ? item.actual / item.budget : 0;
+    const isOver = item.hasBudget && item.budget > 0 && item.actual > item.budget;
     return (
       <TouchableOpacity
         key={item.category.id}
         style={styles.capsule}
         onPress={() => setEditingCategory(item.category)}
+        onLongPress={() => manageCategory(item.category)}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel={`${item.category.name}, ${formatCurrency(item.actual)} of ${formatCurrency(item.budget)}`}
+        accessibilityLabel={
+          isOver
+            ? `${item.category.name}, ${formatCurrency(item.actual)} spent, ${formatCurrency(item.actual - item.budget)} over a ${formatCurrency(item.budget)} budget`
+            : `${item.category.name}, ${formatCurrency(item.actual)} of ${formatCurrency(item.budget)}`
+        }
       >
         <View style={styles.capsuleHeader}>
           <View style={styles.capsuleLeft}>
@@ -141,8 +211,12 @@ export function BudgetScreen() {
           </View>
           <View style={styles.capsuleRight}>
             <Text style={styles.capsuleAmount}>{formatCurrency(item.actual)}</Text>
-            <Text style={styles.capsuleBudget}>
-              {item.hasBudget ? `of ${formatCurrency(item.budget)}` : "no budget"}
+            <Text style={[styles.capsuleBudget, isOver && { color: colors.danger }]}>
+              {!item.hasBudget
+                ? "no budget"
+                : isOver
+                  ? `${formatCurrency(item.actual - item.budget)} over`
+                  : `of ${formatCurrency(item.budget)}`}
             </Text>
           </View>
         </View>
@@ -156,7 +230,9 @@ export function BudgetScreen() {
 
   const totalBudgeted = rows.reduce((sum, r) => sum + r.budget, 0);
   const monthlyIncome = summary?.monthlyIncome ?? 0;
-  const unallocated = monthlyIncome - totalBudgeted;
+  // What's left to hand out to categories this month (R-31). No "savings" concept for now.
+  const leftToBudget = monthlyIncome - totalBudgeted;
+  const monthLabel = formatMonthLabel(selectedMonth);
 
   return (
     <ScreenContainer>
@@ -197,40 +273,35 @@ export function BudgetScreen() {
                   </View>
                   <View style={styles.summaryDivider} />
                   <View style={styles.summaryCol}>
-                    <Text style={styles.summaryLabel}>INCOME</Text>
-                    <Text style={styles.summaryValue}>{formatCurrency(monthlyIncome)}</Text>
+                    <Text style={styles.summaryLabel}>LEFT TO BUDGET</Text>
+                    <Text style={[styles.summaryValue, leftToBudget < 0 && { color: colors.danger }]}>
+                      {monthlyIncome > 0 ? formatCurrency(leftToBudget) : "—"}
+                    </Text>
                   </View>
                 </View>
 
-                {monthlyIncome > 0 && (
+                {monthlyIncome > 0 ? (
                   <>
-                    <View style={styles.trackBg}>
-                      <View
-                        style={[styles.trackFill, {
-                          width: `${Math.min(100, (totalBudgeted / monthlyIncome) * 100)}%`,
-                          backgroundColor: unallocated < 0 ? colors.danger : colors.textPrimary,
-                        }]}
-                      />
-                    </View>
+                    <AnimatedProgressBar
+                      progress={totalBudgeted / monthlyIncome}
+                      height={6}
+                      style={{ marginTop: spacing.md }}
+                    />
                     <Text style={styles.unallocatedText}>
-                      {unallocated < 0
-                        ? `Over by ${formatCurrency(Math.abs(unallocated))}`
-                        : `${formatCurrency(unallocated)} planned savings`}
+                      {leftToBudget < 0
+                        ? `Budgeted ${formatCurrency(Math.abs(leftToBudget))} more than your income`
+                        : `of ${formatCurrency(monthlyIncome)} income in ${monthLabel}`}
                     </Text>
                   </>
+                ) : (
+                  <Text style={styles.unallocatedText}>
+                    Log income for {monthLabel} to see what's left to budget
+                  </Text>
                 )}
               </View>
 
-              {/* 50/30/20 Financial Health Analytics */}
-              <NeedWantAnalyticsCard
-                income={monthlyIncome}
-                needsTotal={summary?.needsTotal ?? 0}
-                wantsTotal={summary?.wantsTotal ?? 0}
-                savingsTotal={monthlyIncome > 0 ? Math.max(0, monthlyIncome - (summary?.totalExpenses ?? 0)) : 0}
-                style={{ marginTop: spacing.md }}
-              />
-
               <Text style={styles.sectionTitle}>Categories</Text>
+              <Text style={styles.sectionHint}>Tap to set a budget · long-press to edit</Text>
             </>
           }
           ListEmptyComponent={
@@ -243,7 +314,8 @@ export function BudgetScreen() {
             )
           }
           ListFooterComponent={
-            unusedRows.length > 0 ? (
+            <>
+            {unusedRows.length > 0 ? (
               <>
                 {usedRows.length > 0 && (
                   <TouchableOpacity
@@ -266,11 +338,42 @@ export function BudgetScreen() {
                 )}
                 {showUnused && unusedRows.map(renderRow)}
               </>
-            ) : null
+            ) : null}
+            <TouchableOpacity
+              style={[styles.capsule, styles.groupRow]}
+              onPress={addCategory}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Add category"
+            >
+              <Text style={[styles.groupLabel, { color: colors.accent }]}>+ Add category</Text>
+            </TouchableOpacity>
+            </>
           }
           renderItem={({ item }) => renderRow(item)}
         />
       )}
+
+      <BottomSheet visible={!!managingCategory} onClose={() => setManagingCategory(null)}>
+        {managingCategory ? (
+          <View style={styles.manageSheet}>
+            <View style={styles.sheetHeader}>
+              <CategoryPill icon={managingCategory.icon} color={managingCategory.color} size={38} />
+              <Text style={styles.sheetTitle}>{managingCategory.name}</Text>
+            </View>
+            <Button
+              label="Edit category"
+              variant="secondary"
+              onPress={() => {
+                const category = managingCategory;
+                setManagingCategory(null);
+                rootNavigation.navigate("CategoryForm", { category });
+              }}
+            />
+            <Button label="Delete category" variant="danger" onPress={() => deleteCategory(managingCategory)} />
+          </View>
+        ) : null}
+      </BottomSheet>
 
       <BottomSheet visible={!!editingCategory} onClose={() => setEditingCategory(null)}>
         <BudgetEditSheet
@@ -354,57 +457,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: spacing.md,
   },
-  savingsGoalBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: colors.accentMuted,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: "rgba(99, 102, 241, 0.3)",
-  },
-  savingsGoalBtnText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.accent,
-  },
-  rolloverCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    backgroundColor: colors.successMuted,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.3)",
-    marginBottom: spacing.lg,
-  },
-  rolloverIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(16, 185, 129, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rolloverTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  rolloverSub: {
-    fontSize: 12,
-    color: colors.success,
-    fontWeight: "500",
-    marginTop: 2,
-  },
-  rolloverAmount: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: colors.success,
-  },
 
   summaryCard: {
     backgroundColor: colors.surfaceRaised,
@@ -438,16 +490,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.08)",
     marginHorizontal: spacing.md,
   },
-  trackBg: {
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    overflow: "hidden",
-  },
-  trackFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
   unallocatedText: {
     fontSize: 14,
     fontWeight: "600",
@@ -465,6 +507,7 @@ const styles = StyleSheet.create({
   errorBlock: { alignItems: "center", gap: spacing.sm, paddingTop: spacing.xl },
   errorTitle: { ...typography.body, fontWeight: "600", color: colors.textSecondary, textAlign: "center" },
   errorSubtitle: { ...typography.caption, textAlign: "center", marginBottom: spacing.sm },
+  sectionHint: { ...typography.small, color: colors.textSecondary, marginBottom: spacing.sm },
   sectionTitle: {
     ...typography.subtitle,
     fontSize: 18,
@@ -511,19 +554,9 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 2,
   },
-  progressBarBg: {
-    height: 6,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderRadius: 3,
-    overflow: "hidden",
-    marginTop: spacing.md,
-  },
-  progressBarFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
 
   // Sheet
+  manageSheet: { gap: spacing.md, paddingBottom: spacing.md },
   sheetInner: {
     paddingBottom: spacing.md,
   },
@@ -534,78 +567,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   sheetTitle: { ...typography.subtitle, color: colors.textPrimary, fontSize: 20 },
-  sheetLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
   sheetActions: {
     flexDirection: "row",
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
 
-  // Savings Goal Modal Styles
-  modalContent: {
-    paddingBottom: spacing.lg,
-    gap: spacing.sm,
-  },
-  modalTitle: { ...typography.subtitle, fontSize: 18, fontWeight: "700", color: colors.textPrimary },
-  modalSubtitle: { ...typography.caption, color: colors.textSecondary, lineHeight: 18 },
-  presetRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs + 2,
-    marginTop: spacing.xs,
-  },
-  presetPill: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  presetPillActive: {
-    backgroundColor: colors.accentMuted,
-    borderColor: colors.accent,
-  },
-  presetText: {
-    ...typography.caption,
-    fontWeight: "600",
-    color: colors.textSecondary,
-  },
-  presetTextActive: {
-    color: colors.accent,
-    fontWeight: "700",
-  },
-  inputWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    height: 52,
-    marginTop: spacing.xs,
-  },
-  inputPrefix: {
-    ...typography.body,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    marginRight: spacing.sm,
-  },
-  numericInput: {
-    flex: 1,
-    color: colors.textPrimary,
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  modalActions: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
 });

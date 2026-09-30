@@ -15,7 +15,6 @@ import { onlineManager } from "@tanstack/react-query";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useDashboard } from "../../hooks/useDashboard";
-import { useLoans } from "../../hooks/useLoans";
 import { useAppData } from "../../context/AppDataContext";
 import { useAuth } from "../../context/AuthContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
@@ -52,7 +51,6 @@ export function HomeScreen() {
   const { user } = useAuth();
   const { selectedMonth, setSelectedMonth } = useAppData();
   const { data, error, isOffline, refetch } = useDashboard();
-  const { loans, refresh: refreshLoans } = useLoans();
   const snackbar = useSnackbar();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -77,24 +75,12 @@ export function HomeScreen() {
     }
     setRefreshing(true);
     try {
-      const [dashboard] = await Promise.all([refetch(), refreshLoans()]);
+      const dashboard = await refetch();
       if (dashboard.isError && data) showRefreshFailed();
     } finally {
       setRefreshing(false);
     }
   };
-
-  // Loans are positions, not events: they're edited and settled on their own screen.
-  const navigateToLoans = () => navigation.navigate("Loans");
-
-  // "Overdue" is a fact about today, so it only shows on the current month (DESIGN §S1).
-  const overdueLoans = isCurrentMonth
-    ? (loans ?? []).filter((l) => {
-        if (l.status === "SETTLED" || !l.dueDate) return false;
-        const due = new Date(l.dueDate).getTime();
-        return !isNaN(due) && due < Date.now();
-      })
-    : [];
 
   const [imageError, setImageError] = useState(false);
 
@@ -149,8 +135,6 @@ export function HomeScreen() {
             greeting={`${greeting}, ${firstName}`}
             isCurrentMonth={isCurrentMonth}
             stacked={stacked}
-            overdueCount={overdueLoans.length}
-            onOpenLoans={navigateToLoans}
           />
         ) : error || isOffline ? (
           <View style={styles.heroSection}>
@@ -177,11 +161,9 @@ interface BalanceSheetProps {
   greeting: string;
   isCurrentMonth: boolean;
   stacked: boolean;
-  overdueCount: number;
-  onOpenLoans: () => void;
 }
 
-function BalanceSheet({ data, greeting, isCurrentMonth, stacked, overdueCount, onOpenLoans }: BalanceSheetProps) {
+function BalanceSheet({ data, greeting, isCurrentMonth, stacked }: BalanceSheetProps) {
   const monthName = formatMonthShort(data.month);
   const monthLabel = formatMonthLabel(data.month);
 
@@ -189,8 +171,6 @@ function BalanceSheet({ data, greeting, isCurrentMonth, stacked, overdueCount, o
   // same backend instant, so they are equal by construction.
   const change = Math.round(data.closingNetWorth - data.openingNetWorth);
   const overspent = data.savingsThisMonth < 0;
-  const debt = data.netDebtSnapshot;
-  const showDebts = debt.totalLent > 0 || debt.totalBorrowed > 0;
 
   return (
     <>
@@ -221,24 +201,6 @@ function BalanceSheet({ data, greeting, isCurrentMonth, stacked, overdueCount, o
           </View>
         )}
       </View>
-
-      {overdueCount > 0 && (
-        <View style={styles.alertsContainer}>
-          <TouchableOpacity
-            style={[styles.alertCard, styles.alertCardDanger]}
-            onPress={onOpenLoans}
-            activeOpacity={0.75}
-            accessibilityRole="button"
-            accessibilityLabel={`${overdueCount} ${overdueCount === 1 ? "loan" : "loans"} overdue`}
-          >
-            <MaterialCommunityIcons name="alert-circle-outline" size={18} color={colors.danger} />
-            <Text style={styles.alertText}>
-              {overdueCount} {overdueCount === 1 ? "overdue loan needs" : "overdue loans need"} attention
-            </Text>
-            <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textMuted} />
-          </TouchableOpacity>
-        </View>
-      )}
 
       <View style={styles.card}>
         <Text style={styles.cardHeaderTitle}>Monthly cashflow</Text>
@@ -289,37 +251,6 @@ function BalanceSheet({ data, greeting, isCurrentMonth, stacked, overdueCount, o
         </View>
       </View>
 
-      {showDebts && (
-        <TouchableOpacity
-          style={styles.card}
-          onPress={onOpenLoans}
-          activeOpacity={0.75}
-          accessibilityRole="button"
-          accessibilityLabel={isCurrentMonth ? "Debts and loans" : `Debts and loans, end of ${monthName}`}
-          accessibilityHint="Opens your loans as of today"
-        >
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardHeaderTitle}>
-              {isCurrentMonth ? "Debts & loans" : `Debts & loans · end of ${monthName}`}
-            </Text>
-            <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textMuted} />
-          </View>
-
-          <View style={[styles.flowRow, styles.debtRow, stacked && styles.flowRowStacked]}>
-            <View style={styles.flowItem}>
-              <Text style={styles.debtSubLabel}>Owed to you</Text>
-              <MoneyText amount={debt.totalLent} style={[styles.flowAmount, { color: colors.success }]} />
-            </View>
-
-            {!stacked && <View style={styles.flowDivider} />}
-
-            <View style={styles.flowItem}>
-              <Text style={styles.debtSubLabel}>You owe</Text>
-              <MoneyText amount={debt.totalBorrowed} style={[styles.flowAmount, { color: colors.danger }]} />
-            </View>
-          </View>
-        </TouchableOpacity>
-      )}
     </>
   );
 }
@@ -376,32 +307,6 @@ const styles = StyleSheet.create({
   errorTitle: { ...typography.body, fontWeight: "600", color: colors.textSecondary, textAlign: "center" },
   errorSubtitle: { ...typography.caption, textAlign: "center", marginBottom: spacing.sm },
 
-  alertsContainer: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    gap: spacing.sm,
-  },
-  alertCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    gap: spacing.sm,
-  },
-  alertCardDanger: {
-    borderColor: "rgba(239, 68, 68, 0.25)",
-    backgroundColor: "rgba(239, 68, 68, 0.04)",
-  },
-  alertText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "500",
-    color: colors.textPrimary,
-  },
 
   card: {
     backgroundColor: colors.surface,
@@ -419,11 +324,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: spacing.md,
   },
-  cardHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
 
   flowRow: {
     flexDirection: "row",
@@ -432,7 +332,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   flowRowStacked: { flexDirection: "column", alignItems: "stretch", gap: spacing.sm },
-  debtRow: { marginBottom: 0 },
   flowItem: { flex: 1 },
   flowLabelRow: {
     flexDirection: "row",
@@ -485,12 +384,6 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
 
-  debtSubLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
   allowancePill: {
     marginTop: spacing.md,
     flexDirection: "row",

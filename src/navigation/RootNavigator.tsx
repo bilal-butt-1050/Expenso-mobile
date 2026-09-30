@@ -12,12 +12,10 @@ import { navigationRef } from "./navigationRef";
 import { TabNavigator } from "./TabNavigator";
 import { ExpenseFormScreen } from "../screens/expenses/ExpenseFormScreen";
 import { IncomeFormScreen } from "../screens/income/IncomeFormScreen";
-import { CategoriesScreen } from "../screens/settings/CategoriesScreen";
 import { CategoryFormScreen } from "../screens/settings/CategoryFormScreen";
 import { LoanFormScreen } from "../screens/loans/LoanFormScreen";
 import { OnboardingTourScreen } from "../screens/onboarding/OnboardingTourScreen";
 import { SettingsScreen } from "../screens/settings/SettingsScreen";
-import { LoansScreen } from "../screens/loans/LoansScreen";
 import { AnimatedSplash } from "../components/AnimatedSplash";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -111,16 +109,10 @@ export function RootNavigator() {
                   component={SettingsScreen}
                   options={{ animation: "slide_from_right" }}
                 />
-                <Stack.Screen
-                  name="Loans"
-                  component={LoansScreen}
-                  options={{ animation: "slide_from_right" }}
-                />
                 <Stack.Screen name="OnboardingTour" component={OnboardingTourScreen} />
                 <Stack.Group screenOptions={{ presentation: "modal", headerShown: true }}>
                   <Stack.Screen name="ExpenseForm" component={ExpenseFormScreen} options={{ title: "Expense" }} />
                   <Stack.Screen name="IncomeForm" component={IncomeFormScreen} options={{ title: "Log Income" }} />
-                  <Stack.Screen name="Categories" component={CategoriesScreen} options={{ title: "Categories" }} />
                   <Stack.Screen
                     name="CategoryForm"
                     component={CategoryFormScreen}

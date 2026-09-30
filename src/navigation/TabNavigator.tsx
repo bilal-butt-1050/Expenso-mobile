@@ -13,7 +13,7 @@ import { HomeScreen } from "../screens/home/HomeScreen";
 import { ActivityScreen } from "../screens/activity/ActivityScreen";
 import { BudgetScreen } from "../screens/budget/BudgetScreen";
 import { QuickActionSheet } from "../components/QuickActionSheet";
-import { hapticMedium } from "../utils/haptics";
+import { hapticLight, hapticMedium } from "../utils/haptics";
 import { dockHeight, dockPaddingBottom } from "./dock";
 import { SnackbarHost } from "../components/snackbar/SnackbarHost";
 import { UpdatePrompt } from "../components/UpdatePrompt";
@@ -29,8 +29,17 @@ const ICONS: Record<keyof TabParamList, { active: IconName; inactive: IconName }
   Budget: { active: "chart-donut", inactive: "chart-arc" },
 };
 
+/** How far the raised Home button rises above the top edge of the dock: half its height. */
+const HOME_RISE = size.fab / 2;
+
 /**
- * Three tabs plus a floating quick-add button (D-11).
+ * Three tabs, Activity · Home · Budget, with Home raised in the centre as the main screen (D-57),
+ * plus a floating quick-add button (D-11).
+ *
+ * The raised Home button is drawn as an overlay sibling of the navigator, like the quick-add
+ * button. Lifted out of the bar itself it would be dead where it overflows, because Android doesn't
+ * deliver touches outside a parent's bounds (ui-review §1.2). With three equal slots the centre slot
+ * sits at exactly 50% (§1.1); the button covers that slot's icon, and the slot's label stays below.
  *
  * The button used to be a fourth, centre slot in the bar — but with four equal slots the third one
  * sits at 62.5%, not 50%, so it read as visibly off-centre. It now floats bottom-right above the
@@ -41,6 +50,8 @@ export function TabNavigator() {
   const insets = useSafeAreaInsets();
   const rootNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [quickActionVisible, setQuickActionVisible] = useState(false);
+  const [focusedTab, setFocusedTab] = useState<keyof TabParamList>("Home");
+  const homeFocused = focusedTab === "Home";
 
   const dock = dockHeight(insets.bottom);
 
@@ -48,6 +59,7 @@ export function TabNavigator() {
     <View style={styles.root}>
       <Tab.Navigator
         initialRouteName="Home"
+        screenListeners={({ route }) => ({ focus: () => setFocusedTab(route.name) })}
         screenOptions={({ route }) => ({
           headerShown: false,
           tabBarActiveTintColor: colors.accent,
@@ -63,6 +75,8 @@ export function TabNavigator() {
           },
           tabBarLabelStyle: { fontSize: 11, fontWeight: "600", marginTop: 2 },
           tabBarIcon: ({ color, focused }) => {
+            // The raised button carries Home's icon; the slot keeps only its label.
+            if (route.name === "Home") return <View style={styles.iconPlaceholder} />;
             const icon = ICONS[route.name];
             return (
               <MaterialCommunityIcons
@@ -74,10 +88,32 @@ export function TabNavigator() {
           },
         })}
       >
-        <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: "Home" }} />
         <Tab.Screen name="Activity" component={ActivityScreen} options={{ tabBarLabel: "Activity" }} />
+        <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: "Home" }} />
         <Tab.Screen name="Budget" component={BudgetScreen} options={{ tabBarLabel: "Budget" }} />
       </Tab.Navigator>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Home"
+        accessibilityState={{ selected: homeFocused }}
+        onPress={() => {
+          hapticLight();
+          rootNavigation.navigate("Tabs", { screen: "Home" });
+        }}
+        style={({ pressed }) => [
+          styles.homeButton,
+          { bottom: dock - HOME_RISE },
+          homeFocused ? styles.homeButtonActive : styles.homeButtonIdle,
+          pressed && styles.fabPressed,
+        ]}
+      >
+        <MaterialCommunityIcons
+          name={homeFocused ? ICONS.Home.active : ICONS.Home.inactive}
+          size={26}
+          color={homeFocused ? colors.accentForeground : colors.accent}
+        />
+      </Pressable>
 
       <Pressable
         accessibilityRole="button"
@@ -126,4 +162,18 @@ const styles = StyleSheet.create({
     ...elevation.floating,
   },
   fabPressed: { opacity: 0.85 },
+  iconPlaceholder: { width: 24, height: 24 },
+  homeButton: {
+    position: "absolute",
+    left: "50%",
+    marginLeft: -size.fab / 2,
+    width: size.fab,
+    height: size.fab,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    ...elevation.floating,
+  },
+  homeButtonActive: { backgroundColor: colors.accent },
+  homeButtonIdle: { backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border },
 });

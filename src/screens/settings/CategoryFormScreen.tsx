@@ -37,7 +37,7 @@ export function CategoryFormScreen({ route, navigation }: Props) {
       } else {
         await addCategory({ name: name.trim(), icon, color });
       }
-      // The form is only opened from Categories. (It used to pass a highlightId that no screen read.)
+      // Opened from the Budget tab (R-33), so going back lands there.
       navigation.goBack();
     } catch (err) {
       setError(getErrorMessage(err));

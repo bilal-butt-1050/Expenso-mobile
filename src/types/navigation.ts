@@ -27,13 +27,11 @@ export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabParamList>;
   Settings: undefined;
   /** Full debt management. Deep-linked from Home's "Debts & Loans" card. */
-  Loans: undefined;
   /** `loan` present means edit; absent means create. */
   LoanForm: { initialType?: LoanType; loan?: Loan } | undefined;
   /** `transaction` present means edit; absent means create. */
   ExpenseForm: { transaction?: Transaction } | undefined;
   IncomeForm: { transaction?: Transaction } | undefined;
-  Categories: undefined;
   CategoryForm: { category?: Category } | undefined;
   OnboardingTour: { fromSettings?: boolean } | undefined;
 };

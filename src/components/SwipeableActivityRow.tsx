@@ -13,6 +13,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Swipeable, { type SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import type { Loan, Transaction } from "../types/models";
+import { AnimatedProgressBar } from "./AnimatedProgressBar";
 import { formatCurrency } from "../utils/currency";
 import { colors } from "../theme/colors";
 import { spacing } from "../theme/spacing";
@@ -24,17 +25,29 @@ const SCREEN_WIDTH = Dimensions.get("window").width;
 export interface UnifiedActivityItem {
   id: string;
   rawId: string;
-  type: "EXPENSE" | "INCOME" | "LOAN";
+  /** LOAN is a loan record (Loans segment); LOAN_MOVEMENT is one of its ledger movements. */
+  type: "EXPENSE" | "INCOME" | "LOAN" | "LOAN_MOVEMENT";
   title: string;
   subtitle?: string;
   amount: number;
   date: string | Date;
   icon: string;
-  isIncome?: boolean;
-  isSettled?: boolean;
+  /**
+   * How the amount is signed (R-28): `in` shows +, `out` shows −, and `neutral` shows no sign.
+   * Everything to do with a loan is neutral: moving money to or from someone isn't income or
+   * spending.
+   */
+  tone: "in" | "out" | "neutral";
+  /** Which side of a loan this row belongs to, for its colour. */
+  loanDirection?: Loan["type"];
+  /** Loan records only: how much has been paid back (R-29). */
+  repayment?: { paid: number; total: number; label: string; status: "open" | "settled" | "overdue" };
   /** The transaction, or the whole loan for rows in the Loans segment. */
   raw: Transaction | Loan;
 }
+
+const SIGN: Record<UnifiedActivityItem["tone"], string> = { in: "+", out: "−", neutral: "" };
+const SPOKEN_SIGN: Record<UnifiedActivityItem["tone"], string> = { in: "plus ", out: "minus ", neutral: "" };
 
 interface SwipeableActivityRowProps {
   item: UnifiedActivityItem;
@@ -123,10 +136,8 @@ export function SwipeableActivityRow({
   // Vibrant, friendly icon colors & soft background bubbles
   const getIconBg = () => {
     if (item.type === "INCOME") return "rgba(16, 185, 129, 0.14)";
-    if (item.type === "LOAN") {
-      return (item.raw as Loan).type === "LENT"
-        ? "rgba(96, 165, 250, 0.14)"
-        : "rgba(245, 158, 11, 0.14)";
+    if (item.loanDirection) {
+      return item.loanDirection === "LENT" ? "rgba(96, 165, 250, 0.14)" : "rgba(245, 158, 11, 0.14)";
     }
     const categoryColor = "category" in item.raw ? item.raw.category?.color : undefined;
     if (categoryColor) {
@@ -137,8 +148,8 @@ export function SwipeableActivityRow({
 
   const getIconColor = () => {
     if (item.type === "INCOME") return colors.success;
-    if (item.type === "LOAN") {
-      return (item.raw as Loan).type === "LENT" ? "#60A5FA" : colors.warning;
+    if (item.loanDirection) {
+      return item.loanDirection === "LENT" ? "#60A5FA" : colors.warning;
     }
     const categoryColor = "category" in item.raw ? item.raw.category?.color : undefined;
     if (categoryColor) {
@@ -195,8 +206,17 @@ export function SwipeableActivityRow({
               }}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel={`${item.title}, ${formatCurrency(item.amount)}`}
+              accessibilityLabel={[
+                item.title,
+                item.subtitle,
+                `${SPOKEN_SIGN[item.tone]}${formatCurrency(item.amount)}`,
+                item.repayment?.label,
+                item.repayment?.status === "overdue" ? "overdue" : undefined,
+              ]
+                .filter(Boolean)
+                .join(", ")}
             >
+              <View style={styles.rowMain}>
               {/* Bubbly soft icon circle */}
               <View style={[styles.iconCircle, { backgroundColor: getIconBg() }]}>
                 <MaterialCommunityIcons
@@ -223,18 +243,44 @@ export function SwipeableActivityRow({
                 ) : null}
               </View>
 
-              {/* Amount */}
+              {/* Amount: signed for income and spending, unsigned for loans (R-28) */}
               <View style={styles.rowEnd}>
                 <Text
                   style={[
                     styles.rowAmount,
-                    item.isIncome ? styles.amountIncome : styles.amountDefault,
+                    item.tone === "in" ? styles.amountIncome : styles.amountDefault,
                   ]}
                 >
-                  {item.isIncome ? "+" : ""}
+                  {SIGN[item.tone]}
                   {formatCurrency(item.amount)}
                 </Text>
               </View>
+              </View>
+
+              {item.repayment ? (
+                <View style={styles.repayment} importantForAccessibility="no-hide-descendants">
+                  <AnimatedProgressBar
+                    progress={item.repayment.total > 0 ? item.repayment.paid / item.repayment.total : 0}
+                    height={6}
+                    color={item.repayment.status === "settled" ? colors.success : colors.accent}
+                  />
+                  <View style={styles.repaymentRow}>
+                    <Text style={styles.repaymentText} numberOfLines={1}>
+                      {item.repayment.label}
+                    </Text>
+                    {item.repayment.status !== "open" ? (
+                      <Text
+                        style={[
+                          styles.repaymentStatus,
+                          { color: item.repayment.status === "overdue" ? colors.danger : colors.success },
+                        ]}
+                      >
+                        {item.repayment.status === "overdue" ? "Overdue" : "Settled"}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              ) : null}
             </TouchableOpacity>
           </Animated.View>
         </Swipeable>
@@ -277,9 +323,30 @@ const styles = StyleSheet.create({
   },
   rowTouchArea: {
     flex: 1,
+  },
+  rowMain: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
+  },
+  repayment: {
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  repaymentRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  repaymentText: {
+    ...typography.small,
+    color: colors.textSecondary,
+    flexShrink: 1,
+  },
+  repaymentStatus: {
+    ...typography.small,
+    fontWeight: "700",
   },
   iconCircle: {
     width: 42,

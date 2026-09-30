@@ -187,14 +187,6 @@ export function SettingsScreen() {
           />
         ) : null}
 
-        <Text style={styles.sectionTitle}>Preferences</Text>
-        <SettingsRow
-          icon="shape-outline"
-          label="Customize Categories"
-          subtitle="Add, edit or remove spending categories"
-          onPress={() => navigation.navigate("Categories")}
-        />
-
         <Text style={styles.sectionTitle}>App & System</Text>
         <SettingsRow
           icon="cloud-sync-outline"

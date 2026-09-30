@@ -38,7 +38,7 @@ import { hapticLight, hapticDelete } from "../../utils/haptics";
 import { useSnackbar } from "../../components/snackbar/SnackbarContext";
 import { useReduceMotion } from "../../hooks/useReduceMotion";
 import { TabParamList, RootStackParamList } from "../../types/navigation";
-import { CASH_SIGN, Loan, Transaction, TransactionKind } from "../../types/models";
+import { LOAN_KINDS, Loan, Transaction, TransactionKind } from "../../types/models";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type ActivityTab = "ALL" | "EXPENSES" | "INCOME" | "LOANS";
@@ -50,6 +50,32 @@ const KINDS_FOR_TAB: Record<ActivityTab, TransactionKind[] | undefined> = {
   INCOME: ["EARN"],
   LOANS: [],
 };
+
+/** A loan movement says what happened, not which category it's in (R-30). */
+const MOVEMENT_TITLE: Partial<Record<TransactionKind, string>> = {
+  LEND_OUT: "You lent",
+  BORROW_IN: "You borrowed",
+  COLLECT: "Paid back to you",
+  REPAY: "You paid back",
+};
+const MOVEMENT_ICON: Partial<Record<TransactionKind, string>> = {
+  LEND_OUT: "arrow-top-right",
+  BORROW_IN: "arrow-bottom-left",
+  COLLECT: "arrow-bottom-left",
+  REPAY: "arrow-top-right",
+};
+/** The server writes "Lent to Ali", "Repayment from Ali", ...: the name, if the loan isn't loaded. */
+const personFromDescription = (description: string | null) =>
+  description?.replace(/^(Lent to|Borrowed from|Repayment from|Repayment to)\s+/, "") || undefined;
+
+/** Due before today is overdue; due today isn't yet. */
+function isOverdue(loan: Loan): boolean {
+  if (loan.status === "SETTLED" || !loan.dueDate) return false;
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const due = new Date(loan.dueDate).getTime();
+  return !isNaN(due) && due < startOfToday.getTime();
+}
 
 const TAB_OPTIONS: SegmentOption<ActivityTab>[] = [
   { label: "All", value: "ALL" },
@@ -137,76 +163,77 @@ export function ActivityScreen() {
    * Loan-linked movements carry the direction in their own description already, so they read
    * naturally in the feed without any of the client-side title rewriting the old code did.
    */
+  const loansById = useMemo(() => new Map((loans || []).map((l) => [l.id, l])), [loans]);
+
   const unifiedItems = useMemo<UnifiedActivityItem[]>(() => {
     if (activeTab === "LOANS") {
       return (loans || []).map((loan) => {
         const isLent = loan.type === "LENT";
-        const isSettled = loan.status === "SETTLED";
-        const remaining = Math.max(0, loan.amount - loan.settledAmount);
+        const status = loan.status === "SETTLED" ? "settled" : isOverdue(loan) ? "overdue" : "open";
         return {
           id: `loan-${loan.id}`,
           rawId: loan.id,
           type: "LOAN" as const,
-          // The counterparty is the identity of the record. Rows previously read only "Lent"
-          // or "Borrowed", so every loan looked the same.
-          title: loan.personName,
-          subtitle: isSettled
-            ? `${isLent ? "Lent" : "Borrowed"} · settled`
-            : loan.settledAmount > 0
-              ? `${isLent ? "Owed to you" : "You owe"} · ${formatCurrency(remaining)} left`
-              : isLent
-                ? "Owed to you"
-                : "You owe",
+          // What happened, then who with (R-29). The person is the identity of the record.
+          title: isLent ? "You lent" : "You borrowed",
+          subtitle: loan.personName,
           amount: loan.amount,
           date: loan.createdAt,
           icon: isLent ? "arrow-top-right" : "arrow-bottom-left",
-          isSettled,
+          tone: "neutral" as const,
+          loanDirection: loan.type,
+          repayment: {
+            paid: loan.settledAmount,
+            total: loan.amount,
+            label: `${formatCurrency(loan.settledAmount)} of ${formatCurrency(loan.amount)} ${isLent ? "paid back" : "repaid"}`,
+            status,
+          },
           raw: loan,
         };
       });
     }
 
     // Already ordered by the server on (date desc, id desc).
-    return (transactions || []).filter((tx) => !hiddenIds.has(tx.id)).map((tx) => {
-      const isIncoming = CASH_SIGN[tx.kind] > 0;
-      const isLoanRow = Boolean(tx.loanId);
+    return (transactions || []).filter((tx) => !hiddenIds.has(tx.id)).map((tx): UnifiedActivityItem => {
+      if (LOAN_KINDS.includes(tx.kind)) {
+        const loan = tx.loanId ? loansById.get(tx.loanId) : undefined;
+        return {
+          id: tx.id,
+          rawId: tx.id,
+          type: "LOAN_MOVEMENT",
+          title: MOVEMENT_TITLE[tx.kind] ?? "Loan",
+          subtitle: loan?.personName ?? personFromDescription(tx.description),
+          amount: tx.amount,
+          date: tx.date,
+          icon: MOVEMENT_ICON[tx.kind] ?? "swap-horizontal",
+          // Not income or spending: no sign (R-28, R-30).
+          tone: "neutral",
+          loanDirection: loan?.type ?? (tx.kind === "LEND_OUT" || tx.kind === "COLLECT" ? "LENT" : "BORROWED"),
+          raw: tx,
+        };
+      }
 
-      const title = isLoanRow
-        ? tx.description || "Loan movement"
-        : tx.kind === "SPEND"
-          ? tx.category?.name || tx.description || "Expense"
-          : tx.source || tx.description || "Income";
-
-      const subtitle = isLoanRow
-        ? undefined
-        : tx.kind === "SPEND"
+      const isSpend = tx.kind === "SPEND";
+      return {
+        id: tx.id,
+        rawId: tx.id,
+        type: isSpend ? "EXPENSE" : "INCOME",
+        title: isSpend ? tx.category?.name || tx.description || "Expense" : tx.source || tx.description || "Income",
+        subtitle: isSpend
           ? tx.category?.name
             ? tx.description || undefined
             : undefined
           : tx.source
             ? tx.description || undefined
-            : undefined;
-
-      return {
-        id: tx.id,
-        rawId: tx.id,
-        type: tx.kind === "SPEND" ? ("EXPENSE" as const) : ("INCOME" as const),
-        title,
-        subtitle,
+            : undefined,
         amount: tx.amount,
         date: tx.date,
-        icon: isLoanRow
-          ? isIncoming
-            ? "arrow-bottom-left"
-            : "arrow-top-right"
-          : tx.kind === "SPEND"
-            ? tx.category?.icon || "credit-card-outline"
-            : tx.sourceIcon || "wallet-plus-outline",
-        isIncome: isIncoming,
+        icon: isSpend ? tx.category?.icon || "credit-card-outline" : tx.sourceIcon || "wallet-plus-outline",
+        tone: isSpend ? "out" : "in",
         raw: tx,
       };
     });
-  }, [transactions, loans, activeTab, hiddenIds]);
+  }, [transactions, loans, loansById, activeTab, hiddenIds]);
 
   // Group into clean date sections
   const sections = useMemo(() => {
@@ -255,9 +282,10 @@ export function ActivityScreen() {
     // A loan's movements are owned by the loan; editing one directly would desynchronise it
     // from the loan's settled amount. Send the user to the loan instead.
     if (tx.loanId) {
-      const loan = loans.find((l) => l.id === tx.loanId);
+      const loan = loansById.get(tx.loanId);
+      // Loans live in the Loans segment now; there's no separate Loans screen (R-29).
       if (loan) setSettlingLoan(loan);
-      else navigation.navigate("Loans");
+      else setActiveTab("LOANS");
       return;
     }
 
@@ -281,17 +309,17 @@ export function ActivityScreen() {
     });
 
   /** A whole loan cascades its payments, so it keeps a confirm and gets no undo (D-33). */
-  const confirmDeleteLoan = (item: UnifiedActivityItem) => {
+  const confirmDeleteLoan = (loan: Loan) => {
     confirm({
       title: "Delete loan?",
-      message: `${(item.raw as Loan).personName} · ${formatCurrency(item.amount)}. Any payments recorded against it go too.`,
+      message: `${loan.personName} · ${formatCurrency(loan.amount)}. Any payments recorded against it go too.`,
       destructive: true,
       confirmText: "Delete",
       onConfirm: async () => {
         hapticDelete();
-        setDeletingId(item.id);
+        setDeletingId(`loan-${loan.id}`);
         try {
-          await removeLoan(item.rawId);
+          await removeLoan(loan.id);
           animateLayout();
         } catch (err) {
           alert({ title: "Couldn't delete", message: getErrorMessage(err) });
@@ -309,14 +337,14 @@ export function ActivityScreen() {
    */
   const swipeDelete = (item: UnifiedActivityItem) => {
     if (item.type === "LOAN") {
-      confirmDeleteLoan(item);
+      confirmDeleteLoan(item.raw as Loan);
       return;
     }
 
     const tx = item.raw as Transaction;
     // A loan's movements belong to the loan; deleting one here would desynchronise its balance.
     if (tx.loanId) {
-      const loan = loans.find((l) => l.id === tx.loanId);
+      const loan = loansById.get(tx.loanId);
       hapticLight();
       snackbar.show({
         id: `S-4-${tx.id}`,
@@ -480,9 +508,10 @@ export function ActivityScreen() {
           await handleRefresh();
         }}
         onDelete={(loanId) => {
-          const matching = unifiedItems.find((u) => u.rawId === loanId);
-          if (matching) confirmDeleteLoan(matching);
+          const loan = loansById.get(loanId);
+          if (loan) confirmDeleteLoan(loan);
         }}
+        onEdit={(loan) => navigation.navigate("LoanForm", { loan })}
       />
     </ScreenContainer>
   );
