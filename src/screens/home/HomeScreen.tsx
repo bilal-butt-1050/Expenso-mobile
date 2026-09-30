@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import md5 from "md5";
 import {
   Image,
@@ -16,7 +16,6 @@ import { onlineManager } from "@tanstack/react-query";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useDashboard } from "../../hooks/useDashboard";
-import { useCategories } from "../../hooks/useCategories";
 import { useAppData } from "../../context/AppDataContext";
 import { useAuth } from "../../context/AuthContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
@@ -98,10 +97,12 @@ export function HomeScreen() {
   };
 
   const openOpeningSheet = () => {
-    setBreakdownOpen(false);
     setOpeningKey((k) => k + 1);
     setOpeningOpen(true);
   };
+  // From the breakdown sheet, the opening sheet waits for it to finish closing: two modals at
+  // once would double the dim and fight over the keyboard.
+  const openingAfterBreakdown = useRef(false);
 
   const [imageError, setImageError] = useState(false);
   const email = user?.email || "";
@@ -165,7 +166,15 @@ export function HomeScreen() {
         month={selectedMonth}
         visible={breakdownOpen}
         onClose={() => setBreakdownOpen(false)}
-        onEditOpening={openOpeningSheet}
+        onEditOpening={() => {
+          openingAfterBreakdown.current = true;
+          setBreakdownOpen(false);
+        }}
+        onHidden={() => {
+          if (!openingAfterBreakdown.current) return;
+          openingAfterBreakdown.current = false;
+          openOpeningSheet();
+        }}
       />
       <OpeningCashSheet
         key={openingKey}
@@ -193,11 +202,12 @@ function HomeSections({
 }) {
   const { fontScale } = useWindowDimensions();
   const stacked = fontScale >= STACK_AT_FONT_SCALE;
-  const { data: categories } = useCategories();
+  // Every category the insight can name spent something this month, so it's in the breakdown: no
+  // second query that could make the card change once it loads.
   const categoryName = useMemo(() => {
-    const names = new Map((categories ?? []).map((c) => [c.id, c.name]));
+    const names = new Map(data.categoryBreakdown.map((c) => [c.categoryId, c.name]));
     return (id: string) => names.get(id);
-  }, [categories]);
+  }, [data.categoryBreakdown]);
 
   const cash = data.cashAvailable;
   const label = heroLabel(cash.period, data.month);
@@ -234,17 +244,17 @@ function HomeSections({
       {/* 2. What happened this month (R-36) */}
       <View style={styles.card}>
         <View style={[styles.twoCol, stacked && styles.twoColStacked]}>
-          <View style={styles.col}>
+          <View style={styles.col} accessible accessibilityLabel={`Income, ${formatCurrencySpoken(data.monthlyIncome)}`}>
             <Text style={styles.figureLabel}>Income</Text>
             <MoneyText amount={data.monthlyIncome} style={styles.figure} />
           </View>
-          <View style={styles.col}>
+          <View style={styles.col} accessible accessibilityLabel={`Expenses, ${formatCurrencySpoken(data.totalExpenses)}`}>
             <Text style={styles.figureLabel}>Expenses</Text>
             <MoneyText amount={data.totalExpenses} style={styles.figure} />
           </View>
         </View>
         {saved ? (
-          <View style={styles.savedRow}>
+          <View style={styles.savedRow} accessible accessibilityLabel={`${saved.label}, ${formatCurrencySpoken(saved.amount)}`}>
             <Text style={[styles.savedLabel, saved.overspent && styles.negative]}>{saved.label}</Text>
             <MoneyText amount={saved.amount} style={[styles.savedValue, saved.overspent && styles.negative]} />
           </View>
@@ -267,7 +277,7 @@ function HomeSections({
           <>
             {spending.top.map((c) => (
               <View key={c.categoryId} style={styles.spendRow} accessible accessibilityLabel={`${c.name}, ${formatCurrencySpoken(c.amount)}`}>
-                <View style={styles.spendHead}>
+                <View style={[styles.spendHead, stacked && styles.twoColStacked]}>
                   <Text style={styles.spendName} numberOfLines={1}>{c.name}</Text>
                   <Text style={styles.spendAmount}>{formatCurrency(c.amount)}</Text>
                 </View>
@@ -336,13 +346,13 @@ function HomeSections({
             </Pressable>
           </View>
           {owed.totalLent > 0 ? (
-            <View style={styles.spendHead}>
+            <View style={[styles.spendHead, stacked && styles.twoColStacked]}>
               <Text style={styles.spendName}>Still to come back</Text>
               <Text style={styles.spendAmount}>{formatCurrency(owed.totalLent)}</Text>
             </View>
           ) : null}
           {owed.totalBorrowed > 0 ? (
-            <View style={styles.spendHead}>
+            <View style={[styles.spendHead, stacked && styles.twoColStacked]}>
               <Text style={styles.spendName}>Still to pay back</Text>
               <Text style={styles.spendAmount}>{formatCurrency(owed.totalBorrowed)}</Text>
             </View>

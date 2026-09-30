@@ -1,4 +1,4 @@
-import React, { useState, useSyncExternalStore } from "react";
+import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { onlineManager } from "@tanstack/react-query";
 import { BottomSheet } from "../BottomSheet";
@@ -41,6 +41,11 @@ export function OpeningCashSheet({
   const pendingWrites = usePendingWriteCount();
   const [value, setValue] = useState(cashToday !== null ? formatSignedAmountInput(String(Math.round(cashToday))) : "");
   const [error, setError] = useState<string | null>(null);
+  // If today's figure arrives after the sheet opened, fill it in, unless the user has typed.
+  const touched = useRef(false);
+  useEffect(() => {
+    if (!touched.current && cashToday !== null) setValue(formatSignedAmountInput(String(Math.round(cashToday))));
+  }, [cashToday]);
 
   const parsed = Number(value.replace(/,/g, ""));
   const valid = value.trim() !== "" && value.trim() !== "-" && Number.isFinite(parsed);
@@ -77,7 +82,10 @@ export function OpeningCashSheet({
         <TextField
           label="Money you have today"
           value={value}
-          onChangeText={(text) => setValue(formatSignedAmountInput(text))}
+          onChangeText={(text) => {
+            touched.current = true;
+            setValue(formatSignedAmountInput(text));
+          }}
           keyboardType="numeric"
           placeholder="0"
           autoFocus

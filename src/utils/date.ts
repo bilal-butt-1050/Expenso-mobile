@@ -36,6 +36,12 @@ export function isCurrentOrFutureMonth(monthKey: string): boolean {
 }
 
 // "2026-08-05T00:00:00.000Z" -> "05 Aug 2026"
+/** "5 Sep": a short date for a row that's already under its month. */
+export function formatDayMonth(isoDate: string): string {
+  const d = new Date(isoDate);
+  return `${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`;
+}
+
 export function formatDate(isoDate: string): string {
   const d = new Date(isoDate);
   return `${String(d.getDate()).padStart(2, "0")} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;

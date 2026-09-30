@@ -20,12 +20,15 @@ export function CashBreakdownSheet({
   visible,
   onClose,
   onEditOpening,
+  onHidden,
 }: {
   cash: CashAvailable | null;
   month: string;
   visible: boolean;
   onClose: () => void;
   onEditOpening: () => void;
+  /** After the exit animation, for opening the next sheet. */
+  onHidden?: () => void;
 }) {
   // Kept while the sheet animates out, so it closes rather than going blank (ui-review §7.4).
   const [shown, setShown] = useState(cash);
@@ -46,7 +49,7 @@ export function CashBreakdownSheet({
   ];
 
   return (
-    <BottomSheet visible={visible} onClose={onClose}>
+    <BottomSheet visible={visible} onClose={onClose} onHidden={onHidden}>
       <View style={styles.content}>
         <Text style={styles.title}>How this adds up</Text>
         {rows
@@ -69,11 +72,10 @@ export function CashBreakdownSheet({
         {shown.period === "current" ? (
           <Text style={styles.footnote}>Entries dated later this month aren't counted yet.</Text>
         ) : null}
-        <Button
-          label={shown.openingBalance === null ? "Set opening cash" : "Update opening cash"}
-          variant="secondary"
-          onPress={onEditOpening}
-        />
+        {/* While it's unset, Home's prompt is the one way in (§5.2). */}
+        {shown.openingBalance !== null ? (
+          <Button label="Update opening cash" variant="secondary" onPress={onEditOpening} />
+        ) : null}
       </View>
     </BottomSheet>
   );
@@ -82,7 +84,7 @@ export function CashBreakdownSheet({
 const styles = StyleSheet.create({
   content: { gap: spacing.sm, paddingBottom: spacing.md },
   title: { ...typography.subtitle, color: colors.textPrimary, marginBottom: spacing.xs },
-  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.md, minHeight: 32 },
+  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.md },
   label: { ...typography.body, color: colors.textSecondary, flexShrink: 1 },
   amount: { ...typography.body, color: colors.textPrimary },
   totalRow: { borderTopWidth: 1, borderTopColor: colors.borderLight, paddingTop: spacing.sm, marginTop: spacing.xs },

@@ -29,6 +29,9 @@ import { formatAmountInput } from "../../utils/currency";
 import { getErrorMessage } from "../../api/client";
 import { hapticRecordCreated, hapticError, hapticLight } from "../../utils/haptics";
 
+/** The checkbox icons' size; the hint under one lines up with its label. */
+const CHECKBOX_SIZE = 22;
+
 type Props = NativeStackScreenProps<RootStackParamList, "LoanForm">;
 
 export function LoanFormScreen({ route, navigation }: Props) {
@@ -49,8 +52,14 @@ export function LoanFormScreen({ route, navigation }: Props) {
   const [notes, setNotes] = useState(editing?.notes ?? "");
   // When the money moved (R-41): today by default; never in the future (D-63).
   const originalDate = editing ? new Date(loanDate(editing)) : null;
-  const [date, setDate] = useState<Date>(originalDate ?? new Date());
-  const { setSelectedMonth } = useAppData();
+  // A new loan defaults to today at noon, as the date picker saves any day (D-63).
+  const [date, setDate] = useState<Date>(() => {
+    if (originalDate) return originalDate;
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    return today;
+  });
+  const { selectedMonth, setSelectedMonth } = useAppData();
   /**
    * Whether the money moves now. Recording a debt that predates the app must not fabricate a cash
    * movement today, so this is offered on create. On edit the principal has already been recorded.
@@ -116,8 +125,9 @@ export function LoanFormScreen({ route, navigation }: Props) {
       }
 
       hapticRecordCreated();
-      // Show the loan's own month, or it could be saved into a month the Loans tab isn't showing.
-      setSelectedMonth(toMonthKey(date));
+      // A loan shows from its own month onward, so only a later month than the one showing needs a
+      // switch; otherwise the whole app would jump months after a small edit.
+      if (toMonthKey(date) > selectedMonth) setSelectedMonth(toMonthKey(date));
       // A saved loan, new or edited, opens the Loans tab, highlighted (D-58, D-59).
       navigation.navigate("Tabs", {
         screen: "Activity",
@@ -249,11 +259,10 @@ export function LoanFormScreen({ route, navigation }: Props) {
               activeOpacity={0.7}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: recordCashflow }}
-              accessibilityHint="Untick for a debt from before you started using Expenso"
             >
               <MaterialCommunityIcons
                 name={recordCashflow ? "checkbox-marked" : "checkbox-blank-outline"}
-                size={22}
+                size={CHECKBOX_SIZE}
                 color={recordCashflow ? colors.accent : colors.textMuted}
               />
               <Text style={styles.dueToggleLabel}>
@@ -376,7 +385,7 @@ const styles = StyleSheet.create({
     ...typography.small,
     color: colors.textSecondary,
     marginTop: spacing.xs,
-    marginLeft: 22 + spacing.sm,
+    marginLeft: CHECKBOX_SIZE + spacing.sm,
   },
   dueToggleLabel: {
     ...typography.body,

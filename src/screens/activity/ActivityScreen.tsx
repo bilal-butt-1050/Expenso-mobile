@@ -32,7 +32,7 @@ import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { formatCurrency } from "../../utils/currency";
-import { currentMonthKey, formatDate, formatMonthLabel } from "../../utils/date";
+import { currentMonthKey, formatDate, formatDayMonth, formatMonthLabel } from "../../utils/date";
 import { getErrorMessage } from "../../api/client";
 import { hapticLight, hapticDelete } from "../../utils/haptics";
 import { useSnackbar } from "../../components/snackbar/SnackbarContext";
@@ -185,7 +185,7 @@ export function ActivityScreen() {
     isLoading: loansLoading,
     error: loansError,
     refetch: refetchMonthLoans,
-  } = useLoansForMonth(selectedMonth);
+  } = useLoansForMonth(selectedMonth, activeTab === "LOANS");
   const isCurrentMonth = selectedMonth === currentMonthKey();
 
   const isLoading = (activeTab === "LOANS" ? loansLoading : txLoading) || false;
@@ -226,7 +226,7 @@ export function ActivityScreen() {
           type: "LOAN" as const,
           // What happened, then who with (R-29). The person is the identity of the record.
           title: isLent ? "You lent" : "You borrowed",
-          subtitle: `${loan.personName} · ${formatDate(loanDate(loan))}`,
+          subtitle: loan.personName,
           amount: loan.amount,
           date: loanDate(loan),
           icon: isLent ? "arrow-top-right" : "arrow-bottom-left",
@@ -235,7 +235,7 @@ export function ActivityScreen() {
           repayment: {
             paid,
             total: loan.amount,
-            label: `${formatCurrency(paid)} of ${formatCurrency(loan.amount)} ${isLent ? "paid back" : "repaid"}${due}`,
+            label: `${formatCurrency(paid)} of ${formatCurrency(loan.amount)} ${isLent ? "paid back" : "repaid"} · ${formatDayMonth(loanDate(loan))}${due}`,
             status,
           },
           raw: loan,

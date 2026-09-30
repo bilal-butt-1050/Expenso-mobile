@@ -247,7 +247,6 @@ const styles = StyleSheet.create({
   asOfToday: {
     ...typography.small,
     color: colors.textSecondary,
-    marginTop: 2,
   },
   headerActions: {
     flexDirection: "row",

@@ -249,16 +249,6 @@ export function loanDate(loan: Pick<Loan, "date" | "createdAt">): string {
   return loan.date ?? loan.createdAt;
 }
 
-export interface LoansSummary {
-  totalLentPending: number;
-  totalBorrowedPending: number;
-  netBalance: number;
-  totalLentOverall: number;
-  totalBorrowedOverall: number;
-  activeLentCount: number;
-  activeBorrowedCount: number;
-  totalActiveCount: number;
-}
 
 
 // --- Unified ledger -------------------------------------------------------------------------

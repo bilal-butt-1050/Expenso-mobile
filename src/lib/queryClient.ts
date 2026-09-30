@@ -110,7 +110,6 @@ export const queryKeys = {
   dashboard: (month: string) => ["dashboard", month] as const,
   loans: (type?: string, status?: string) =>
     ["loans", type ?? "all", status ?? "all"] as const,
-  loansSummary: () => ["loans", "summary"] as const,
   /** Under "loans", so every money write (invalidateMoney) refreshes it too. */
   loansForMonth: (month: string) => ["loans", "month", month] as const,
   categories: () => ["categories"] as const,
