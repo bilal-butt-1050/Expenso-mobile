@@ -15,16 +15,20 @@ import { colors } from "../theme/colors";
 import { spacing } from "../theme/spacing";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRegisterOverlay } from "../lib/overlays";
+import { useLatest } from "../hooks/useLatest";
 
 interface Props {
   visible: boolean;
   onClose: () => void;
+  /** After the exit animation: the moment it's safe to navigate or open another modal. */
+  onHidden?: () => void;
   children: React.ReactNode;
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-export function BottomSheet({ visible, onClose, children }: Props) {
+export function BottomSheet({ visible, onClose, onHidden, children }: Props) {
+  const onHiddenRef = useLatest(onHidden);
   const [showModal, setShowModal] = React.useState(visible);
   // Read inside the effect without making it a dependency.
   const showModalRef = useRef(showModal);
@@ -70,6 +74,7 @@ export function BottomSheet({ visible, onClose, children }: Props) {
         }),
       ]).start(() => {
         setShowModal(false);
+        onHiddenRef.current?.();
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

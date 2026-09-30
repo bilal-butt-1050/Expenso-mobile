@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -40,6 +40,8 @@ export function LoanSettleSheet({
   // Retain the last loan so the sheet still has something to render while it animates out.
   // It used to `return null` the moment `loan` went null, so it vanished instead of closing.
   const [shown, setShown] = useState<Loan | null>(loan);
+  // Edit opens a stack screen, which must wait until this sheet has finished closing (minor 6).
+  const pendingEdit = useRef<Loan | null>(null);
   useEffect(() => {
     if (loan) setShown(loan);
   }, [loan]);
@@ -97,7 +99,15 @@ export function LoanSettleSheet({
   };
 
   return (
-    <BottomSheet visible={!!loan} onClose={onClose}>
+    <BottomSheet
+      visible={!!loan}
+      onClose={onClose}
+      onHidden={() => {
+        const loanToEdit = pendingEdit.current;
+        pendingEdit.current = null;
+        if (loanToEdit) onEdit(loanToEdit);
+      }}
+    >
       {/* Rendered even while `loan` is null so the sheet can play its exit animation. It used
           to `return null` before this point, so it simply vanished. */}
       <View style={styles.container}>
@@ -126,10 +136,10 @@ export function LoanSettleSheet({
             <View style={styles.headerActions}>
               <TouchableOpacity
                 onPress={() => {
+                  pendingEdit.current = shown;
                   onClose();
-                  if (shown) onEdit(shown);
                 }}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                hitSlop={{ top: 12, bottom: 12, left: 10, right: 10 }}
                 accessibilityRole="button"
                 accessibilityLabel="Edit loan"
               >
@@ -140,7 +150,7 @@ export function LoanSettleSheet({
                   onClose();
                   if (shown) onDelete(shown.id);
                 }}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                hitSlop={{ top: 12, bottom: 12, left: 10, right: 10 }}
                 accessibilityRole="button"
                 accessibilityLabel="Delete loan"
               >
@@ -235,7 +245,7 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.lg,
+    gap: spacing.xl,
   },
   titleRow: {
     flexDirection: "row",

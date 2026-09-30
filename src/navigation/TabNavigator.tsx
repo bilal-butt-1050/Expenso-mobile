@@ -41,7 +41,7 @@ const HOME_RISE = size.fab / 2;
  * deliver touches outside a parent's bounds (ui-review §1.2). With three equal slots the centre slot
  * sits at exactly 50% (§1.1); the button covers that slot's icon, and the slot's label stays below.
  *
- * The button used to be a fourth, centre slot in the bar — but with four equal slots the third one
+ * The quick-add button used to be a fourth, centre slot in the bar — but with four equal slots the third one
  * sits at 62.5%, not 50%, so it read as visibly off-centre. It now floats bottom-right above the
  * dock, as a sibling of the navigator, so its whole hit area lies inside a full-screen parent and it
  * only ever appears over the tab screens (stack screens cover it).
@@ -93,10 +93,10 @@ export function TabNavigator() {
         <Tab.Screen name="Budget" component={BudgetScreen} options={{ tabBarLabel: "Budget" }} />
       </Tab.Navigator>
 
+      {/* Hidden from screen readers: the slot below is already the "Home, tab 2 of 3" stop. */}
       <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Home"
-        accessibilityState={{ selected: homeFocused }}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
         onPress={() => {
           hapticLight();
           rootNavigation.navigate("Tabs", { screen: "Home" });

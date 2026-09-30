@@ -38,7 +38,7 @@ import { hapticLight, hapticDelete } from "../../utils/haptics";
 import { useSnackbar } from "../../components/snackbar/SnackbarContext";
 import { useReduceMotion } from "../../hooks/useReduceMotion";
 import { TabParamList, RootStackParamList } from "../../types/navigation";
-import { LOAN_KINDS, Loan, Transaction, TransactionKind } from "../../types/models";
+import { Loan, Transaction, TransactionKind } from "../../types/models";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type ActivityTab = "ALL" | "EXPENSES" | "INCOME" | "LOANS";
@@ -67,6 +67,28 @@ const MOVEMENT_ICON: Partial<Record<TransactionKind, string>> = {
 /** The server writes "Lent to Ali", "Repayment from Ali", ...: the name, if the loan isn't loaded. */
 const personFromDescription = (description: string | null) =>
   description?.replace(/^(Lent to|Borrowed from|Repayment from|Repayment to)\s+/, "") || undefined;
+
+/**
+ * How a kind's amount is signed (R-28). A switch rather than "not SPEND means income", so a kind
+ * added later (the parked balance corrections) fails to compile here instead of showing as income.
+ */
+function toneOf(kind: TransactionKind): UnifiedActivityItem["tone"] {
+  switch (kind) {
+    case "SPEND":
+      return "out";
+    case "EARN":
+      return "in";
+    case "LEND_OUT":
+    case "COLLECT":
+    case "BORROW_IN":
+    case "REPAY":
+      return "neutral";
+    default: {
+      const unhandled: never = kind;
+      return unhandled;
+    }
+  }
+}
 
 /** Due before today is overdue; due today isn't yet. */
 function isOverdue(loan: Loan): boolean {
@@ -158,18 +180,22 @@ export function ActivityScreen() {
   }, [refetchTransactions, refetchLoans]);
 
   /**
-   * Maps the ledger onto rows.
-   *
-   * Loan-linked movements carry the direction in their own description already, so they read
-   * naturally in the feed without any of the client-side title rewriting the old code did.
+   * Maps the ledger onto rows. Income and spending are titled by their source or category; a loan
+   * movement by what happened ("You lent", "Paid back to you"), with the person underneath (R-30).
    */
   const loansById = useMemo(() => new Map((loans || []).map((l) => [l.id, l])), [loans]);
 
   const unifiedItems = useMemo<UnifiedActivityItem[]>(() => {
     if (activeTab === "LOANS") {
-      return (loans || []).map((loan) => {
+      // Newest first, so the date headers read in order (the server lists active loans first).
+      const byNewest = [...(loans || [])].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      return byNewest.map((loan) => {
         const isLent = loan.type === "LENT";
         const status = loan.status === "SETTLED" ? "settled" : isOverdue(loan) ? "overdue" : "open";
+        // The due date was on the old Loans screen; without it, "Overdue" is the first warning.
+        const due = status !== "settled" && loan.dueDate ? ` · due ${formatDate(loan.dueDate)}` : "";
         return {
           id: `loan-${loan.id}`,
           rawId: loan.id,
@@ -185,7 +211,7 @@ export function ActivityScreen() {
           repayment: {
             paid: loan.settledAmount,
             total: loan.amount,
-            label: `${formatCurrency(loan.settledAmount)} of ${formatCurrency(loan.amount)} ${isLent ? "paid back" : "repaid"}`,
+            label: `${formatCurrency(loan.settledAmount)} of ${formatCurrency(loan.amount)} ${isLent ? "paid back" : "repaid"}${due}`,
             status,
           },
           raw: loan,
@@ -195,7 +221,8 @@ export function ActivityScreen() {
 
     // Already ordered by the server on (date desc, id desc).
     return (transactions || []).filter((tx) => !hiddenIds.has(tx.id)).map((tx): UnifiedActivityItem => {
-      if (LOAN_KINDS.includes(tx.kind)) {
+      const tone = toneOf(tx.kind);
+      if (tone === "neutral") {
         const loan = tx.loanId ? loansById.get(tx.loanId) : undefined;
         return {
           id: tx.id,
@@ -229,7 +256,7 @@ export function ActivityScreen() {
         amount: tx.amount,
         date: tx.date,
         icon: isSpend ? tx.category?.icon || "credit-card-outline" : tx.sourceIcon || "wallet-plus-outline",
-        tone: isSpend ? "out" : "in",
+        tone,
         raw: tx,
       };
     });

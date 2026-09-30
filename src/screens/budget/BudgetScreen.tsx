@@ -57,6 +57,13 @@ export function BudgetScreen() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   // Long-pressed category: its Edit / Delete sheet (R-33).
   const [managingCategory, setManagingCategory] = useState<Category | null>(null);
+  // Kept while the sheet animates out, so it closes instead of going blank (ui-review §7.4).
+  const [shownManaged, setShownManaged] = useState<Category | null>(null);
+  React.useEffect(() => {
+    if (managingCategory) setShownManaged(managingCategory);
+  }, [managingCategory]);
+  // Edit opens a stack screen once the sheet has finished closing.
+  const pendingCategoryEdit = React.useRef<Category | null>(null);
   const bottomPadding = useTabBarPadding();
   const snackbar = useSnackbar();
   // Collapsed on each mount; kept across month changes while the screen stays mounted (§S5).
@@ -198,6 +205,7 @@ export function BudgetScreen() {
         onLongPress={() => manageCategory(item.category)}
         activeOpacity={0.7}
         accessibilityRole="button"
+        accessibilityHint="Double-tap to set a budget. Long-press to edit or delete the category."
         accessibilityLabel={
           isOver
             ? `${item.category.name}, ${formatCurrency(item.actual)} spent, ${formatCurrency(item.actual - item.budget)} over a ${formatCurrency(item.budget)} budget`
@@ -354,23 +362,30 @@ export function BudgetScreen() {
         />
       )}
 
-      <BottomSheet visible={!!managingCategory} onClose={() => setManagingCategory(null)}>
-        {managingCategory ? (
+      <BottomSheet
+        visible={!!managingCategory}
+        onClose={() => setManagingCategory(null)}
+        onHidden={() => {
+          const category = pendingCategoryEdit.current;
+          pendingCategoryEdit.current = null;
+          if (category) rootNavigation.navigate("CategoryForm", { category });
+        }}
+      >
+        {shownManaged ? (
           <View style={styles.manageSheet}>
             <View style={styles.sheetHeader}>
-              <CategoryPill icon={managingCategory.icon} color={managingCategory.color} size={38} />
-              <Text style={styles.sheetTitle}>{managingCategory.name}</Text>
+              <CategoryPill icon={shownManaged.icon} color={shownManaged.color} size={38} />
+              <Text style={styles.sheetTitle}>{shownManaged.name}</Text>
             </View>
             <Button
               label="Edit category"
               variant="secondary"
               onPress={() => {
-                const category = managingCategory;
+                pendingCategoryEdit.current = shownManaged;
                 setManagingCategory(null);
-                rootNavigation.navigate("CategoryForm", { category });
               }}
             />
-            <Button label="Delete category" variant="danger" onPress={() => deleteCategory(managingCategory)} />
+            <Button label="Delete category" variant="danger" onPress={() => deleteCategory(shownManaged)} />
           </View>
         ) : null}
       </BottomSheet>

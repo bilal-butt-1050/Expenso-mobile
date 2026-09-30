@@ -211,7 +211,7 @@ export function SwipeableActivityRow({
                 item.subtitle,
                 `${SPOKEN_SIGN[item.tone]}${formatCurrency(item.amount)}`,
                 item.repayment?.label,
-                item.repayment?.status === "overdue" ? "overdue" : undefined,
+                item.repayment && item.repayment.status !== "open" ? item.repayment.status : undefined,
               ]
                 .filter(Boolean)
                 .join(", ")}

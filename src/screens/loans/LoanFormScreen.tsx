@@ -102,7 +102,7 @@ export function LoanFormScreen({ route, navigation }: Props) {
       }
 
       hapticRecordCreated();
-      // Loans live on their own screen now, so land there rather than filtering the Activity feed.
+      // Back to where the form was opened: usually Activity, where loans live (D-57).
       navigation.goBack();
     } catch (err) {
       hapticError();
