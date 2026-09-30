@@ -10,7 +10,11 @@ import { colors } from "../theme/colors";
 import { radius } from "../theme/spacing";
 
 interface AnimatedProgressBarProps {
-  /** Value between 0 and 1, or percentage (0 to 100). */
+  /**
+   * A ratio: 0 is empty, 1 is full, and above 1 is over (drawn full). It used to also accept a
+   * percentage, guessed from `> 1`, so 120% of a budget (1.2) was read as 1.2% and the bar went
+   * back to nearly empty instead of filling red (R-32).
+   */
   progress: number;
   height?: number;
   color?: string;
@@ -29,8 +33,8 @@ export function AnimatedProgressBar({
   animateOnFocus = true,
   style,
 }: AnimatedProgressBarProps) {
-  // Normalize progress to 0-1
-  const normalizedProgress = Math.min(Math.max(progress > 1 ? progress / 100 : progress, 0), 1);
+  const isOver = progress > 1;
+  const normalizedProgress = Math.min(Math.max(progress, 0), 1);
   const isFocused = useIsFocused();
   const animatedWidth = useSharedValue(0);
 
@@ -55,12 +59,8 @@ export function AnimatedProgressBar({
 
   const getBarColor = () => {
     if (color) return color;
-    if (autoColor) {
-      if (normalizedProgress >= 1) return colors.danger;
-      if (normalizedProgress >= 0.85) return colors.warning;
-      return colors.accent;
-    }
-    if (normalizedProgress >= 1) return colors.danger;
+    if (isOver) return colors.danger;
+    if (autoColor && normalizedProgress >= 0.85) return colors.warning;
     return colors.accent;
   };
 

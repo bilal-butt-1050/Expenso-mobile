@@ -74,8 +74,8 @@ export function SkeletonList({ rows = 5 }: { rows?: number }) {
 
 /** Skeleton for the HomeScreen dashboard */
 export function HomeSkeleton() {
-  // Mirrors Home's real shape (DESIGN §S1): greeting, hero figure, as-of label and opening line,
-  // then the cashflow card and the debts card.
+  // Mirrors Home's real shape: greeting, hero figure, as-of label and opening line, then the
+  // cashflow card. (The debts card left Home in D-57.)
   return (
     <View style={homeStyles.container} accessibilityLabel="Loading your figures">
       <View style={homeStyles.hero}>
@@ -94,14 +94,6 @@ export function HomeSkeleton() {
         <Skeleton width="100%" height={14} />
         <Skeleton width="100%" height={4} borderRadius={2} />
         <Skeleton width="100%" height={14} />
-      </View>
-
-      <View style={homeStyles.card}>
-        <Skeleton width={110} height={15} />
-        <View style={homeStyles.twoCol}>
-          <Skeleton width="45%" height={44} borderRadius={radius.sm} />
-          <Skeleton width="45%" height={44} borderRadius={radius.sm} />
-        </View>
       </View>
     </View>
   );

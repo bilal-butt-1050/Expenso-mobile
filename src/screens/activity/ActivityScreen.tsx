@@ -38,7 +38,7 @@ import { hapticLight, hapticDelete } from "../../utils/haptics";
 import { useSnackbar } from "../../components/snackbar/SnackbarContext";
 import { useReduceMotion } from "../../hooks/useReduceMotion";
 import { TabParamList, RootStackParamList } from "../../types/navigation";
-import { CASH_SIGN, Loan, Transaction, TransactionKind } from "../../types/models";
+import { Loan, Transaction, TransactionKind } from "../../types/models";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type ActivityTab = "ALL" | "EXPENSES" | "INCOME" | "LOANS";
@@ -50,6 +50,54 @@ const KINDS_FOR_TAB: Record<ActivityTab, TransactionKind[] | undefined> = {
   INCOME: ["EARN"],
   LOANS: [],
 };
+
+/** A loan movement says what happened, not which category it's in (R-30). */
+const MOVEMENT_TITLE: Partial<Record<TransactionKind, string>> = {
+  LEND_OUT: "You lent",
+  BORROW_IN: "You borrowed",
+  COLLECT: "Paid back to you",
+  REPAY: "You paid back",
+};
+const MOVEMENT_ICON: Partial<Record<TransactionKind, string>> = {
+  LEND_OUT: "arrow-top-right",
+  BORROW_IN: "arrow-bottom-left",
+  COLLECT: "arrow-bottom-left",
+  REPAY: "arrow-top-right",
+};
+/** The server writes "Lent to Ali", "Repayment from Ali", ...: the name, if the loan isn't loaded. */
+const personFromDescription = (description: string | null) =>
+  description?.replace(/^(Lent to|Borrowed from|Repayment from|Repayment to)\s+/, "") || undefined;
+
+/**
+ * How a kind's amount is signed (R-28). A switch rather than "not SPEND means income", so a kind
+ * added later (the parked balance corrections) fails to compile here instead of showing as income.
+ */
+function toneOf(kind: TransactionKind): UnifiedActivityItem["tone"] {
+  switch (kind) {
+    case "SPEND":
+      return "out";
+    case "EARN":
+      return "in";
+    case "LEND_OUT":
+    case "COLLECT":
+    case "BORROW_IN":
+    case "REPAY":
+      return "neutral";
+    default: {
+      const unhandled: never = kind;
+      return unhandled;
+    }
+  }
+}
+
+/** Due before today is overdue; due today isn't yet. */
+function isOverdue(loan: Loan): boolean {
+  if (loan.status === "SETTLED" || !loan.dueDate) return false;
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const due = new Date(loan.dueDate).getTime();
+  return !isNaN(due) && due < startOfToday.getTime();
+}
 
 const TAB_OPTIONS: SegmentOption<ActivityTab>[] = [
   { label: "All", value: "ALL" },
@@ -80,7 +128,26 @@ export function ActivityScreen() {
   // set, so this banner could not appear and offline changes were invisible.
   const pendingWrites = usePendingWriteCount();
 
-  const highlightId = route.params?.highlightId;
+  // The record a form just saved, highlighted once. Held here and cleared from the route, or it
+  // would re-highlight every time the rows remount (switching segments).
+  const [highlightId, setHighlightId] = useState<string | undefined>(undefined);
+  // A ref, not the effect's cleanup: clearing the param re-runs the effect, and a cleanup there
+  // would cancel the timer, leaving the highlight on for good.
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const incoming = route.params?.highlightId;
+    if (!incoming) return;
+    setHighlightId(incoming);
+    navigation.setParams({ highlightId: undefined });
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    highlightTimer.current = setTimeout(() => setHighlightId(undefined), 3000);
+  }, [route.params?.highlightId, navigation]);
+  useEffect(
+    () => () => {
+      if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    },
+    []
+  );
 
   // Apply an incoming filter, then clear it. The param is sticky otherwise: arriving with the
   // same value twice does not re-fire this effect, so a user who had switched segments in the
@@ -132,81 +199,91 @@ export function ActivityScreen() {
   }, [refetchTransactions, refetchLoans]);
 
   /**
-   * Maps the ledger onto rows.
-   *
-   * Loan-linked movements carry the direction in their own description already, so they read
-   * naturally in the feed without any of the client-side title rewriting the old code did.
+   * Maps the ledger onto rows. Income and spending are titled by their source or category; a loan
+   * movement by what happened ("You lent", "Paid back to you"), with the person underneath (R-30).
    */
+  const loansById = useMemo(() => new Map((loans || []).map((l) => [l.id, l])), [loans]);
+
   const unifiedItems = useMemo<UnifiedActivityItem[]>(() => {
     if (activeTab === "LOANS") {
-      return (loans || []).map((loan) => {
+      // Newest first, so the date headers read in order (the server lists active loans first).
+      const byNewest = [...(loans || [])].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      return byNewest.filter((loan) => !hiddenIds.has(`loan-${loan.id}`)).map((loan) => {
         const isLent = loan.type === "LENT";
-        const isSettled = loan.status === "SETTLED";
-        const remaining = Math.max(0, loan.amount - loan.settledAmount);
+        const status = loan.status === "SETTLED" ? "settled" : isOverdue(loan) ? "overdue" : "open";
+        // The due date was on the old Loans screen; without it, "Overdue" is the first warning.
+        const due = status !== "settled" && loan.dueDate ? ` · due ${formatDate(loan.dueDate)}` : "";
         return {
           id: `loan-${loan.id}`,
           rawId: loan.id,
           type: "LOAN" as const,
-          // The counterparty is the identity of the record. Rows previously read only "Lent"
-          // or "Borrowed", so every loan looked the same.
-          title: loan.personName,
-          subtitle: isSettled
-            ? `${isLent ? "Lent" : "Borrowed"} · settled`
-            : loan.settledAmount > 0
-              ? `${isLent ? "Owed to you" : "You owe"} · ${formatCurrency(remaining)} left`
-              : isLent
-                ? "Owed to you"
-                : "You owe",
+          // What happened, then who with (R-29). The person is the identity of the record.
+          title: isLent ? "You lent" : "You borrowed",
+          subtitle: loan.personName,
           amount: loan.amount,
           date: loan.createdAt,
           icon: isLent ? "arrow-top-right" : "arrow-bottom-left",
-          isSettled,
+          tone: "neutral" as const,
+          loanDirection: loan.type,
+          repayment: {
+            paid: loan.settledAmount,
+            total: loan.amount,
+            label: `${formatCurrency(loan.settledAmount)} of ${formatCurrency(loan.amount)} ${isLent ? "paid back" : "repaid"}${due}`,
+            status,
+          },
           raw: loan,
         };
       });
     }
 
     // Already ordered by the server on (date desc, id desc).
-    return (transactions || []).filter((tx) => !hiddenIds.has(tx.id)).map((tx) => {
-      const isIncoming = CASH_SIGN[tx.kind] > 0;
-      const isLoanRow = Boolean(tx.loanId);
+    // A loan waiting out its undo window takes its movements with it.
+    const visible = (transactions || []).filter(
+      (tx) => !hiddenIds.has(tx.id) && !(tx.loanId && hiddenIds.has(`loan-${tx.loanId}`))
+    );
+    return visible.map((tx): UnifiedActivityItem => {
+      const tone = toneOf(tx.kind);
+      if (tone === "neutral") {
+        const loan = tx.loanId ? loansById.get(tx.loanId) : undefined;
+        return {
+          id: tx.id,
+          rawId: tx.id,
+          type: "LOAN_MOVEMENT",
+          title: MOVEMENT_TITLE[tx.kind] ?? "Loan",
+          subtitle: loan?.personName ?? personFromDescription(tx.description),
+          amount: tx.amount,
+          date: tx.date,
+          icon: MOVEMENT_ICON[tx.kind] ?? "swap-horizontal",
+          // Not income or spending: no sign (R-28, R-30).
+          tone: "neutral",
+          loanDirection: loan?.type ?? (tx.kind === "LEND_OUT" || tx.kind === "COLLECT" ? "LENT" : "BORROWED"),
+          raw: tx,
+        };
+      }
 
-      const title = isLoanRow
-        ? tx.description || "Loan movement"
-        : tx.kind === "SPEND"
-          ? tx.category?.name || tx.description || "Expense"
-          : tx.source || tx.description || "Income";
-
-      const subtitle = isLoanRow
-        ? undefined
-        : tx.kind === "SPEND"
+      const isSpend = tx.kind === "SPEND";
+      return {
+        id: tx.id,
+        rawId: tx.id,
+        type: isSpend ? "EXPENSE" : "INCOME",
+        title: isSpend ? tx.category?.name || tx.description || "Expense" : tx.source || tx.description || "Income",
+        subtitle: isSpend
           ? tx.category?.name
             ? tx.description || undefined
             : undefined
           : tx.source
             ? tx.description || undefined
-            : undefined;
-
-      return {
-        id: tx.id,
-        rawId: tx.id,
-        type: tx.kind === "SPEND" ? ("EXPENSE" as const) : ("INCOME" as const),
-        title,
-        subtitle,
+            : undefined,
         amount: tx.amount,
         date: tx.date,
-        icon: isLoanRow
-          ? isIncoming
-            ? "arrow-bottom-left"
-            : "arrow-top-right"
-          : tx.kind === "SPEND"
-            ? tx.category?.icon || "credit-card-outline"
-            : tx.sourceIcon || "wallet-plus-outline",
-        isIncome: isIncoming,
+        icon: isSpend ? tx.category?.icon || "credit-card-outline" : tx.sourceIcon || "wallet-plus-outline",
+        tone,
         raw: tx,
       };
     });
-  }, [transactions, loans, activeTab, hiddenIds]);
+  }, [transactions, loans, loansById, activeTab, hiddenIds]);
 
   // Group into clean date sections
   const sections = useMemo(() => {
@@ -255,9 +332,10 @@ export function ActivityScreen() {
     // A loan's movements are owned by the loan; editing one directly would desynchronise it
     // from the loan's settled amount. Send the user to the loan instead.
     if (tx.loanId) {
-      const loan = loans.find((l) => l.id === tx.loanId);
+      const loan = loansById.get(tx.loanId);
+      // Loans live in the Loans segment now; there's no separate Loans screen (R-29).
       if (loan) setSettlingLoan(loan);
-      else navigation.navigate("Loans");
+      else setActiveTab("LOANS");
       return;
     }
 
@@ -281,17 +359,17 @@ export function ActivityScreen() {
     });
 
   /** A whole loan cascades its payments, so it keeps a confirm and gets no undo (D-33). */
-  const confirmDeleteLoan = (item: UnifiedActivityItem) => {
+  const confirmDeleteLoan = (loan: Loan) => {
     confirm({
       title: "Delete loan?",
-      message: `${(item.raw as Loan).personName} · ${formatCurrency(item.amount)}. Any payments recorded against it go too.`,
+      message: `${loan.personName} · ${formatCurrency(loan.amount)}. Any payments recorded against it go too.`,
       destructive: true,
       confirmText: "Delete",
       onConfirm: async () => {
         hapticDelete();
-        setDeletingId(item.id);
+        setDeletingId(`loan-${loan.id}`);
         try {
-          await removeLoan(item.rawId);
+          await removeLoan(loan.id);
           animateLayout();
         } catch (err) {
           alert({ title: "Couldn't delete", message: getErrorMessage(err) });
@@ -308,15 +386,41 @@ export function ActivityScreen() {
    * timeout, Android back, leaving the tabs or the app going to the background.
    */
   const swipeDelete = (item: UnifiedActivityItem) => {
+    // A swiped loan gets the same undo as income and expenses (D-58). Its payments go with it,
+    // which is why the sheet's explicit Delete button still asks first.
     if (item.type === "LOAN") {
-      confirmDeleteLoan(item);
+      const loan = item.raw as Loan;
+      hapticDelete();
+      animateLayout();
+      setHidden(item.id, true);
+      snackbar.show({
+        id: `S-1-${item.id}`,
+        text: `Deleted the loan with ${loan.personName} · ${formatCurrency(loan.amount)}`,
+        action: {
+          label: "Undo",
+          a11yLabel: `Undo deleting the loan with ${loan.personName}`,
+          onPress: () => {
+            animateLayout();
+            setHidden(item.id, false);
+          },
+        },
+        duration: 5000,
+        priority: 1,
+        onExpire: () => {
+          if (committedIds.current.has(item.id)) return;
+          committedIds.current.add(item.id);
+          removeLoan(loan.id)
+            .catch((err) => alert({ title: "Couldn't delete the loan", message: getErrorMessage(err) }))
+            .finally(() => setHidden(item.id, false));
+        },
+      });
       return;
     }
 
     const tx = item.raw as Transaction;
     // A loan's movements belong to the loan; deleting one here would desynchronise its balance.
     if (tx.loanId) {
-      const loan = loans.find((l) => l.id === tx.loanId);
+      const loan = loansById.get(tx.loanId);
       hapticLight();
       snackbar.show({
         id: `S-4-${tx.id}`,
@@ -439,14 +543,15 @@ export function ActivityScreen() {
             activeTab === "LOANS" && loansSummary ? (
               <View style={styles.loansOverviewCard}>
                 <View style={styles.loanCol}>
-                  <Text style={styles.loanColLabel}>OWED TO YOU</Text>
+                  {/* The figure is what's still out, and the title says exactly that (§5.4). */}
+                  <Text style={styles.loanColLabel}>STILL TO COME BACK</Text>
                   <Text style={[styles.loanColValue, { color: colors.success }]}>
                     {formatCurrency(loansSummary.totalLentPending)}
                   </Text>
                 </View>
                 <View style={styles.loanDivider} />
                 <View style={styles.loanCol}>
-                  <Text style={styles.loanColLabel}>YOU OWE</Text>
+                  <Text style={styles.loanColLabel}>STILL TO PAY BACK</Text>
                   <Text style={[styles.loanColValue, { color: colors.danger }]}>
                     {formatCurrency(loansSummary.totalBorrowedPending)}
                   </Text>
@@ -480,9 +585,10 @@ export function ActivityScreen() {
           await handleRefresh();
         }}
         onDelete={(loanId) => {
-          const matching = unifiedItems.find((u) => u.rawId === loanId);
-          if (matching) confirmDeleteLoan(matching);
+          const loan = loansById.get(loanId);
+          if (loan) confirmDeleteLoan(loan);
         }}
+        onEdit={(loan) => navigation.navigate("LoanForm", { loan })}
       />
     </ScreenContainer>
   );

@@ -9,7 +9,8 @@ export type AuthStackParamList = {
 export type ActivityFilter = "ALL" | "EXPENSES" | "INCOME" | "LOANS";
 
 /**
- * Exactly four tabs: Home, Activity, the [+] action, and Budget.
+ * Three tabs: Activity, Home (raised in the centre, the default) and Budget (D-57). The [+] action
+ * floats above them and isn't a tab.
  *
  * Everything else reached from a tab is a stack screen. Settings used to be both a fifth tab and a
  * root screen — two live instances of the same component with independent state, and the avatar in
@@ -26,14 +27,11 @@ export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
   Tabs: NavigatorScreenParams<TabParamList>;
   Settings: undefined;
-  /** Full debt management. Deep-linked from Home's "Debts & Loans" card. */
-  Loans: undefined;
   /** `loan` present means edit; absent means create. */
   LoanForm: { initialType?: LoanType; loan?: Loan } | undefined;
   /** `transaction` present means edit; absent means create. */
   ExpenseForm: { transaction?: Transaction } | undefined;
   IncomeForm: { transaction?: Transaction } | undefined;
-  Categories: undefined;
   CategoryForm: { category?: Category } | undefined;
   OnboardingTour: { fromSettings?: boolean } | undefined;
 };

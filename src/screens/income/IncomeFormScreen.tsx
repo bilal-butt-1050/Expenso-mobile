@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { TabActions } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 import { useTransactionMutations } from "../../hooks/useTransactions";
@@ -139,8 +138,8 @@ export function IncomeFormScreen({ route, navigation }: Props) {
       const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`;
       setSelectedMonth(monthKey);
 
-      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: savedId }));
-      navigation.goBack();
+      // A saved record, new or edited, opens its own Activity tab, highlighted (D-58, D-59).
+      navigation.navigate("Tabs", { screen: "Activity", params: { filter: "INCOME", highlightId: savedId } });
     } catch (err) {
       hapticError();
       setError(getErrorMessage(err));

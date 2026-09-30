@@ -46,7 +46,7 @@ src/
 5. **Touch targets ≥ 44×44pt.** Buttons and inputs are 54–56pt tall.
 6. **Scroll containers must clear the elevated tab dock** — use `useTabBarPadding()`. Never a
    hardcoded pixel value; the dock's height depends on the device's safe-area inset. Screens
-   outside the tab navigator (Settings, Loans) use `useSafeAreaInsets()` instead, because
+   outside the tab navigator (Settings, the forms) use `useSafeAreaInsets()` instead, because
    `useBottomTabBarHeight()` throws where there is no tab bar.
 7. **Forms** use `KeyboardAvoidingView` and dismiss the keyboard on tap-outside.
 8. **Loading and empty states are required**, not optional — skeletons matching final content shape,

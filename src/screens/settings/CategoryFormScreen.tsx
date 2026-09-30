@@ -34,11 +34,14 @@ export function CategoryFormScreen({ route, navigation }: Props) {
     try {
       if (editing) {
         await editCategory(editing.id, { name: name.trim(), icon, color });
+        // Opened from the Budget tab (R-33), so going back lands there.
+        navigation.goBack();
       } else {
-        await addCategory({ name: name.trim(), icon, color });
+        const created = await addCategory({ name: name.trim(), icon, color });
+        // A new category has no budget and no spending, so it would fold into the collapsed
+        // "unused" group and seem to vanish. Open its budget sheet instead.
+        navigation.navigate("Tabs", { screen: "Budget", params: { openCategoryId: created.id } });
       }
-      // The form is only opened from Categories. (It used to pass a highlightId that no screen read.)
-      navigation.goBack();
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
