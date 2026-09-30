@@ -11,7 +11,6 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { RootStackParamList } from "../../types/navigation";
-import { useAuth } from "../../context/AuthContext";
 import { Button } from "../../components/Button";
 import { BudgetVector, CashflowVector, ClarityVector, LoansVector } from "../../components/TourArt";
 import { colors } from "../../theme/colors";
@@ -58,9 +57,11 @@ const SLIDES: TourSlide[] = [
   },
 ];
 
+/** Set once this phone has shown the first-run tour (or has had anyone signed in). */
+export const TOUR_SEEN_KEY = "@expenso_tour_seen";
+
 export function OnboardingTourScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
 
@@ -68,14 +69,12 @@ export function OnboardingTourScreen({ route, navigation }: Props) {
 
   const handleComplete = async () => {
     hapticSuccess();
-    if (user?.id) {
-      await AsyncStorage.setItem(`@expenso_tour_completed_${user.id}`, "true");
-    }
     if (isFromSettings) {
       navigation.goBack();
-    } else {
-      navigation.replace("Tabs", { screen: "Home" });
+      return;
     }
+    await AsyncStorage.setItem(TOUR_SEEN_KEY, "true").catch(() => {});
+    navigation.replace("Auth", { screen: "Login" });
   };
 
   const handleNext = () => {

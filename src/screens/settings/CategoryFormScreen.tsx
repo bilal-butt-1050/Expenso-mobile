@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useCategories } from "../../hooks/useCategories";
 import { getErrorMessage } from "../../api/client";
 import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
+import { FormFooter } from "../../components/FormFooter";
 import { CategoryPill } from "../../components/CategoryPill";
 import { IconPicker } from "../../components/CategoryPickers";
 import { colors } from "../../theme/colors";
@@ -16,7 +16,6 @@ import { RootStackParamList } from "../../types/navigation";
 type Props = NativeStackScreenProps<RootStackParamList, "CategoryForm">;
 
 export function CategoryFormScreen({ route, navigation }: Props) {
-  const insets = useSafeAreaInsets();
   const editing = route.params?.category;
   const { addCategory, editCategory } = useCategories();
 
@@ -40,7 +39,10 @@ export function CategoryFormScreen({ route, navigation }: Props) {
         const created = await addCategory({ name: name.trim(), icon, color });
         // A new category has no budget and no spending, so it would fold into the collapsed
         // "unused" group and seem to vanish. Open its budget sheet instead.
-        navigation.navigate("Tabs", { screen: "Budget", params: { openCategoryId: created.id } });
+        navigation.navigate("Tabs", {
+          screen: "Budget",
+          params: { openCategoryId: created.id },
+        });
       }
     } catch (err) {
       setError(getErrorMessage(err));
@@ -50,34 +52,35 @@ export function CategoryFormScreen({ route, navigation }: Props) {
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[
-        styles.content,
-        { paddingBottom: Math.max(insets.bottom, 24) + spacing.xxl + 16 },
-      ]}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View style={styles.preview}>
-        <CategoryPill icon={icon} color={color} size={56} />
-        <Text style={styles.previewName}>{name || "New category"}</Text>
-      </View>
+    <View style={styles.container}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.preview}>
+          <CategoryPill icon={icon} color={color} size={56} />
+          <Text style={styles.previewName}>{name || "New category"}</Text>
+        </View>
 
-      <TextField label="Name" value={name} onChangeText={setName} placeholder="e.g. Pet Care" maxLength={30} />
+        <TextField label="Name" value={name} onChangeText={setName} placeholder="e.g. Pet Care" maxLength={30} />
 
-      <IconPicker value={icon} color={color} onChange={setIcon} />
-
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      <Button label={editing ? "Save changes" : "Create category"} onPress={handleSave} loading={isSaving} />
-    </ScrollView>
+        <IconPicker value={icon} color={color} onChange={setIcon} />
+      </ScrollView>
+      <FormFooter>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        <Button label={editing ? "Save changes" : "Create category"} onPress={handleSave} loading={isSaving} />
+      </FormFooter>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  scroll: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl },
   preview: { alignItems: "center", gap: spacing.sm, marginBottom: spacing.xl },
   previewName: { ...typography.subtitle, color: colors.textPrimary },
-  error: { ...typography.small, fontWeight: "400", color: colors.danger, marginBottom: spacing.md },
+  error: {
+    ...typography.small,
+    fontWeight: "400",
+    color: colors.danger,
+    marginBottom: spacing.md,
+  },
 });

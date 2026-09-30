@@ -14,15 +14,18 @@ import { ExpenseFormScreen } from "../screens/expenses/ExpenseFormScreen";
 import { IncomeFormScreen } from "../screens/income/IncomeFormScreen";
 import { CategoryFormScreen } from "../screens/settings/CategoryFormScreen";
 import { LoanFormScreen } from "../screens/loans/LoanFormScreen";
-import { OnboardingTourScreen } from "../screens/onboarding/OnboardingTourScreen";
+import { OnboardingTourScreen, TOUR_SEEN_KEY } from "../screens/onboarding/OnboardingTourScreen";
 import { OpeningCashScreen } from "../screens/onboarding/OpeningCashScreen";
 import { SettingsScreen } from "../screens/settings/SettingsScreen";
 import { AnimatedSplash } from "../components/AnimatedSplash";
+import { useKeyboardOffset } from "../hooks/useKeyboardHeight";
+import { useAnyOverlayOpen } from "../lib/overlays";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-/** How long after signup an account still counts as new for the first-run tour. */
+/** How long after signup an account still counts as new, for the opening-cash step. */
 const NEW_ACCOUNT_MS = 24 * 60 * 60 * 1000;
+
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -43,28 +46,21 @@ export function RootNavigator() {
   const [showSplash, setShowSplash] = useState(true);
   const [needsTour, setNeedsTour] = useState<boolean | null>(null);
 
-  // Stay undecided (`null`) until auth has settled. Resolving this early meant the navigator
-  // mounted with a guessed initial route and then remounted — via the `key` below — the moment the
-  // real answer arrived, which showed up as a flash immediately after the splash.
+  // The tour is for a fresh install: it shows before sign-in, once per phone. Stay undecided
+  // (`null`) until auth has settled, or the navigator mounts with a guessed route and remounts (a
+  // flash after the splash).
   useEffect(() => {
     if (isLoading) return;
 
-    if (!user?.id) {
-      setNeedsTour(false);
-      return;
-    }
-
-    // The tour is for new accounts. It used to depend only on a flag stored on this phone, so an
-    // existing account (data and all) got it again in a new install, or in the other of the
-    // preview and production apps. Without createdAt (an older server), keep the old behaviour.
-    const isNewAccount = user.createdAt ? Date.now() - new Date(user.createdAt).getTime() < NEW_ACCOUNT_MS : true;
-    if (!isNewAccount) {
+    if (user?.id) {
+      // Someone signed in already knows the app, so this phone never shows the first-run tour.
+      AsyncStorage.setItem(TOUR_SEEN_KEY, "true").catch(() => {});
       setNeedsTour(false);
       return;
     }
 
     let cancelled = false;
-    AsyncStorage.getItem(`@expenso_tour_completed_${user.id}`)
+    AsyncStorage.getItem(TOUR_SEEN_KEY)
       .then((val) => {
         if (!cancelled) setNeedsTour(val !== "true");
       })
@@ -75,7 +71,13 @@ export function RootNavigator() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, user?.createdAt, isLoading]);
+  }, [user?.id, isLoading]);
+
+  // Edge-to-edge Android doesn't resize the window for the keyboard, so screens sat under it and
+  // it covered their buttons. The app shrinks above it instead. Not while a sheet or dialog is
+  // open: those are their own windows and lift themselves.
+  const overlayOpen = useAnyOverlayOpen();
+  const keyboardOffset = useKeyboardOffset(!overlayOpen);
 
   // Dismiss native splash immediately on mount —
   // our custom AnimatedSplash is already mounted and covering the screen with zero flicker.
@@ -88,22 +90,23 @@ export function RootNavigator() {
   }, []);
 
   const isNavigatorReady = !isLoading && needsTour !== null;
-  // Opening cash is asked for once, before the tour or the tabs (D-64). Strictly null: a user cached
-  // by an older build lacks the field (undefined) until /auth/me refreshes it, and isn't stopped.
-  const needsOpeningCash = !!user && user.openingBalance === null;
+  // Opening cash is asked for once, right after an account is created (D-64), never of an existing
+  // account. Strictly null: a user cached by an older build lacks the field (undefined).
+  const isNewAccount = !!user?.createdAt && Date.now() - new Date(user.createdAt).getTime() < NEW_ACCOUNT_MS;
+  const needsOpeningCash = !!user && isNewAccount && user.openingBalance === null;
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { paddingBottom: keyboardOffset }]}>
       <NavigationContainer ref={navigationRef} theme={navigationTheme}>
         {isNavigatorReady && (
           <Stack.Navigator
-            key={user ? (needsOpeningCash ? "opening-stack" : needsTour ? "tour-stack" : "tabs-stack") : "auth-stack"}
+            key={user ? (needsOpeningCash ? "opening-stack" : "tabs-stack") : needsTour ? "welcome-stack" : "auth-stack"}
             screenOptions={{ headerShown: false }}
             // Must name a screen that exists in the branch rendered below. Signed out, only
             // `Auth` is registered — pointing at `Tabs` there threw
             // "Couldn't find a screen named 'Tabs' to use as 'initialRouteName'" and took the
             // whole app down on launch. React Navigation 6 only warned about this; 7 throws.
-            initialRouteName={user ? (needsOpeningCash ? "OpeningCash" : needsTour ? "OnboardingTour" : "Tabs") : "Auth"}
+            initialRouteName={user ? (needsOpeningCash ? "OpeningCash" : "Tabs") : needsTour ? "OnboardingTour" : "Auth"}
           >
             {user ? (
               <>
@@ -149,7 +152,10 @@ export function RootNavigator() {
                 </Stack.Group>
               </>
             ) : (
-              <Stack.Screen name="Auth" component={AuthNavigator} />
+              <>
+                <Stack.Screen name="OnboardingTour" component={OnboardingTourScreen} />
+                <Stack.Screen name="Auth" component={AuthNavigator} />
+              </>
             )}
           </Stack.Navigator>
         )}

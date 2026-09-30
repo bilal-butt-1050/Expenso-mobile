@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRegisterOverlay } from "../lib/overlays";
 import { useLatest } from "../hooks/useLatest";
 import { useReduceMotion } from "../hooks/useReduceMotion";
-import { useAndroidKeyboardHeight } from "../hooks/useKeyboardHeight";
+import { useKeyboardOffset } from "../hooks/useKeyboardHeight";
 
 interface Props {
   visible: boolean;
@@ -38,7 +38,7 @@ export function BottomSheet({ visible, onClose, onHidden, children }: Props) {
   const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
-  const keyboardHeight = useAndroidKeyboardHeight(showModal);
+  const keyboardHeight = useKeyboardOffset(showModal);
   useRegisterOverlay(showModal);
   // Reduced motion: the sheet fades in and out in place instead of sliding (W3b). A drag still
   // moves it, since the finger drives that.

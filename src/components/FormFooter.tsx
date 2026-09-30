@@ -15,10 +15,8 @@ interface Props {
  * A form's primary action, pinned under its scroll and above the keyboard (B1). Put it after the
  * ScrollView, inside the form's root (a KeyboardAvoidingView that pads on iOS only).
  *
- * Android: the app is edge-to-edge, so the window doesn't resize for the keyboard and the
- * KeyboardAvoidingView does nothing (`padding` there would double-lift, ui-review 8.1). The footer
- * lifts itself instead, by the keyboard's full offset from the screen's bottom edge. The scroll above
- * it shrinks to match, so every field can still be scrolled into view.
+ * Android: RootNavigator shrinks the app above the keyboard, so the footer sits on it. It only
+ * drops its navigation-bar padding while the keyboard is up (the keyboard covers that bar).
  */
 export function FormFooter({ children, trackKeyboard = true }: Props) {
   const insets = useSafeAreaInsets();
@@ -29,10 +27,7 @@ export function FormFooter({ children, trackKeyboard = true }: Props) {
     <View
       style={[
         styles.footer,
-        keyboardUp
-          ? // The keyboard already covers the navigation bar, so only the gap above it remains.
-            { marginBottom: keyboardHeight + insets.bottom, paddingBottom: spacing.md }
-          : { paddingBottom: Math.max(insets.bottom, spacing.md) },
+        { paddingBottom: keyboardUp ? spacing.md : Math.max(insets.bottom, spacing.md) },
       ]}
     >
       {children}

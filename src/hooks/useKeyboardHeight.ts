@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Keyboard, Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * The keyboard's height while it's open, on Android only (iOS uses KeyboardAvoidingView). Same
@@ -31,4 +32,15 @@ export function useAndroidKeyboardHeight(active = true): number {
     };
   }, [active]);
   return height;
+}
+
+/**
+ * How far the keyboard's top edge is from the bottom of an edge-to-edge window (the app's, or a
+ * Modal's, which RN also draws edge-to-edge): the keyboard's height plus the navigation bar under
+ * it. 0 while it's closed.
+ */
+export function useKeyboardOffset(active = true): number {
+  const height = useAndroidKeyboardHeight(active);
+  const { bottom } = useSafeAreaInsets();
+  return height > 0 ? height + bottom : 0;
 }
