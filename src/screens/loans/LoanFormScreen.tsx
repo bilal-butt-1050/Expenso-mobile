@@ -48,7 +48,6 @@ export function LoanFormScreen({ route, navigation }: Props) {
   const [dueDate, setDueDate] = useState<Date>(
     editing?.dueDate ? new Date(editing.dueDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
   );
-  const [notes, setNotes] = useState(editing?.notes ?? "");
   // When the money moved (R-41): today by default; never in the future (D-63).
   const originalDate = editing ? new Date(loanDate(editing)) : null;
   // A new loan defaults to today at noon, as the date picker saves any day (D-63).
@@ -114,7 +113,6 @@ export function LoanFormScreen({ route, navigation }: Props) {
           personName: cleanName,
           amount: numericAmount,
           dueDate: hasDueDate ? dueDate.toISOString() : null,
-          notes: notes.trim() || null,
           ...(dateChanged ? { date: date.toISOString() } : {}),
         });
       } else {
@@ -123,7 +121,6 @@ export function LoanFormScreen({ route, navigation }: Props) {
           personName: cleanName,
           amount: numericAmount,
           dueDate: hasDueDate ? dueDate.toISOString() : undefined,
-          notes: notes.trim() || undefined,
           recordCashflow,
           date: date.toISOString(),
         });
@@ -289,15 +286,6 @@ export function LoanFormScreen({ route, navigation }: Props) {
             </View>
           )}
         </View>
-
-        {/* Optional Notes */}
-        <TextField
-          label="Notes (optional)"
-          value={notes}
-          onChangeText={setNotes}
-          placeholder="e.g. For group dinner, split rental deposit"
-          maxLength={200}
-        />
       </ScrollView>
 
       {/* Save stays reachable with the keyboard up (B1); a save error shows right above it. */}

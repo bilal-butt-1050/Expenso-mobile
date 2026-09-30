@@ -220,7 +220,6 @@ export interface Loan {
   remainingAmount?: number;
   dueDate: string | null; // ISO string
   status: LoanStatus;
-  notes: string | null;
   /** When the money moved (D-62). Missing from older servers and cached payloads: use `loanDate()`. */
   date?: string;
   /** Present on the month view (`GET /loans?month`): the loan as of that month's end. */
@@ -234,7 +233,6 @@ export interface LoanInput {
   personName: string;
   amount: number;
   dueDate?: string | null;
-  notes?: string | null;
   /**
    * Whether the principal moves now. Defaults to true server-side. False records a debt that
    * predates the app without fabricating a cash movement today.

@@ -149,7 +149,6 @@ export function LoanSettleSheet({
           <Text style={styles.personName}>{shown?.personName}</Text>
           {/* Opened from any month, the sheet always shows and acts on today's loan (D-63). */}
           <Text style={styles.asOfToday}>As of today</Text>
-          {shown?.notes ? <Text style={styles.notes}>{shown.notes}</Text> : null}
         </View>
 
         {/* Balance breakdown */}
@@ -270,10 +269,6 @@ const styles = StyleSheet.create({
     ...typography.subtitle,
     fontWeight: "700",
     color: colors.textPrimary,
-  },
-  notes: {
-    ...typography.caption,
-    color: colors.textMuted,
   },
   // A grouped card inside the raised sheet: `surface`, 1pt `borderLight`, `radius.lg` (W5).
   balanceCard: {
