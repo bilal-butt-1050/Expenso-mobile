@@ -543,20 +543,18 @@ export function ActivityScreen() {
             activeTab === "LOANS" && loansSummary ? (
               <View style={styles.loansOverviewCard}>
                 <View style={styles.loanCol}>
-                  <Text style={styles.loanColLabel}>YOU LENT</Text>
+                  {/* The figure is what's still out, and the title says exactly that (§5.4). */}
+                  <Text style={styles.loanColLabel}>STILL TO COME BACK</Text>
                   <Text style={[styles.loanColValue, { color: colors.success }]}>
                     {formatCurrency(loansSummary.totalLentPending)}
                   </Text>
-                  {/* The figure is what's still out, so the label says so (ui-review §5.4). */}
-                  <Text style={styles.loanColNote}>still to come back</Text>
                 </View>
                 <View style={styles.loanDivider} />
                 <View style={styles.loanCol}>
-                  <Text style={styles.loanColLabel}>YOU BORROWED</Text>
+                  <Text style={styles.loanColLabel}>STILL TO PAY BACK</Text>
                   <Text style={[styles.loanColValue, { color: colors.danger }]}>
                     {formatCurrency(loansSummary.totalBorrowedPending)}
                   </Text>
-                  <Text style={styles.loanColNote}>still to pay back</Text>
                 </View>
               </View>
             ) : null
@@ -668,11 +666,6 @@ const styles = StyleSheet.create({
   loanColValue: {
     fontSize: 17,
     fontWeight: "700",
-  },
-  loanColNote: {
-    ...typography.small,
-    color: colors.textSecondary,
-    marginTop: 2,
   },
   listContent: {
     paddingHorizontal: spacing.lg,

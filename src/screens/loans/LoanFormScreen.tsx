@@ -105,12 +105,11 @@ export function LoanFormScreen({ route, navigation }: Props) {
       }
 
       hapticRecordCreated();
-      if (editing) {
-        navigation.goBack();
-      } else {
-        // A new loan opens the Loans tab, highlighted (D-58).
-        navigation.navigate("Tabs", { screen: "Activity", params: { filter: "LOANS", highlightId: created?.id } });
-      }
+      // A saved loan, new or edited, opens the Loans tab, highlighted (D-58, D-59).
+      navigation.navigate("Tabs", {
+        screen: "Activity",
+        params: { filter: "LOANS", highlightId: editing?.id ?? created?.id },
+      });
     } catch (err) {
       hapticError();
       setError(getErrorMessage(err));

@@ -134,26 +134,22 @@ export function SwipeableActivityRow({
   };
 
   // Vibrant, friendly icon colors & soft background bubbles
+  // Expenses are red and income green, icon and amount alike, so a row's colour always means the
+  // same thing (D-59). Categories are still told apart by their icon.
   const getIconBg = () => {
-    if (item.type === "INCOME") return "rgba(16, 185, 129, 0.14)";
+    if (item.type === "INCOME") return colors.successMuted;
+    if (item.type === "EXPENSE") return colors.dangerMuted;
     if (item.loanDirection) {
       return item.loanDirection === "LENT" ? "rgba(96, 165, 250, 0.14)" : "rgba(245, 158, 11, 0.14)";
     }
-    const categoryColor = "category" in item.raw ? item.raw.category?.color : undefined;
-    if (categoryColor) {
-      return `${categoryColor}22`;
-    }
-    return "rgba(99, 102, 241, 0.14)";
+    return colors.accentMuted;
   };
 
   const getIconColor = () => {
     if (item.type === "INCOME") return colors.success;
+    if (item.type === "EXPENSE") return colors.danger;
     if (item.loanDirection) {
       return item.loanDirection === "LENT" ? "#60A5FA" : colors.warning;
-    }
-    const categoryColor = "category" in item.raw ? item.raw.category?.color : undefined;
-    if (categoryColor) {
-      return categoryColor;
     }
     return colors.accent;
   };

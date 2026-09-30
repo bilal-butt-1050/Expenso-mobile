@@ -199,12 +199,8 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
       // Follow the saved entry to its month so it is actually visible.
       setSelectedMonth(expenseMonth);
-      if (editing) {
-        navigation.goBack();
-      } else {
-        // A new record opens its own Activity tab, highlighted (D-58).
-        navigation.navigate("Tabs", { screen: "Activity", params: { filter: "EXPENSES", highlightId: savedId } });
-      }
+      // A saved record, new or edited, opens its own Activity tab, highlighted (D-58, D-59).
+      navigation.navigate("Tabs", { screen: "Activity", params: { filter: "EXPENSES", highlightId: savedId } });
     } catch (err) {
       hapticError();
       setError(getErrorMessage(err));

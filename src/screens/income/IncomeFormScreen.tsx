@@ -138,12 +138,8 @@ export function IncomeFormScreen({ route, navigation }: Props) {
       const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`;
       setSelectedMonth(monthKey);
 
-      if (editing) {
-        navigation.goBack();
-      } else {
-        // A new record opens its own Activity tab, highlighted (D-58).
-        navigation.navigate("Tabs", { screen: "Activity", params: { filter: "INCOME", highlightId: savedId } });
-      }
+      // A saved record, new or edited, opens its own Activity tab, highlighted (D-58, D-59).
+      navigation.navigate("Tabs", { screen: "Activity", params: { filter: "INCOME", highlightId: savedId } });
     } catch (err) {
       hapticError();
       setError(getErrorMessage(err));
