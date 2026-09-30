@@ -6,7 +6,6 @@ import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import * as Updates from "expo-updates";
 import { useAuth } from "../../context/AuthContext";
 import { useDialog } from "../../context/DialogContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
@@ -73,58 +72,8 @@ export function SettingsScreen() {
     });
   };
 
-  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   // Fixed for the life of the process: a reload is what changes the running bundle.
   const [runningUpdate] = useState(describeRunningUpdate);
-
-  const handleCheckForUpdates = async () => {
-    if (__DEV__ || !Updates.isEnabled) {
-      alert({
-        title: "Development mode",
-        message: "Over-the-air updates are only active in standalone APK/production builds.",
-        icon: "information-outline",
-      });
-      return;
-    }
-
-    setIsCheckingUpdate(true);
-    try {
-      const update = await Updates.checkForUpdateAsync();
-      if (update.isAvailable) {
-        alert({
-          title: "Update available",
-          message: "Downloading the latest version in the background...",
-          icon: "download",
-        });
-        const res = await Updates.fetchUpdateAsync();
-        if (res.isNew) {
-          confirm({
-            title: "Update downloaded",
-            message: "The latest update has been downloaded. Would you like to restart the app to apply it now?",
-            confirmText: "Restart now",
-            icon: "restart",
-            onConfirm: async () => {
-              await Updates.reloadAsync();
-            },
-          });
-        }
-      } else {
-        alert({
-          title: "Up to date",
-          message: "You are running the latest version of Expenso.",
-          icon: "check-circle-outline",
-        });
-      }
-    } catch {
-      alert({
-        title: "Update check failed",
-        message: "Unable to reach update servers. Please check your internet connection.",
-        icon: "alert-circle-outline",
-      });
-    } finally {
-      setIsCheckingUpdate(false);
-    }
-  };
 
   const email = user?.email || "";
   const nameFromEmail = email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, l => l.toUpperCase());
@@ -184,14 +133,6 @@ export function SettingsScreen() {
         ) : null}
 
         <Text style={styles.sectionTitle}>App & system</Text>
-        <SettingsRow
-          icon="cloud-sync-outline"
-          label={isCheckingUpdate ? "Checking for updates…" : "Check for updates"}
-          // The channel moved to the footer; the hardcoded "v1.0.0" was never true (§5.4).
-          subtitle="Get the latest version"
-          onPress={handleCheckForUpdates}
-        />
-
         <SettingsRow
           icon="compass-outline"
           label="App tour"

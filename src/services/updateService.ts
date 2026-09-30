@@ -6,43 +6,23 @@ import { AppState, AppStateStatus } from "react-native";
  */
 class UpdateService {
   private isChecking = false;
-  /** A newer bundle has been downloaded and applies on reload. Sticky for the session. */
-  private updateReady = false;
-  private readyListeners = new Set<() => void>();
-
-  /** "Update ready" is offered at most once per process, even across logout and login. */
-  private promptOffered = false;
-  public wasPromptOffered = (): boolean => this.promptOffered;
-  public markPromptOffered = (): void => {
-    this.promptOffered = true;
-  };
-
-  /** For `useSyncExternalStore`: whether a downloaded update is waiting to be applied. */
-  public isUpdateReady = (): boolean => this.updateReady;
-
-  public subscribeUpdateReady = (listener: () => void): (() => void) => {
-    this.readyListeners.add(listener);
-    return () => {
-      this.readyListeners.delete(listener);
-    };
-  };
 
   /**
    * Initializes the update check listeners.
    * Runs on app startup and whenever the app returns to foreground.
    */
-  public init(onUpdateReady?: () => void) {
+  public init() {
     if (__DEV__ || !Updates.isEnabled) {
       return;
     }
 
     // Check immediately on startup
-    this.checkForUpdates(onUpdateReady);
+    this.checkForUpdates();
 
     // Check when user returns to the app from background
     const subscription = AppState.addEventListener("change", (nextState: AppStateStatus) => {
       if (nextState === "active") {
-        this.checkForUpdates(onUpdateReady);
+        this.checkForUpdates();
       }
     });
 
@@ -52,10 +32,11 @@ class UpdateService {
   }
 
   /**
-   * Checks the Expo server for new published updates.
-   * If a new update is found, it downloads it immediately.
+   * Checks the Expo server for a newer update and applies it straight away: download, then reload.
+   * No prompt and no second restart (Bilal). It runs at launch and on return to the app, so the
+   * reload lands before anything is under way.
    */
-  public async checkForUpdates(onUpdateReady?: () => void): Promise<boolean> {
+  public async checkForUpdates(): Promise<boolean> {
     if (__DEV__ || !Updates.isEnabled || this.isChecking) {
       return false;
     }
@@ -66,12 +47,7 @@ class UpdateService {
       if (checkResult.isAvailable) {
         const fetchResult = await Updates.fetchUpdateAsync();
         if (fetchResult.isNew) {
-          // Without a prompt the new bundle only took effect on the second cold start. The
-          // app now offers a restart (UpdatePrompt); if that is ignored, the next cold start
-          // applies it as before.
-          this.updateReady = true;
-          this.readyListeners.forEach((listener) => listener());
-          onUpdateReady?.();
+          await Updates.reloadAsync();
           return true;
         }
       }
@@ -83,15 +59,6 @@ class UpdateService {
     }
 
     return false;
-  }
-
-  /**
-   * Immediately reloads the app with the latest downloaded OTA bundle.
-   */
-  public async reloadApp() {
-    if (!__DEV__ && Updates.isEnabled) {
-      await Updates.reloadAsync();
-    }
   }
 
   /**
