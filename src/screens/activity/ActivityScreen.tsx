@@ -12,7 +12,7 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTransactions, useTransactionMutations } from "../../hooks/useTransactions";
-import { useLoans } from "../../hooks/useLoans";
+import { useLoans, useLoansForMonth } from "../../hooks/useLoans";
 import { useAppData } from "../../context/AppDataContext";
 import { useDialog } from "../../context/DialogContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
@@ -32,13 +32,13 @@ import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { formatCurrency } from "../../utils/currency";
-import { formatDate } from "../../utils/date";
+import { currentMonthKey, formatDate, formatMonthLabel } from "../../utils/date";
 import { getErrorMessage } from "../../api/client";
 import { hapticLight, hapticDelete } from "../../utils/haptics";
 import { useSnackbar } from "../../components/snackbar/SnackbarContext";
 import { useReduceMotion } from "../../hooks/useReduceMotion";
 import { TabParamList, RootStackParamList } from "../../types/navigation";
-import { Loan, Transaction, TransactionKind } from "../../types/models";
+import { Loan, Transaction, TransactionKind, loanDate } from "../../types/models";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type ActivityTab = "ALL" | "EXPENSES" | "INCOME" | "LOANS";
@@ -177,26 +177,27 @@ export function ActivityScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { commitDelete } = useTransactionMutations();
 
+  // Today's loans: the settle sheet acts on these, and movement rows find their loan here (D-63).
+  const { loans, refresh: refetchLoans, recordPayment, removeLoan } = useLoans();
+  // The Loans tab follows the month picker: loans visible that month, as of its end (R-41).
   const {
-    loans,
-    summary: loansSummary,
+    loans: monthLoans,
     isLoading: loansLoading,
     error: loansError,
-    refresh: refetchLoans,
-    recordPayment,
-    removeLoan,
-  } = useLoans();
+    refetch: refetchMonthLoans,
+  } = useLoansForMonth(selectedMonth);
+  const isCurrentMonth = selectedMonth === currentMonthKey();
 
   const isLoading = (activeTab === "LOANS" ? loansLoading : txLoading) || false;
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([refetchTransactions(), refetchLoans()]);
+      await Promise.all([refetchTransactions(), refetchLoans(), refetchMonthLoans()]);
     } finally {
       setRefreshing(false);
     }
-  }, [refetchTransactions, refetchLoans]);
+  }, [refetchTransactions, refetchLoans, refetchMonthLoans]);
 
   /**
    * Maps the ledger onto rows. Income and spending are titled by their source or category; a loan
@@ -206,31 +207,35 @@ export function ActivityScreen() {
 
   const unifiedItems = useMemo<UnifiedActivityItem[]>(() => {
     if (activeTab === "LOANS") {
-      // Newest first, so the date headers read in order (the server lists active loans first).
-      const byNewest = [...(loans || [])].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      // Newest first by the loan's own date, so the date headers read in order.
+      const byNewest = [...monthLoans].sort(
+        (a, b) => new Date(loanDate(b)).getTime() - new Date(loanDate(a)).getTime()
       );
       return byNewest.filter((loan) => !hiddenIds.has(`loan-${loan.id}`)).map((loan) => {
         const isLent = loan.type === "LENT";
-        const status = loan.status === "SETTLED" ? "settled" : isOverdue(loan) ? "overdue" : "open";
-        // The due date was on the old Loans screen; without it, "Overdue" is the first warning.
-        const due = status !== "settled" && loan.dueDate ? ` · due ${formatDate(loan.dueDate)}` : "";
+        // The row is the loan as it stood at the end of the selected month (R-41).
+        const paid = loan.asOf?.settledAmount ?? loan.settledAmount;
+        const settled = (loan.asOf?.status ?? loan.status) === "SETTLED";
+        // "Overdue" is a fact about today, so only the current month says it (S12).
+        const today = loansById.get(loan.id) ?? loan;
+        const status = settled ? "settled" : isCurrentMonth && isOverdue(today) ? "overdue" : "open";
+        const due = !settled && isCurrentMonth && loan.dueDate ? ` · due ${formatDate(loan.dueDate)}` : "";
         return {
           id: `loan-${loan.id}`,
           rawId: loan.id,
           type: "LOAN" as const,
           // What happened, then who with (R-29). The person is the identity of the record.
           title: isLent ? "You lent" : "You borrowed",
-          subtitle: loan.personName,
+          subtitle: `${loan.personName} · ${formatDate(loanDate(loan))}`,
           amount: loan.amount,
-          date: loan.createdAt,
+          date: loanDate(loan),
           icon: isLent ? "arrow-top-right" : "arrow-bottom-left",
           tone: "neutral" as const,
           loanDirection: loan.type,
           repayment: {
-            paid: loan.settledAmount,
+            paid,
             total: loan.amount,
-            label: `${formatCurrency(loan.settledAmount)} of ${formatCurrency(loan.amount)} ${isLent ? "paid back" : "repaid"}${due}`,
+            label: `${formatCurrency(paid)} of ${formatCurrency(loan.amount)} ${isLent ? "paid back" : "repaid"}${due}`,
             status,
           },
           raw: loan,
@@ -283,7 +288,17 @@ export function ActivityScreen() {
         raw: tx,
       };
     });
-  }, [transactions, loans, loansById, activeTab, hiddenIds]);
+  }, [transactions, monthLoans, loansById, activeTab, hiddenIds, isCurrentMonth]);
+
+  // The tab's totals: what was still out at the end of the selected month (R-41). The same sums
+  // the dashboard's debt position makes, by construction.
+  const monthTotals = useMemo(() => {
+    const remaining = (type: Loan["type"]) =>
+      monthLoans
+        .filter((l) => l.type === type && !hiddenIds.has(`loan-${l.id}`))
+        .reduce((t, l) => t + (l.asOf?.remainingAmount ?? l.remainingAmount ?? 0), 0);
+    return { lent: remaining("LENT"), borrowed: remaining("BORROWED") };
+  }, [monthLoans, hiddenIds]);
 
   // Group into clean date sections
   const sections = useMemo(() => {
@@ -323,7 +338,9 @@ export function ActivityScreen() {
     hapticLight();
 
     if (item.type === "LOAN") {
-      setSettlingLoan(item.raw as Loan);
+      // The sheet acts on today's loan, whichever month is showing (D-63).
+      const loan = item.raw as Loan;
+      setSettlingLoan(loansById.get(loan.id) ?? loan);
       return;
     }
 
@@ -511,10 +528,10 @@ export function ActivityScreen() {
         </View>
       ) : sections.length === 0 ? (
         <EmptyState
-          title="No transactions"
+          title={activeTab === "LOANS" ? `No loans in ${formatMonthLabel(selectedMonth)}` : "No transactions"}
           subtitle={
             activeTab === "LOANS"
-              ? "No active debts or loans recorded."
+              ? "Loans show from the day the money moved until they're paid back."
               : "Transactions you log will appear here."
           }
           icon="receipt-text-outline"
@@ -540,20 +557,20 @@ export function ActivityScreen() {
             isFetchingMore ? <ActivityIndicator color={colors.accent} style={styles.pageSpinner} /> : null
           }
           ListHeaderComponent={
-            activeTab === "LOANS" && loansSummary ? (
+            activeTab === "LOANS" ? (
               <View style={styles.loansOverviewCard}>
                 <View style={styles.loanCol}>
                   {/* The figure is what's still out, and the title says exactly that (§5.4). */}
                   <Text style={styles.loanColLabel}>STILL TO COME BACK</Text>
                   <Text style={[styles.loanColValue, { color: colors.success }]}>
-                    {formatCurrency(loansSummary.totalLentPending)}
+                    {formatCurrency(monthTotals.lent)}
                   </Text>
                 </View>
                 <View style={styles.loanDivider} />
                 <View style={styles.loanCol}>
                   <Text style={styles.loanColLabel}>STILL TO PAY BACK</Text>
                   <Text style={[styles.loanColValue, { color: colors.danger }]}>
-                    {formatCurrency(loansSummary.totalBorrowedPending)}
+                    {formatCurrency(monthTotals.borrowed)}
                   </Text>
                 </View>
               </View>

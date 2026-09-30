@@ -186,6 +186,10 @@ export interface Loan {
   dueDate: string | null; // ISO string
   status: LoanStatus;
   notes: string | null;
+  /** When the money moved (D-62). Missing from older servers and cached payloads: use `loanDate()`. */
+  date?: string;
+  /** Present on the month view (`GET /loans?month`): the loan as of that month's end. */
+  asOf?: { settledAmount: number; remainingAmount: number; status: LoanStatus };
   createdAt: string;
   updatedAt: string;
 }
@@ -201,6 +205,13 @@ export interface LoanInput {
    * predates the app without fabricating a cash movement today.
    */
   recordCashflow?: boolean;
+  /** When the money moved: an ISO date-time, never in the future (D-63). */
+  date?: string;
+}
+
+/** A loan's own date, falling back to when it was recorded for older payloads (R-42). */
+export function loanDate(loan: Pick<Loan, "date" | "createdAt">): string {
+  return loan.date ?? loan.createdAt;
 }
 
 export interface LoansSummary {

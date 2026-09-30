@@ -15,7 +15,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RootStackParamList } from "../../types/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { useLoans } from "../../hooks/useLoans";
-import { Loan, LoanType } from "../../types/models";
+import { Loan, LoanType, loanDate } from "../../types/models";
+import { useAppData } from "../../context/AppDataContext";
+import { toMonthKey } from "../../utils/date";
 import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
 import { DatePicker } from "../../components/DatePicker";
@@ -45,6 +47,10 @@ export function LoanFormScreen({ route, navigation }: Props) {
     editing?.dueDate ? new Date(editing.dueDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
   );
   const [notes, setNotes] = useState(editing?.notes ?? "");
+  // When the money moved (R-41): today by default; never in the future (D-63).
+  const originalDate = editing ? new Date(loanDate(editing)) : null;
+  const [date, setDate] = useState<Date>(originalDate ?? new Date());
+  const { setSelectedMonth } = useAppData();
   /**
    * Whether the money moves now. Recording a debt that predates the app must not fabricate a cash
    * movement today, so this is offered on create. On edit the principal has already been recorded.
@@ -87,11 +93,15 @@ export function LoanFormScreen({ route, navigation }: Props) {
     let created: Loan | undefined;
     try {
       if (editing) {
+        // The date is sent only when it changed. An older loan can have a repayment dated before
+        // its backfilled date, and re-sending that date unchanged would be refused.
+        const dateChanged = originalDate === null || originalDate.toDateString() !== date.toDateString();
         await editLoan(editing.id, {
           personName: cleanName,
           amount: numericAmount,
           dueDate: hasDueDate ? dueDate.toISOString() : null,
           notes: notes.trim() || null,
+          ...(dateChanged ? { date: date.toISOString() } : {}),
         });
       } else {
         created = await addLoan({
@@ -101,10 +111,13 @@ export function LoanFormScreen({ route, navigation }: Props) {
           dueDate: hasDueDate ? dueDate.toISOString() : undefined,
           notes: notes.trim() || undefined,
           recordCashflow,
+          date: date.toISOString(),
         });
       }
 
       hapticRecordCreated();
+      // Show the loan's own month, or it could be saved into a month the Loans tab isn't showing.
+      setSelectedMonth(toMonthKey(date));
       // A saved loan, new or edited, opens the Loans tab, highlighted (D-58, D-59).
       navigation.navigate("Tabs", {
         screen: "Activity",
@@ -225,23 +238,32 @@ export function LoanFormScreen({ route, navigation }: Props) {
           error={personError}
         />
 
+        {/* When the money moved (R-41). Future days can't be picked (D-63). */}
+        <DatePicker label="Date" value={date} onChange={setDate} maxDate={new Date()} />
+
         {!editing && (
-          <TouchableOpacity
-            style={styles.dueToggleRow}
-            onPress={() => setRecordCashflow(!recordCashflow)}
-            activeOpacity={0.7}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: recordCashflow }}
-          >
-            <MaterialCommunityIcons
-              name={recordCashflow ? "checkbox-marked" : "checkbox-blank-outline"}
-              size={22}
-              color={recordCashflow ? colors.accent : colors.textMuted}
-            />
-            <Text style={styles.dueToggleLabel}>
-              {type === "LENT" ? "I handed over the money now" : "I received the money now"}
-            </Text>
-          </TouchableOpacity>
+          <View>
+            <TouchableOpacity
+              style={styles.dueToggleRow}
+              onPress={() => setRecordCashflow(!recordCashflow)}
+              activeOpacity={0.7}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: recordCashflow }}
+              accessibilityHint="Untick for a debt from before you started using Expenso"
+            >
+              <MaterialCommunityIcons
+                name={recordCashflow ? "checkbox-marked" : "checkbox-blank-outline"}
+                size={22}
+                color={recordCashflow ? colors.accent : colors.textMuted}
+              />
+              <Text style={styles.dueToggleLabel}>
+                {type === "LENT"
+                  ? "This money came out of my cash on that date"
+                  : "This money went into my cash on that date"}
+              </Text>
+            </TouchableOpacity>
+            <Text style={styles.checkboxHint}>Untick for a debt from before you started using Expenso.</Text>
+          </View>
         )}
 
         {/* Due Date Toggle & Picker */}
@@ -349,6 +371,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     paddingVertical: spacing.xs,
+  },
+  checkboxHint: {
+    ...typography.small,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    marginLeft: 22 + spacing.sm,
   },
   dueToggleLabel: {
     ...typography.body,

@@ -160,6 +160,8 @@ export function LoanSettleSheet({
           </View>
 
           <Text style={styles.personName}>{shown?.personName}</Text>
+          {/* Opened from any month, the sheet always shows and acts on today's loan (D-63). */}
+          <Text style={styles.asOfToday}>As of today</Text>
           {shown?.notes ? <Text style={styles.notes}>{shown.notes}</Text> : null}
         </View>
 
@@ -241,6 +243,11 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: 4,
+  },
+  asOfToday: {
+    ...typography.small,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   headerActions: {
     flexDirection: "row",
