@@ -122,7 +122,7 @@ export function RootNavigator() {
                 <Stack.Screen name="OpeningCash" component={OpeningCashScreen} options={{ gestureEnabled: false }} />
                 {/* Header titles follow the mode (P11): an edit says so, and a new loan names its
                     direction like the + sheet does. LoanFormScreen updates it if the toggle flips. */}
-                <Stack.Group screenOptions={{ presentation: "modal", headerShown: true }}>
+                <Stack.Group screenOptions={{ presentation: "modal", headerShown: true, animation: "slide_from_bottom" }}>
                   <Stack.Screen
                     name="ExpenseForm"
                     component={ExpenseFormScreen}

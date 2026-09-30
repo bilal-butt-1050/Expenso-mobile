@@ -1,4 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
+import { AccessibilityInfo, LayoutAnimation } from "react-native";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
@@ -121,8 +122,32 @@ export const queryKeys = {
  * once, so a single mutation invalidates all of them rather than each caller remembering to.
  */
 export function invalidateMoney() {
+  lastWriteAt = Date.now();
   queryClient.invalidateQueries({ queryKey: ["transactions"] });
   queryClient.invalidateQueries({ queryKey: ["dashboard"] });
   queryClient.invalidateQueries({ queryKey: ["loans"] });
   queryClient.invalidateQueries({ queryKey: ["budgets"] });
 }
+
+/**
+ * Data that lands just after a write (an add, edit, delete, settle or budget change) animates in:
+ * new rows fade in and the rest slide into place, on whichever screen shows it, instead of jumping.
+ * Ordinary loads and refetches don't animate.
+ */
+let lastWriteAt = 0;
+const WRITE_ANIMATION_WINDOW_MS = 5000;
+let reduceMotion = false;
+AccessibilityInfo.isReduceMotionEnabled()
+  .then((on) => {
+    reduceMotion = on;
+  })
+  .catch(() => {});
+AccessibilityInfo.addEventListener("reduceMotionChanged", (on) => {
+  reduceMotion = on;
+});
+queryClient.getQueryCache().subscribe((event) => {
+  if (reduceMotion || event.type !== "updated" || event.action.type !== "success") return;
+  if (Date.now() - lastWriteAt > WRITE_ANIMATION_WINDOW_MS) return;
+  LayoutAnimation.configureNext(LayoutAnimation.create(240, "easeInEaseOut", "opacity"));
+});
+

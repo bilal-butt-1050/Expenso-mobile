@@ -11,6 +11,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import Reanimated, { FadeIn } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
 import { onlineManager } from "@tanstack/react-query";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -128,11 +129,13 @@ export function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {data ? (
-          <HomeSections
-            data={data}
-            onOpenBudget={() => navigation.navigate("Tabs", { screen: "Budget" })}
-            onOpenLoans={() => navigation.navigate("Tabs", { screen: "Activity", params: { filter: "LOANS" } })}
-          />
+          <Reanimated.View entering={FadeIn.duration(250)}>
+            <HomeSections
+              data={data}
+              onOpenBudget={() => navigation.navigate("Tabs", { screen: "Budget" })}
+              onOpenLoans={() => navigation.navigate("Tabs", { screen: "Activity", params: { filter: "LOANS" } })}
+            />
+          </Reanimated.View>
         ) : error || isOffline ? (
           <View style={styles.errorBlock}>
             <MaterialCommunityIcons name="cloud-alert-outline" size={48} color={colors.textSecondary} />

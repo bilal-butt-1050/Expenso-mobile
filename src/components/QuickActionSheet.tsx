@@ -2,12 +2,12 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   Modal,
   TouchableWithoutFeedback,
   PanResponder,
 } from "react-native";
+import { PressableScale } from "./PressableScale";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
@@ -174,9 +174,8 @@ export function QuickActionSheet({
                 <Text style={styles.sectionHeader}>Cashflow</Text>
 
                 {/* Add Expense */}
-                <TouchableOpacity
+                <PressableScale
                   style={styles.actionCard}
-                  activeOpacity={0.7}
                   onPress={() => {
                     hapticLight();
                     dismissSheet(() => onSelectExpense());
@@ -197,12 +196,11 @@ export function QuickActionSheet({
                     size={20}
                     color={colors.textMuted}
                   />
-                </TouchableOpacity>
+                </PressableScale>
 
                 {/* Add Income */}
-                <TouchableOpacity
+                <PressableScale
                   style={styles.actionCard}
-                  activeOpacity={0.7}
                   onPress={() => {
                     hapticLight();
                     dismissSheet(() => onSelectIncome());
@@ -223,7 +221,7 @@ export function QuickActionSheet({
                     size={20}
                     color={colors.textMuted}
                   />
-                </TouchableOpacity>
+                </PressableScale>
 
                 {/* Section: Deferred Obligations */}
                 <Text style={[styles.sectionHeader, { marginTop: spacing.xs }]}>
@@ -231,9 +229,8 @@ export function QuickActionSheet({
                 </Text>
 
                 {/* Lend */}
-                <TouchableOpacity
+                <PressableScale
                   style={styles.actionCard}
-                  activeOpacity={0.7}
                   onPress={handleLend}
                   accessibilityRole="button"
                   accessibilityLabel="Lend money"
@@ -252,12 +249,11 @@ export function QuickActionSheet({
                     size={20}
                     color={colors.textMuted}
                   />
-                </TouchableOpacity>
+                </PressableScale>
 
                 {/* Borrow */}
-                <TouchableOpacity
+                <PressableScale
                   style={styles.actionCard}
-                  activeOpacity={0.7}
                   onPress={handleBorrow}
                   accessibilityRole="button"
                   accessibilityLabel="Borrow money"
@@ -275,7 +271,7 @@ export function QuickActionSheet({
                     size={20}
                     color={colors.textMuted}
                   />
-                </TouchableOpacity>
+                </PressableScale>
               </View>
             </Animated.View>
           </TouchableWithoutFeedback>

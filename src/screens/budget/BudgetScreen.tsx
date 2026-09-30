@@ -8,7 +8,8 @@ import {
   Text,
   TouchableOpacity,
   View,
-  } from "react-native";
+} from "react-native";
+import Reanimated, { FadeIn } from "react-native-reanimated";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { onlineManager } from "@tanstack/react-query";
 import { useDashboard } from "../../hooks/useDashboard";
@@ -108,23 +109,25 @@ export function BudgetScreen() {
     }
   }, [route.params?.openCategoryId, categories, navigation]);
 
-  const rows = (categories ?? []).map((category) => {
-    const budgetMatch = summary?.budgetVsActual.find((b) => b.categoryId === category.id);
-    const breakdownMatch = summary?.categoryBreakdown.find((c) => c.categoryId === category.id);
-    return {
-      category,
-      budget: budgetMatch?.budget ?? 0,
-      actual: breakdownMatch?.amount ?? budgetMatch?.actual ?? 0,
-      hasBudget: Boolean(budgetMatch),
-    };
-  }).sort((a, b) => {
-    // 1. Sort by actual spent (highest first)
-    if (b.actual !== a.actual) return b.actual - a.actual;
-    // 2. Sort by allocated budget (highest first)
-    if (b.budget !== a.budget) return b.budget - a.budget;
-    // 3. Fallback to alphabetical sorting by category name
-    return a.category.name.localeCompare(b.category.name);
-  });
+  const rows = (categories ?? [])
+    .map((category) => {
+      const budgetMatch = summary?.budgetVsActual.find((b) => b.categoryId === category.id);
+      const breakdownMatch = summary?.categoryBreakdown.find((c) => c.categoryId === category.id);
+      return {
+        category,
+        budget: budgetMatch?.budget ?? 0,
+        actual: breakdownMatch?.amount ?? budgetMatch?.actual ?? 0,
+        hasBudget: Boolean(budgetMatch),
+      };
+    })
+    .sort((a, b) => {
+      // 1. Sort by actual spent (highest first)
+      if (b.actual !== a.actual) return b.actual - a.actual;
+      // 2. Sort by allocated budget (highest first)
+      if (b.budget !== a.budget) return b.budget - a.budget;
+      // 3. Fallback to alphabetical sorting by category name
+      return a.category.name.localeCompare(b.category.name);
+    });
 
   // The list shows budgets, not every category with "no budget" beside it (D-64). Spending that
   // no budget watches is listed under the budgets, so it isn't hidden either.
@@ -208,8 +211,8 @@ export function BudgetScreen() {
           item.budget === 0
             ? `${item.category.name}, ${formatCurrency(item.actual)} spent, no budget yet`
             : isOver
-            ? `${item.category.name}, ${formatCurrency(item.actual)} spent, ${formatCurrency(item.actual - item.budget)} over a ${formatCurrency(item.budget)} budget`
-            : `${item.category.name}, ${formatCurrency(item.actual)} of ${formatCurrency(item.budget)}`
+              ? `${item.category.name}, ${formatCurrency(item.actual)} spent, ${formatCurrency(item.actual - item.budget)} over a ${formatCurrency(item.budget)} budget`
+              : `${item.category.name}, ${formatCurrency(item.actual)} of ${formatCurrency(item.budget)}`
         }
       >
         <View style={styles.capsuleHeader}>
@@ -259,7 +262,9 @@ export function BudgetScreen() {
         <View style={styles.errorBlock}>
           <MaterialCommunityIcons name="cloud-alert-outline" size={48} color={colors.textSecondary} />
           <Text style={styles.errorTitle}>Couldn't load your budget</Text>
-          <Text style={styles.errorSubtitle}>{error ? getErrorMessage(error) : isOffline ? OFFLINE_MESSAGE : "Something went wrong. Try again."}</Text>
+          <Text style={styles.errorSubtitle}>
+            {error ? getErrorMessage(error) : isOffline ? OFFLINE_MESSAGE : "Something went wrong. Try again."}
+          </Text>
           <Button
             label="Try again"
             variant="secondary"
@@ -273,120 +278,127 @@ export function BudgetScreen() {
         <BudgetSkeleton />
       ) : !hasBudgets && !settingUp ? (
         // No budgets this month: say so, and offer the one next step (D-64).
-        <ScrollView
-          contentContainerStyle={{ paddingBottom: bottomPadding }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-        >
-          <EmptyState
-            icon="chart-donut"
-            title={`No budgets for ${monthLabel}`}
-            subtitle="Give the categories you spend on a monthly limit, and see how each one is going."
-          />
-          <Button label="Set budgets" onPress={startSetup} />
-          {/* Home's "View all" lands here, so the month's spending is still listed (G4 M3). */}
-          {unbudgetedSpent.length > 0 ? (
-            <>
-              <Text style={[styles.sectionTitle, styles.emptySpentTitle]}>Spent in {monthLabel}</Text>
-              {unbudgetedSpent.map(renderRow)}
-            </>
-          ) : null}
-        </ScrollView>
+        <Reanimated.View key="empty" style={styles.flex} entering={FadeIn.duration(200)}>
+          <ScrollView
+            contentContainerStyle={{ paddingBottom: bottomPadding }}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+          >
+            <EmptyState
+              icon="chart-donut"
+              title={`No budgets for ${monthLabel}`}
+              subtitle="Give the categories you spend on a monthly limit, and see how each one is going."
+            />
+            <Button label="Set budgets" onPress={startSetup} />
+            {/* Home's "View all" lands here, so the month's spending is still listed (G4 M3). */}
+            {unbudgetedSpent.length > 0 ? (
+              <>
+                <Text style={[styles.sectionTitle, styles.emptySpentTitle]}>Spent in {monthLabel}</Text>
+                {unbudgetedSpent.map(renderRow)}
+              </>
+            ) : null}
+          </ScrollView>
+        </Reanimated.View>
       ) : (
-        <FlatList
-          data={settingUp ? rows : budgetedRows}
-          keyExtractor={(item) => item.category.id}
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          contentContainerStyle={{ paddingBottom: bottomPadding }}
-          ListHeaderComponent={
-            <>
-              {settingUp ? (
-                <View style={styles.setupHead}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.sectionTitle}>Set budgets for {monthLabel}</Text>
-                    <Text style={styles.sectionHint}>Tap a category to give it a monthly limit</Text>
+        <Reanimated.View key={settingUp ? "setup" : "list"} style={styles.flex} entering={FadeIn.duration(200)}>
+          <FlatList
+            data={settingUp ? rows : budgetedRows}
+            keyExtractor={(item) => item.category.id}
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            contentContainerStyle={{ paddingBottom: bottomPadding }}
+            ListHeaderComponent={
+              <>
+                {settingUp ? (
+                  <View style={styles.setupHead}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sectionTitle}>Set budgets for {monthLabel}</Text>
+                      <Text style={styles.sectionHint}>Tap a category to give it a monthly limit</Text>
+                    </View>
+                    <Button label="Done" variant="secondary" onPress={() => setSettingUp(false)} />
                   </View>
-                  <Button label="Done" variant="secondary" onPress={() => setSettingUp(false)} />
-                </View>
-              ) : (
-                <>
-                  {/* Summary */}
-                  <View style={styles.summaryCard}>
-                    <View style={styles.summaryRow}>
-                      <View style={styles.summaryCol}>
-                        <Text style={styles.summaryLabel}>Budgeted</Text>
-                        <MoneyText amount={totalBudgeted} style={styles.summaryValue} />
+                ) : (
+                  <>
+                    {/* Summary */}
+                    <View style={styles.summaryCard}>
+                      <View style={styles.summaryRow}>
+                        <View style={styles.summaryCol}>
+                          <Text style={styles.summaryLabel}>Budgeted</Text>
+                          <MoneyText amount={totalBudgeted} style={styles.summaryValue} />
+                        </View>
+                        <View style={styles.summaryDivider} />
+                        <View style={styles.summaryCol}>
+                          <Text style={styles.summaryLabel}>Left to budget</Text>
+                          {monthlyIncome > 0 ? (
+                            <MoneyText
+                              amount={leftToBudget}
+                              style={[styles.summaryValue, leftToBudget < 0 && styles.over]}
+                            />
+                          ) : (
+                            <Text style={styles.summaryValue}>—</Text>
+                          )}
+                        </View>
                       </View>
-                      <View style={styles.summaryDivider} />
-                      <View style={styles.summaryCol}>
-                        <Text style={styles.summaryLabel}>Left to budget</Text>
-                        {monthlyIncome > 0 ? (
-                          <MoneyText amount={leftToBudget} style={[styles.summaryValue, leftToBudget < 0 && styles.over]} />
-                        ) : (
-                          <Text style={styles.summaryValue}>—</Text>
-                        )}
-                      </View>
+
+                      {monthlyIncome > 0 ? (
+                        <>
+                          <AnimatedProgressBar
+                            progress={totalBudgeted / monthlyIncome}
+                            height={6}
+                            style={{ marginTop: spacing.md }}
+                          />
+                          <Text style={styles.unallocatedText}>
+                            {leftToBudget < 0
+                              ? `Budgeted ${formatCurrency(Math.abs(leftToBudget))} more than your income`
+                              : `of ${formatCurrency(monthlyIncome)} income in ${monthLabel}`}
+                          </Text>
+                        </>
+                      ) : (
+                        <Text style={styles.unallocatedText}>
+                          Log income for {monthLabel} to see what's left to budget
+                        </Text>
+                      )}
                     </View>
 
-                    {monthlyIncome > 0 ? (
-                      <>
-                        <AnimatedProgressBar
-                          progress={totalBudgeted / monthlyIncome}
-                          height={6}
-                          style={{ marginTop: spacing.md }}
-                        />
-                        <Text style={styles.unallocatedText}>
-                          {leftToBudget < 0
-                            ? `Budgeted ${formatCurrency(Math.abs(leftToBudget))} more than your income`
-                            : `of ${formatCurrency(monthlyIncome)} income in ${monthLabel}`}
-                        </Text>
-                      </>
-                    ) : (
-                      <Text style={styles.unallocatedText}>
-                        Log income for {monthLabel} to see what's left to budget
-                      </Text>
-                    )}
-                  </View>
-
-                  <Text style={styles.sectionTitle}>Budgets</Text>
-                  <Text style={styles.sectionHint}>Tap to change · long-press to edit the category</Text>
-                </>
-              )}
-            </>
-          }
-          ListEmptyComponent={rows.length === 0 ? <EmptyState icon="chart-donut" title="No categories yet" /> : null}
-          ListFooterComponent={
-            <>
-              {!settingUp && unbudgetedSpent.length > 0 ? (
-                <>
-                  <Text style={styles.sectionTitle}>Spent without a budget</Text>
-                  {unbudgetedSpent.map(renderRow)}
-                </>
-              ) : null}
-              {!settingUp ? (
+                    <Text style={styles.sectionTitle}>Budgets</Text>
+                    <Text style={styles.sectionHint}>Tap to change · long-press to edit the category</Text>
+                  </>
+                )}
+              </>
+            }
+            ListEmptyComponent={rows.length === 0 ? <EmptyState icon="chart-donut" title="No categories yet" /> : null}
+            ListFooterComponent={
+              <>
+                {!settingUp && unbudgetedSpent.length > 0 ? (
+                  <>
+                    <Text style={styles.sectionTitle}>Spent without a budget</Text>
+                    {unbudgetedSpent.map(renderRow)}
+                  </>
+                ) : null}
+                {!settingUp ? (
+                  <TouchableOpacity
+                    style={[styles.capsule, styles.groupRow]}
+                    onPress={startSetup}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Set another budget"
+                  >
+                    <Text style={[styles.groupLabel, { color: colors.accent }]}>+ Set another budget</Text>
+                  </TouchableOpacity>
+                ) : null}
                 <TouchableOpacity
                   style={[styles.capsule, styles.groupRow]}
-                  onPress={startSetup}
+                  onPress={addCategory}
                   activeOpacity={0.7}
                   accessibilityRole="button"
-                  accessibilityLabel="Set another budget"
+                  accessibilityLabel="Add category"
                 >
-                  <Text style={[styles.groupLabel, { color: colors.accent }]}>+ Set another budget</Text>
+                  <Text style={[styles.groupLabel, { color: colors.accent }]}>+ Add category</Text>
                 </TouchableOpacity>
-              ) : null}
-              <TouchableOpacity
-                style={[styles.capsule, styles.groupRow]}
-                onPress={addCategory}
-                activeOpacity={0.7}
-                accessibilityRole="button"
-                accessibilityLabel="Add category"
-              >
-                <Text style={[styles.groupLabel, { color: colors.accent }]}>+ Add category</Text>
-              </TouchableOpacity>
-            </>
-          }
-          renderItem={({ item }) => renderRow(item)}
-        />
+              </>
+            }
+            renderItem={({ item }) => renderRow(item)}
+          />
+        </Reanimated.View>
       )}
 
       <BottomSheet
@@ -442,8 +454,6 @@ export function BudgetScreen() {
           }}
         />
       </BottomSheet>
-
-
     </ScreenContainer>
   );
 }
@@ -487,6 +497,7 @@ function BudgetEditSheet({
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   // Home's top padding, so the picker doesn't jump between tabs (W7).
   topRow: {
     paddingTop: spacing.md,
@@ -612,5 +623,4 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
-
 });

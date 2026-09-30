@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { BottomTabBarButtonProps, createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { PressableScale } from "../components/PressableScale";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -96,6 +97,8 @@ export function TabNavigator() {
         screenListeners={({ route }) => ({ focus: () => setFocusedTab(route.name) })}
         screenOptions={({ route }) => ({
           headerShown: false,
+          // A short cross-fade between tabs instead of a hard cut.
+          animation: "fade",
           tabBarActiveTintColor: colors.accent,
           tabBarInactiveTintColor: colors.textMuted,
           // Transparent, so the cutout drawn by the background shows the app behind it (D-61).
@@ -155,7 +158,8 @@ export function TabNavigator() {
         />
       </Pressable>
 
-      <Pressable
+      <PressableScale
+        scaleTo={0.9}
         accessibilityRole="button"
         accessibilityLabel="Add a transaction"
         accessibilityHint="Choose expense, income, lend or borrow"
@@ -163,14 +167,10 @@ export function TabNavigator() {
           hapticMedium();
           setQuickActionVisible(true);
         }}
-        style={({ pressed }) => [
-          styles.fab,
-          { right: spacing.lg + insets.right, bottom: dock + spacing.md },
-          pressed && styles.fabPressed,
-        ]}
+        style={[styles.fab, { right: spacing.lg + insets.right, bottom: dock + spacing.md }]}
       >
         <MaterialCommunityIcons name="plus" size={24} color={colors.accentForeground} />
-      </Pressable>
+      </PressableScale>
 
       {/* After the button, so it layers above it. It sits above the button's top edge anyway. */}
       <SnackbarHost />
@@ -202,7 +202,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     ...elevation.floating,
   },
-  fabPressed: { opacity: 0.85 },
   iconPlaceholder: { width: 24, height: 24 },
   homeButton: {
     position: "absolute",

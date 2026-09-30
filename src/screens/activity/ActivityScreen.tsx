@@ -1,13 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  SectionList,
-  RefreshControl,
-  LayoutAnimation,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, StyleSheet, SectionList, RefreshControl, LayoutAnimation, ActivityIndicator } from "react-native";
+import Reanimated, { FadeIn } from "react-native-reanimated";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { onlineManager } from "@tanstack/react-query";
@@ -23,10 +16,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { Button } from "../../components/Button";
 import { MoneyText } from "../../components/MoneyText";
 import { ListScreenSkeleton } from "../../components/Skeleton";
-import {
-  SwipeableActivityRow,
-  UnifiedActivityItem,
-} from "../../components/SwipeableActivityRow";
+import { SwipeableActivityRow, UnifiedActivityItem } from "../../components/SwipeableActivityRow";
 import { LoanSettleSheet } from "../../components/LoanSettleSheet";
 import { usePendingWriteCount } from "../../lib/onlineStatus";
 import { useTabBarPadding } from "../../hooks/useTabBarPadding";
@@ -123,9 +113,7 @@ export function ActivityScreen() {
   const { confirm, alert } = useDialog();
   const bottomPadding = useTabBarPadding();
 
-  const [activeTab, setActiveTab] = useState<ActivityTab>(
-    route.params?.filter || "ALL"
-  );
+  const [activeTab, setActiveTab] = useState<ActivityTab>(route.params?.filter || "ALL");
   const [settlingLoan, setSettlingLoan] = useState<Loan | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   // Swipe-deleted rows waiting out the undo window, or queued while offline. Hidden here and only
@@ -156,7 +144,7 @@ export function ActivityScreen() {
     () => () => {
       if (highlightTimer.current) clearTimeout(highlightTimer.current);
     },
-    []
+    [],
   );
 
   // Apply an incoming filter, then clear it. The param is sticky otherwise: arriving with the
@@ -220,44 +208,46 @@ export function ActivityScreen() {
     if (activeTab === "LOANS") {
       // Newest first by the loan's own date, so the date headers read in order.
       const byNewest = [...monthLoans].sort(
-        (a, b) => new Date(loanDate(b)).getTime() - new Date(loanDate(a)).getTime()
+        (a, b) => new Date(loanDate(b)).getTime() - new Date(loanDate(a)).getTime(),
       );
-      return byNewest.filter((loan) => !hiddenIds.has(`loan-${loan.id}`)).map((loan) => {
-        const isLent = loan.type === "LENT";
-        // The row is the loan as it stood at the end of the selected month (R-41).
-        const paid = loan.asOf?.settledAmount ?? loan.settledAmount;
-        const settled = (loan.asOf?.status ?? loan.status) === "SETTLED";
-        // "Overdue" is a fact about today, so only the current month says it (S12).
-        const today = loansById.get(loan.id) ?? loan;
-        const status = settled ? "settled" : isCurrentMonth && isOverdue(today) ? "overdue" : "open";
-        const due = !settled && isCurrentMonth && loan.dueDate ? ` · due ${formatDate(loan.dueDate)}` : "";
-        return {
-          id: `loan-${loan.id}`,
-          rawId: loan.id,
-          type: "LOAN" as const,
-          // What happened, then who with (R-29). The person is the identity of the record.
-          title: isLent ? "You lent" : "You borrowed",
-          subtitle: loan.personName,
-          amount: loan.amount,
-          date: loanDate(loan),
-          icon: isLent ? "arrow-top-right" : "arrow-bottom-left",
-          tone: "neutral" as const,
-          loanDirection: loan.type,
-          repayment: {
-            paid,
-            total: loan.amount,
-            label: `${formatCurrency(paid)} of ${formatCurrency(loan.amount)} ${isLent ? "paid back" : "repaid"} · ${formatDayMonth(loanDate(loan))}${due}`,
-            status,
-          },
-          raw: loan,
-        };
-      });
+      return byNewest
+        .filter((loan) => !hiddenIds.has(`loan-${loan.id}`))
+        .map((loan) => {
+          const isLent = loan.type === "LENT";
+          // The row is the loan as it stood at the end of the selected month (R-41).
+          const paid = loan.asOf?.settledAmount ?? loan.settledAmount;
+          const settled = (loan.asOf?.status ?? loan.status) === "SETTLED";
+          // "Overdue" is a fact about today, so only the current month says it (S12).
+          const today = loansById.get(loan.id) ?? loan;
+          const status = settled ? "settled" : isCurrentMonth && isOverdue(today) ? "overdue" : "open";
+          const due = !settled && isCurrentMonth && loan.dueDate ? ` · due ${formatDate(loan.dueDate)}` : "";
+          return {
+            id: `loan-${loan.id}`,
+            rawId: loan.id,
+            type: "LOAN" as const,
+            // What happened, then who with (R-29). The person is the identity of the record.
+            title: isLent ? "You lent" : "You borrowed",
+            subtitle: loan.personName,
+            amount: loan.amount,
+            date: loanDate(loan),
+            icon: isLent ? "arrow-top-right" : "arrow-bottom-left",
+            tone: "neutral" as const,
+            loanDirection: loan.type,
+            repayment: {
+              paid,
+              total: loan.amount,
+              label: `${formatCurrency(paid)} of ${formatCurrency(loan.amount)} ${isLent ? "paid back" : "repaid"} · ${formatDayMonth(loanDate(loan))}${due}`,
+              status,
+            },
+            raw: loan,
+          };
+        });
     }
 
     // Already ordered by the server on (date desc, id desc).
     // A loan waiting out its undo window takes its movements with it.
     const visible = (transactions || []).filter(
-      (tx) => !hiddenIds.has(tx.id) && !(tx.loanId && hiddenIds.has(`loan-${tx.loanId}`))
+      (tx) => !hiddenIds.has(tx.id) && !(tx.loanId && hiddenIds.has(`loan-${tx.loanId}`)),
     );
     return visible.map((tx): UnifiedActivityItem => {
       const tone = toneOf(tx.kind);
@@ -328,9 +318,7 @@ export function ActivityScreen() {
       } else if (itemDateStr === yesterday) {
         headerTitle = "Yesterday";
       } else {
-        headerTitle = formatDate(
-          typeof item.date === "string" ? item.date : item.date.toISOString()
-        );
+        headerTitle = formatDate(typeof item.date === "string" ? item.date : item.date.toISOString());
       }
 
       if (!groups[headerTitle]) {
@@ -458,7 +446,11 @@ export function ActivityScreen() {
         icon: "link-variant",
         iconColor: colors.textSecondary,
         action: loan
-          ? { label: "Open loan", a11yLabel: `Open the loan with ${loan.personName}`, onPress: () => setSettlingLoan(loan) }
+          ? {
+              label: "Open loan",
+              a11yLabel: `Open the loan with ${loan.personName}`,
+              onPress: () => setSettlingLoan(loan),
+            }
           : undefined,
         duration: 6000,
         priority: 2,
@@ -542,59 +534,58 @@ export function ActivityScreen() {
           icon="receipt-text-outline"
         />
       ) : (
-        <SectionList
-          sections={sections}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={[styles.listContent, { paddingBottom: bottomPadding }]}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor={colors.accent}
-            />
-          }
-          // The feed is paged (30 per page). Without this, rows past the first page of a month were
-          // never loaded, so older transactions silently didn't appear.
-          onEndReached={activeTab !== "LOANS" && hasMore ? loadMore : undefined}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={
-            isFetchingMore ? <ActivityIndicator color={colors.accent} style={styles.pageSpinner} /> : null
-          }
-          ListHeaderComponent={
-            activeTab === "LOANS" ? (
-              <View style={styles.loansOverviewCard}>
-                <View style={styles.loanCol}>
-                  {/* The figure is what's still out, and the title says exactly that (§5.4). */}
-                  <Text style={styles.loanColLabel}>Still to come back</Text>
-                  {/* One colour per loan direction, never green/red (D-59, W4). */}
-                  <MoneyText amount={monthTotals.lent} style={[styles.loanColValue, styles.lentValue]} />
+        // Keyed by segment, so switching All / Expenses / Income / Loans cross-fades.
+        <Reanimated.View key={activeTab} style={styles.flex} entering={FadeIn.duration(200)}>
+          <SectionList
+            sections={sections}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={[styles.listContent, { paddingBottom: bottomPadding }]}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.accent} />
+            }
+            // The feed is paged (30 per page). Without this, rows past the first page of a month were
+            // never loaded, so older transactions silently didn't appear.
+            onEndReached={activeTab !== "LOANS" && hasMore ? loadMore : undefined}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              isFetchingMore ? <ActivityIndicator color={colors.accent} style={styles.pageSpinner} /> : null
+            }
+            ListHeaderComponent={
+              activeTab === "LOANS" ? (
+                <View style={styles.loansOverviewCard}>
+                  <View style={styles.loanCol}>
+                    {/* The figure is what's still out, and the title says exactly that (§5.4). */}
+                    <Text style={styles.loanColLabel}>Still to come back</Text>
+                    {/* One colour per loan direction, never green/red (D-59, W4). */}
+                    <MoneyText amount={monthTotals.lent} style={[styles.loanColValue, styles.lentValue]} />
+                  </View>
+                  <View style={styles.loanDivider} />
+                  <View style={styles.loanCol}>
+                    <Text style={styles.loanColLabel}>Still to pay back</Text>
+                    <MoneyText amount={monthTotals.borrowed} style={[styles.loanColValue, styles.borrowedValue]} />
+                  </View>
                 </View>
-                <View style={styles.loanDivider} />
-                <View style={styles.loanCol}>
-                  <Text style={styles.loanColLabel}>Still to pay back</Text>
-                  <MoneyText amount={monthTotals.borrowed} style={[styles.loanColValue, styles.borrowedValue]} />
-                </View>
+              ) : null
+            }
+            renderSectionHeader={({ section: { title } }) => (
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionHeaderText} accessibilityRole="header">
+                  {title}
+                </Text>
               </View>
-            ) : null
-          }
-          renderSectionHeader={({ section: { title } }) => (
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionHeaderText} accessibilityRole="header">
-                {title}
-              </Text>
-            </View>
-          )}
-          renderItem={({ item }) => (
-            <SwipeableActivityRow
-              item={item}
-              isNewlyAdded={item.rawId === highlightId}
-              isDeleting={item.id === deletingId}
-              onPress={() => handleRowPress(item)}
-              onDelete={() => swipeDelete(item)}
-            />
-          )}
-        />
+            )}
+            renderItem={({ item }) => (
+              <SwipeableActivityRow
+                item={item}
+                isNewlyAdded={item.rawId === highlightId}
+                isDeleting={item.id === deletingId}
+                onPress={() => handleRowPress(item)}
+                onDelete={() => swipeDelete(item)}
+              />
+            )}
+          />
+        </Reanimated.View>
       )}
 
       {/* Inline Loan Settlement & Inspection Modal */}
@@ -616,6 +607,7 @@ export function ActivityScreen() {
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   pageSpinner: { paddingVertical: spacing.lg },
   errorBlock: { alignItems: "center", gap: spacing.sm, paddingTop: spacing.xl, paddingHorizontal: spacing.lg },
   errorTitle: { ...typography.body, fontWeight: "600", color: colors.textSecondary, textAlign: "center" },

@@ -5,11 +5,11 @@ import {
   Animated,
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   Easing,
   Dimensions,
 } from "react-native";
+import { PressableScale } from "./PressableScale";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Swipeable, { type SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import type { Loan, Transaction } from "../types/models";
@@ -206,13 +206,13 @@ export function SwipeableActivityRow({
               },
             ]}
           >
-            <TouchableOpacity
+            <PressableScale
+              scaleTo={0.98}
               style={styles.rowTouchArea}
               onPress={() => {
                 hapticLight();
                 onPress();
               }}
-              activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel={[
                 item.title,
@@ -296,7 +296,7 @@ export function SwipeableActivityRow({
                   </View>
                 </View>
               ) : null}
-            </TouchableOpacity>
+            </PressableScale>
           </Animated.View>
         </Swipeable>
       </Animated.View>

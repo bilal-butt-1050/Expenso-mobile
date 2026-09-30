@@ -4,9 +4,9 @@ import {
   GestureResponderEvent,
   StyleSheet,
   Text,
-  TouchableOpacity,
   ViewStyle,
 } from "react-native";
+import { PressableScale } from "./PressableScale";
 import { colors } from "../theme/colors";
 import { radius, spacing } from "../theme/spacing";
 import { typography } from "../theme/typography";
@@ -26,10 +26,9 @@ export function Button({ label, onPress, variant = "primary", loading, disabled,
   const isDisabled = disabled || loading;
 
   return (
-    <TouchableOpacity
+    <PressableScale
       onPress={onPress}
       disabled={isDisabled}
-      activeOpacity={0.8}
       style={[styles.base, variantStyles[variant], isDisabled && styles.disabled, style]}
       accessibilityRole="button"
       accessibilityLabel={label}
@@ -41,7 +40,7 @@ export function Button({ label, onPress, variant = "primary", loading, disabled,
       ) : (
         <Text style={[styles.label, textVariantStyles[variant]]}>{label}</Text>
       )}
-    </TouchableOpacity>
+    </PressableScale>
   );
 }
 
