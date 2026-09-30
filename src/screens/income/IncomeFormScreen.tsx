@@ -220,7 +220,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
             label="Description (optional)"
             value={description}
             onChangeText={setDescription}
-            placeholder="e.g. September salary"
+            placeholder="e.g. Monthly salary"
             maxLength={40}
             numberOfLines={1}
           />

@@ -285,7 +285,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
             label="Description (optional)"
             value={description}
             onChangeText={setDescription}
-            placeholder="e.g. Lunch at Kolachi"
+            placeholder="e.g. Lunch with friends"
             maxLength={40}
             numberOfLines={1}
           />

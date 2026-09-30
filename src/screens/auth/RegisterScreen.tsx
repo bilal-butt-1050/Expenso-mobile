@@ -193,7 +193,7 @@ export function RegisterScreen({ navigation }: Props) {
               setName(text);
               clearFieldError("name");
             }}
-            placeholder="Bilal Khan"
+            placeholder="Your full name"
             autoCapitalize="words"
             error={fieldErrors.name}
           />

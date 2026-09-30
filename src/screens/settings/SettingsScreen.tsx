@@ -154,7 +154,7 @@ export function SettingsScreen() {
             label="Display name"
             value={nameInput}
             onChangeText={setNameInput}
-            placeholder="e.g. Jane Doe"
+            placeholder="Your name"
             autoCapitalize="words"
             error={nameError}
           />

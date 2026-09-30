@@ -231,7 +231,7 @@ export function LoanFormScreen({ route, navigation }: Props) {
             setPersonName(text);
             if (personError) setPersonError(null);
           }}
-          placeholder={type === "LENT" ? "e.g. Ahmed" : "e.g. Ali, Bank Alfalah"}
+          placeholder={type === "LENT" ? "Who you lent to" : "Who you borrowed from, or a bank"}
           autoCapitalize="words"
           error={personError}
         />
