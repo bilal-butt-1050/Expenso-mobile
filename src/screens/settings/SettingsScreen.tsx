@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { iconName } from "../../utils/icons";
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { check, nameSchema } from "../../utils/validation";
 import md5 from "md5";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -46,8 +47,9 @@ export function SettingsScreen() {
 
   const handleSaveName = async () => {
     setNameError(null);
-    if (!nameInput.trim()) {
-      setNameError("Name cannot be empty");
+    const problem = check(nameSchema, nameInput);
+    if (problem) {
+      setNameError(problem);
       return;
     }
     setIsSavingName(true);

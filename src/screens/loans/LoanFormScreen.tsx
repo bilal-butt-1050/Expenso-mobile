@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { amountSchema, check, parseAmount, personNameSchema } from "../../utils/validation";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { RootStackParamList } from "../../types/navigation";
@@ -90,11 +91,13 @@ export function LoanFormScreen({ route, navigation }: Props) {
 
     // Fields top to bottom, so focus lands on the first one that needs attention.
     const cleanName = personName.trim();
-    const numericAmount = parseFloat(rawAmount.replace(/,/g, ""));
-    const amountInvalid = isNaN(numericAmount) || numericAmount <= 0;
-    setAmountError(amountInvalid ? "Enter an amount above 0" : null);
-    setPersonError(!cleanName ? "Enter who this loan is with" : null);
-    if (amountInvalid || !cleanName) {
+    const numericAmount = parseAmount(rawAmount);
+    const amountProblem = check(amountSchema, numericAmount);
+    const personProblem = check(personNameSchema, personName);
+    const amountInvalid = amountProblem !== null;
+    setAmountError(amountProblem);
+    setPersonError(personProblem);
+    if (amountInvalid || personProblem) {
       hapticError();
       (amountInvalid ? amountRef : personRef).current?.focus();
       return;

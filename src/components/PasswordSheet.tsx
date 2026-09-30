@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInputProps, TouchableOpacity, View } from "react-native";
+import { check, passwordSchema } from "../utils/validation";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BottomSheet } from "./BottomSheet";
 import { TextField } from "./TextField";
@@ -42,8 +43,9 @@ export function PasswordSheet({
       setError("Enter your current password.");
       return;
     }
-    if (newPassword.length < MIN_LENGTH) {
-      setError(`The new password needs at least ${MIN_LENGTH} characters.`);
+    const problem = check(passwordSchema, newPassword);
+    if (problem) {
+      setError(problem);
       return;
     }
     if (newPassword !== confirmPassword) {

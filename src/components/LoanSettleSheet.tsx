@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { amountSchema, check, parseAmount } from "../utils/validation";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BottomSheet } from "./BottomSheet";
 import { TextField } from "./TextField";
@@ -75,9 +76,10 @@ export function LoanSettleSheet({
 
   const handleSettlePartial = async () => {
     if (!shown) return;
-    const num = parseFloat(partialAmount.replace(/,/g, ""));
-    if (isNaN(num) || num <= 0) {
-      setError("Enter an amount greater than 0.");
+    const num = parseAmount(partialAmount);
+    const problem = check(amountSchema, num);
+    if (problem) {
+      setError(problem);
       return;
     }
     if (num > remaining) {

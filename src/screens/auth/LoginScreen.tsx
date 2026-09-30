@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { check, emailSchema, loginPasswordSchema } from "../../utils/validation";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { getFreshGoogleIdToken } from "../../services/googleSignIn";
 import { useNavigation } from "@react-navigation/native";
@@ -35,8 +36,9 @@ export function LoginScreen() {
 
   const handleEmailLogin = async () => {
     setError(null);
-    if (!email.trim() || !password) {
-      setError("Please enter your email and password.");
+    const problem = check(emailSchema, email) ?? check(loginPasswordSchema, password);
+    if (problem) {
+      setError(problem);
       return;
     }
     setIsLoading(true);

@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { check, emailSchema, nameSchema, passwordSchema } from "../../utils/validation";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { getFreshGoogleIdToken } from "../../services/googleSignIn";
@@ -28,8 +29,6 @@ import { SignupCodeStep } from "./SignupCodeStep";
 /** A code this recent for the same email is reused instead of sending another (DESIGN §S8). */
 const CODE_REUSE_MS = 10 * 60 * 1000;
 
-/** A loose shape check only; the server decides what a valid address is. */
-const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type FieldErrors = Partial<Record<"name" | "email" | "password" | "confirm", string>>;
 
@@ -77,14 +76,14 @@ export function RegisterScreen({ navigation }: Props) {
   const handleContinue = async () => {
     setError(null);
 
-    const problems: FieldErrors = {};
-    if (!name.trim()) problems.name = "Enter your name";
-    if (!email.trim()) problems.email = "Enter your email";
-    else if (!EMAIL_SHAPE.test(email.trim())) problems.email = "Enter a valid email";
-    if (password.length < 8) problems.password = "Use at least 8 characters";
-    if (password !== confirmPassword) problems.confirm = "Passwords don't match";
+    const problems: FieldErrors = {
+      name: check(nameSchema, name) ?? undefined,
+      email: check(emailSchema, email) ?? undefined,
+      password: check(passwordSchema, password) ?? undefined,
+      confirm: password !== confirmPassword ? "Passwords don't match" : undefined,
+    };
     setFieldErrors(problems);
-    if (Object.keys(problems).length > 0) return;
+    if (Object.values(problems).some(Boolean)) return;
 
     // A code sent to this same address in the last 10 minutes is still valid: don't send another
     // (which would also hit the 60 s cooldown).

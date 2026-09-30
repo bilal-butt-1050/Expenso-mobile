@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { categoryNameSchema, check } from "../../utils/validation";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useCategories } from "../../hooks/useCategories";
 import { getErrorMessage } from "../../api/client";
@@ -26,7 +27,8 @@ export function CategoryFormScreen({ route, navigation }: Props) {
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
-    if (!name.trim()) return setError("Give this category a name");
+    const problem = check(categoryNameSchema, name);
+    if (problem) return setError(problem);
 
     setError(null);
     setIsSaving(true);

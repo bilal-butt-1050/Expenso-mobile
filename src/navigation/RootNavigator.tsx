@@ -108,7 +108,11 @@ export function RootNavigator() {
             // whole app down on launch. React Navigation 6 only warned about this; 7 throws.
             initialRouteName={user ? (needsOpeningCash ? "OpeningCash" : "Tabs") : needsTour ? "OnboardingTour" : "Auth"}
           >
-            {user ? (
+            {user && needsOpeningCash ? (
+              // Alone in its branch. With it also registered beside Tabs, the remount after saving
+              // restored the old state and put the user straight back on it.
+              <Stack.Screen name="OpeningCash" component={OpeningCashScreen} options={{ gestureEnabled: false }} />
+            ) : user ? (
               <>
                 <Stack.Screen name="Tabs" component={TabNavigator} />
                 <Stack.Screen
@@ -119,7 +123,6 @@ export function RootNavigator() {
                   options={{ animation: "slide_from_right", headerShown: true, title: "Settings" }}
                 />
                 <Stack.Screen name="OnboardingTour" component={OnboardingTourScreen} />
-                <Stack.Screen name="OpeningCash" component={OpeningCashScreen} options={{ gestureEnabled: false }} />
                 {/* Header titles follow the mode (P11): an edit says so, and a new loan names its
                     direction like the + sheet does. LoanFormScreen updates it if the toggle flips. */}
                 <Stack.Group screenOptions={{ presentation: "modal", headerShown: true, animation: "slide_from_bottom" }}>

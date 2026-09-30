@@ -10,6 +10,7 @@ import {
   View,
   Keyboard
 } from "react-native";
+import { amountSchema, check, parseAmount } from "../../utils/validation";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext";
@@ -101,9 +102,10 @@ export function IncomeFormScreen({ route, navigation }: Props) {
   useFocusAfterTransition(amountRef, !editing);
 
   const handleSave = async () => {
-    const parsedAmount = Number(amount.replace(/,/g, ""));
-    if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
-      setAmountError("Enter an amount above 0");
+    const parsedAmount = parseAmount(amount);
+    const amountProblem = check(amountSchema, parsedAmount);
+    if (amountProblem) {
+      setAmountError(amountProblem);
       amountRef.current?.focus();
       return;
     }

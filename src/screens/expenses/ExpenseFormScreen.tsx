@@ -10,6 +10,7 @@ import {
   View,
   Keyboard
 } from "react-native";
+import { amountSchema, check, parseAmount } from "../../utils/validation";
 import { StackActions } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -120,9 +121,10 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
   const handleSave = async () => {
     setError(null);
-    const parsedAmount = Number(amount.replace(/,/g, ""));
-    const amountInvalid = !amount || isNaN(parsedAmount) || parsedAmount <= 0;
-    setAmountError(amountInvalid ? "Enter an amount above 0" : null);
+    const parsedAmount = parseAmount(amount);
+    const amountProblem = check(amountSchema, parsedAmount);
+    const amountInvalid = amountProblem !== null;
+    setAmountError(amountProblem);
     setCategoryError(!categoryId ? "Choose a category" : null);
     if (amountInvalid) {
       amountRef.current?.focus();

@@ -1,5 +1,6 @@
 import React, { useState, useSyncExternalStore } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { cashSchema, check, parseAmount } from "../../utils/validation";
 import { onlineManager } from "@tanstack/react-query";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { TextField } from "../../components/TextField";
@@ -28,12 +29,13 @@ export function OpeningCashScreen() {
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const amount = Number(value.replace(/,/g, ""));
-  const valid = value.trim() !== "" && Number.isFinite(amount) && amount >= 0;
+  const amount = parseAmount(value);
+  const valid = check(cashSchema, amount) === null;
 
   const handleContinue = async () => {
-    if (!valid) {
-      setError("Enter how much you have, or 0");
+    const problem = check(cashSchema, amount);
+    if (problem) {
+      setError(problem);
       return;
     }
     setError(null);
@@ -85,7 +87,9 @@ export function OpeningCashScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { flexGrow: 1, justifyContent: "center", gap: spacing.md, paddingVertical: spacing.xl },
+  // From the top, not centred: centred content re-centred when the keyboard shrank the screen and
+  // jumped up.
+  content: { flexGrow: 1, gap: spacing.md, paddingTop: spacing.xxl, paddingBottom: spacing.xl },
   title: { ...typography.title, color: colors.textPrimary },
   body: { ...typography.body, color: colors.textSecondary },
   offline: { ...typography.small, color: colors.warning },
