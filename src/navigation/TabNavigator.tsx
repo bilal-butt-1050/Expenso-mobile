@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { BottomTabBarButtonProps, createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -28,6 +28,35 @@ const ICONS: Record<keyof TabParamList, { active: IconName; inactive: IconName }
   Activity: { active: "swap-vertical-bold", inactive: "swap-vertical" },
   Budget: { active: "chart-donut", inactive: "chart-arc" },
 };
+
+/**
+ * A tab button with no press effect: no Android ripple (the library draws a large borderless one)
+ * and no dimming. Bilal found it looked bad (D-60). The tab's own colour change on selection is the
+ * feedback.
+ */
+function PlainTabButton({
+  children,
+  style,
+  onPress,
+  onLongPress,
+  testID,
+  "aria-label": ariaLabel,
+  "aria-selected": ariaSelected,
+}: BottomTabBarButtonProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      style={style}
+      testID={testID}
+      accessibilityRole="tab"
+      accessibilityLabel={ariaLabel}
+      accessibilityState={{ selected: !!ariaSelected }}
+    >
+      {children}
+    </Pressable>
+  );
+}
 
 /** How far the raised Home button rises above the top edge of the dock: half its height. */
 const HOME_RISE = size.fab / 2;
@@ -74,6 +103,7 @@ export function TabNavigator() {
             elevation: 0,
           },
           tabBarLabelStyle: { fontSize: 11, fontWeight: "600", marginTop: 2 },
+          tabBarButton: (props) => <PlainTabButton {...props} />,
           tabBarIcon: ({ color, focused }) => {
             // The raised button carries Home's icon; the slot keeps only its label.
             if (route.name === "Home") return <View style={styles.iconPlaceholder} />;
@@ -101,11 +131,10 @@ export function TabNavigator() {
           hapticLight();
           rootNavigation.navigate("Tabs", { screen: "Home" });
         }}
-        style={({ pressed }) => [
+        style={[
           styles.homeButton,
           { bottom: dock - HOME_RISE },
           homeFocused ? styles.homeButtonActive : styles.homeButtonIdle,
-          pressed && styles.fabPressed,
         ]}
       >
         <MaterialCommunityIcons
