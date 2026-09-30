@@ -15,7 +15,7 @@ import { BudgetScreen } from "../screens/budget/BudgetScreen";
 import { QuickActionSheet } from "../components/QuickActionSheet";
 import { hapticLight, hapticMedium } from "../utils/haptics";
 import { dockHeight, dockPaddingBottom } from "./dock";
-import { NotchedTabBackground } from "./NotchedTabBackground";
+import { HOME_BUTTON_DROP, HOME_BUTTON_SIZE, NotchedTabBackground } from "./NotchedTabBackground";
 import { SnackbarHost } from "../components/snackbar/SnackbarHost";
 import { UpdatePrompt } from "../components/UpdatePrompt";
 import { DiscardedWritesNotice } from "../components/DiscardedWritesNotice";
@@ -59,8 +59,11 @@ function PlainTabButton({
   );
 }
 
-/** How far the raised Home button rises above the top edge of the dock: half its height. */
-const HOME_RISE = size.fab / 2;
+/**
+ * The raised Home button's bottom edge, measured down from the dock's top edge: half the button
+ * plus its drop, so its centre sits HOME_BUTTON_DROP below the edge, at the cutout's centre (D-61).
+ */
+const HOME_BOTTOM_BELOW_DOCK_TOP = HOME_BUTTON_SIZE / 2 + HOME_BUTTON_DROP;
 
 /**
  * Three tabs, Activity · Home · Budget, with Home raised in the centre as the main screen (D-57),
@@ -141,13 +144,13 @@ export function TabNavigator() {
         }}
         style={[
           styles.homeButton,
-          { bottom: dock - HOME_RISE },
+          { bottom: dock - HOME_BOTTOM_BELOW_DOCK_TOP },
           homeFocused ? styles.homeButtonActive : styles.homeButtonIdle,
         ]}
       >
         <MaterialCommunityIcons
           name={homeFocused ? ICONS.Home.active : ICONS.Home.inactive}
-          size={26}
+          size={28}
           color={homeFocused ? colors.accentForeground : colors.accent}
         />
       </Pressable>
@@ -204,9 +207,9 @@ const styles = StyleSheet.create({
   homeButton: {
     position: "absolute",
     left: "50%",
-    marginLeft: -size.fab / 2,
-    width: size.fab,
-    height: size.fab,
+    marginLeft: -HOME_BUTTON_SIZE / 2,
+    width: HOME_BUTTON_SIZE,
+    height: HOME_BUTTON_SIZE,
     borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
