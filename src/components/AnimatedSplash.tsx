@@ -110,6 +110,9 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   wordmark: {
+    // The brand wordmark, sized to match the native splash it takes over from: a logo, not text on
+    // the type ramp.
+    // eslint-disable-next-line no-restricted-syntax
     fontSize: 48,
     fontWeight: "800",
     color: colors.accent,

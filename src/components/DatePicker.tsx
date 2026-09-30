@@ -11,8 +11,10 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
 import { radius, spacing } from "../theme/spacing";
+import { typography } from "../theme/typography";
 import { useRegisterOverlay } from "../lib/overlays";
 import { useLatest } from "../hooks/useLatest";
+import { useReduceMotion } from "../hooks/useReduceMotion";
 
 const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const MONTHS = [
@@ -44,6 +46,8 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
   // Single animated value for enter/exit
   const anim = useRef(new Animated.Value(0)).current;
   const modalVisibleRef = useLatest(modalVisible);
+  // Reduced motion: the card fades in place instead of also rising.
+  const reduceMotion = useReduceMotion();
 
   useEffect(() => {
     if (open) {
@@ -138,10 +142,12 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
 
   // Interpolations — pure translateY, no scale (avoids layout recalc jitter)
   const backdropOpacity = anim;
-  const cardTranslateY = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [30, 0],
-  });
+  const cardTranslateY = reduceMotion
+    ? 0
+    : anim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [30, 0],
+      });
 
   return (
     <>
@@ -163,7 +169,13 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
       <Modal visible={modalVisible} transparent animationType="none" onRequestClose={handleClose}>
         {/* Backdrop */}
         <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleClose} />
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={handleClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          />
         </Animated.View>
 
         {/* Card — no scale, only translateY + opacity */}
@@ -179,10 +191,16 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
           <View style={styles.card}>
             {/* Header with month/year nav */}
             <View style={styles.calHeader}>
-              <TouchableOpacity onPress={prevMonth} hitSlop={12} style={styles.navBtn}>
+              <TouchableOpacity
+                onPress={prevMonth}
+                hitSlop={12}
+                style={styles.navBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Previous month"
+              >
                 <MaterialCommunityIcons name="chevron-left" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
-              <Text style={styles.calTitle}>
+              <Text style={styles.calTitle} accessibilityRole="header">
                 {MONTHS[viewMonth]} {viewYear}
               </Text>
               <TouchableOpacity 
@@ -190,6 +208,9 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
                 hitSlop={12} 
                 style={styles.navBtn}
                 activeOpacity={isNextMonthDisabled ? 1 : 0.2}
+                accessibilityRole="button"
+                accessibilityLabel="Next month"
+                accessibilityState={{ disabled: isNextMonthDisabled }}
               >
                 <MaterialCommunityIcons 
                   name="chevron-right" 
@@ -221,6 +242,9 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
                         isToday(day) && !isSelected(day) && styles.cellToday,
                       ]}
                       activeOpacity={isDisabled(day) ? 1 : 0.6}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${day} ${MONTHS[viewMonth]} ${viewYear}${isToday(day) ? ", today" : ""}`}
+                      accessibilityState={{ selected: isSelected(day), disabled: isDisabled(day) }}
                     >
                       <Text
                         style={[
@@ -247,7 +271,7 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
 const styles = StyleSheet.create({
   fieldWrap: { marginBottom: spacing.md },
   label: {
-    fontSize: 15,
+    ...typography.caption,
     fontWeight: "600",
     color: colors.textSecondary,
     marginBottom: spacing.xs,
@@ -265,7 +289,7 @@ const styles = StyleSheet.create({
   },
   triggerText: {
     flex: 1,
-    fontSize: 17,
+    ...typography.body,
     fontWeight: "600",
     color: colors.textPrimary,
   },
@@ -276,7 +300,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: colors.scrim,
   },
   cardWrap: {
     flex: 1,
@@ -288,7 +312,7 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 340,
     backgroundColor: colors.surfaceRaised,
-    borderRadius: 20,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.lg,
@@ -303,13 +327,13 @@ const styles = StyleSheet.create({
   navBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.surface,
   },
   calTitle: {
-    fontSize: 18,
+    ...typography.subtitle,
     fontWeight: "700",
     color: colors.textPrimary,
   },
@@ -322,7 +346,7 @@ const styles = StyleSheet.create({
   dayHeaderText: {
     width: CELL_SIZE,
     textAlign: "center",
-    fontSize: 13,
+    ...typography.small,
     fontWeight: "700",
     color: colors.textMuted,
     textTransform: "uppercase",
@@ -336,7 +360,7 @@ const styles = StyleSheet.create({
   cellWrap: {
     width: `${100 / 7}%`,
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   cell: {
     width: CELL_SIZE,
@@ -345,21 +369,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  // The app's one selection style, as on the chips and the month grid (W6).
   cellSelected: {
-    backgroundColor: colors.textPrimary,
+    backgroundColor: colors.accentMuted,
+    borderWidth: 1,
+    borderColor: colors.accent,
   },
   cellToday: {
     borderWidth: 1.5,
     borderColor: colors.textMuted,
   },
   cellText: {
-    fontSize: 16,
+    ...typography.body,
     fontWeight: "500",
     color: colors.textPrimary,
   },
   cellTextSelected: {
-    color: colors.background,
-    fontWeight: "800",
+    color: colors.textPrimary,
+    fontWeight: "700",
   },
   cellTextDisabled: {
     color: colors.border,

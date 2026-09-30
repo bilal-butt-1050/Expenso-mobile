@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   },
   codeInput: {
     ...typography.title,
-    height: 56,
+    minHeight: 56,
     textAlign: "center",
     letterSpacing: spacing.sm,
     borderRadius: radius.md,

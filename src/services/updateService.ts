@@ -6,43 +6,23 @@ import { AppState, AppStateStatus } from "react-native";
  */
 class UpdateService {
   private isChecking = false;
-  /** A newer bundle has been downloaded and applies on reload. Sticky for the session. */
-  private updateReady = false;
-  private readyListeners = new Set<() => void>();
-
-  /** "Update ready" is offered at most once per process, even across logout and login. */
-  private promptOffered = false;
-  public wasPromptOffered = (): boolean => this.promptOffered;
-  public markPromptOffered = (): void => {
-    this.promptOffered = true;
-  };
-
-  /** For `useSyncExternalStore`: whether a downloaded update is waiting to be applied. */
-  public isUpdateReady = (): boolean => this.updateReady;
-
-  public subscribeUpdateReady = (listener: () => void): (() => void) => {
-    this.readyListeners.add(listener);
-    return () => {
-      this.readyListeners.delete(listener);
-    };
-  };
 
   /**
    * Initializes the update check listeners.
    * Runs on app startup and whenever the app returns to foreground.
    */
-  public init(onUpdateReady?: () => void) {
+  public init() {
     if (__DEV__ || !Updates.isEnabled) {
       return;
     }
 
     // Check immediately on startup
-    this.checkForUpdates(onUpdateReady);
+    this.checkForUpdates();
 
     // Check when user returns to the app from background
     const subscription = AppState.addEventListener("change", (nextState: AppStateStatus) => {
       if (nextState === "active") {
-        this.checkForUpdates(onUpdateReady);
+        this.checkForUpdates();
       }
     });
 
@@ -52,10 +32,11 @@ class UpdateService {
   }
 
   /**
-   * Checks the Expo server for new published updates.
-   * If a new update is found, it downloads it immediately.
+   * Checks the Expo server for a newer update and applies it straight away: download, then reload.
+   * No prompt and no second restart (Bilal). It runs at launch and on return to the app, so the
+   * reload lands before anything is under way.
    */
-  public async checkForUpdates(onUpdateReady?: () => void): Promise<boolean> {
+  public async checkForUpdates(): Promise<boolean> {
     if (__DEV__ || !Updates.isEnabled || this.isChecking) {
       return false;
     }
@@ -66,12 +47,7 @@ class UpdateService {
       if (checkResult.isAvailable) {
         const fetchResult = await Updates.fetchUpdateAsync();
         if (fetchResult.isNew) {
-          // Without a prompt the new bundle only took effect on the second cold start. The
-          // app now offers a restart (UpdatePrompt); if that is ignored, the next cold start
-          // applies it as before.
-          this.updateReady = true;
-          this.readyListeners.forEach((listener) => listener());
-          onUpdateReady?.();
+          await Updates.reloadAsync();
           return true;
         }
       }
@@ -83,15 +59,6 @@ class UpdateService {
     }
 
     return false;
-  }
-
-  /**
-   * Immediately reloads the app with the latest downloaded OTA bundle.
-   */
-  public async reloadApp() {
-    if (!__DEV__ && Updates.isEnabled) {
-      await Updates.reloadAsync();
-    }
   }
 
   /**
@@ -114,28 +81,9 @@ export const updateService = new UpdateService();
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August",
   "September", "October", "November", "December"];
 
-/**
- * One line naming the bundle that is actually running, for the Settings footer (DESIGN §S9).
- * It is the evidence R-10 needs that a given update reached this phone, so it's selectable.
- */
-export function describeRunningUpdate(): { text: string; a11y: string } {
-  const { isEnabled, channel, updateId, isEmbeddedLaunch, createdAt } = updateService.getDiagnostics();
-  if (__DEV__ || !isEnabled) {
-    return { text: "development", a11y: "Development build" };
-  }
-  const ch = channel || "unknown channel";
-  if (isEmbeddedLaunch || !updateId) {
-    return { text: `${ch} · built-in bundle`, a11y: `Running the built-in bundle on the ${ch} channel` };
-  }
-  const id = updateId.slice(0, 8);
-  if (!createdAt) {
-    return { text: `${ch} · update ${id}`, a11y: `Running update ${id} on the ${ch} channel` };
-  }
-  const day = createdAt.getDate();
-  const month = MONTHS[createdAt.getMonth()];
-  const year = createdAt.getFullYear();
-  return {
-    text: `${ch} · update ${id} · ${day} ${month.slice(0, 3)} ${year}`,
-    a11y: `Running update ${id} on the ${ch} channel, published ${day} ${month} ${year}`,
-  };
+/** "Last updated 1 Oct 2026": when the running update was published. Null in development or when unknown. */
+export function describeLastUpdated(): string | null {
+  const { isEnabled, createdAt } = updateService.getDiagnostics();
+  if (__DEV__ || !isEnabled || !createdAt) return null;
+  return `Last updated ${createdAt.getDate()} ${MONTHS[createdAt.getMonth()].slice(0, 3)} ${createdAt.getFullYear()}`;
 }

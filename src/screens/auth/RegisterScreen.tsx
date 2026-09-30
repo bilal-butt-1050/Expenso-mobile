@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { check, emailSchema, nameSchema, passwordSchema } from "../../utils/validation";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { getFreshGoogleIdToken } from "../../services/googleSignIn";
@@ -21,12 +22,15 @@ import { ScreenContainer } from "../../components/ScreenContainer";
 import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
 import { colors } from "../../theme/colors";
-import { spacing } from "../../theme/spacing";
+import { radius, size, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { SignupCodeStep } from "./SignupCodeStep";
 
 /** A code this recent for the same email is reused instead of sending another (DESIGN §S8). */
 const CODE_REUSE_MS = 10 * 60 * 1000;
+
+
+type FieldErrors = Partial<Record<"name" | "email" | "password" | "confirm", string>>;
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Register">;
 
@@ -48,6 +52,9 @@ export function RegisterScreen({ navigation }: Props) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  // Per-field problems, shown under each field once Continue is pressed (W10).
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  // Server and Google errors, in the same block as the sign-in screen.
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -62,29 +69,21 @@ export function RegisterScreen({ navigation }: Props) {
 
   const normalizedEmail = email.trim().toLowerCase();
 
+  const clearFieldError = (field: keyof FieldErrors) =>
+    setFieldErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
+
   /** Step 1: check the details, send a code, move on. The account is only created at step 2. */
   const handleContinue = async () => {
     setError(null);
 
-    if (!name.trim()) {
-      setError("Name is required");
-      return;
-    }
-
-    if (!email.trim()) {
-      setError("Email is required");
-      return;
-    }
-
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
+    const problems: FieldErrors = {
+      name: check(nameSchema, name) ?? undefined,
+      email: check(emailSchema, email) ?? undefined,
+      password: check(passwordSchema, password) ?? undefined,
+      confirm: password !== confirmPassword ? "Passwords don't match" : undefined,
+    };
+    setFieldErrors(problems);
+    if (Object.values(problems).some(Boolean)) return;
 
     // A code sent to this same address in the last 10 minutes is still valid: don't send another
     // (which would also hit the 60 s cooldown).
@@ -188,11 +187,15 @@ export function RegisterScreen({ navigation }: Props) {
           </View>
 
           <TextField
-            label="Full Name"
+            label="Full name"
             value={name}
-            onChangeText={setName}
-            placeholder="Bilal Khan"
+            onChangeText={(text) => {
+              setName(text);
+              clearFieldError("name");
+            }}
+            placeholder="Your full name"
             autoCapitalize="words"
+            error={fieldErrors.name}
           />
 
           <TextField
@@ -200,24 +203,34 @@ export function RegisterScreen({ navigation }: Props) {
             autoCapitalize="none"
             keyboardType="email-address"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => {
+              setEmail(text);
+              clearFieldError("email");
+            }}
             placeholder="you@example.com"
+            error={fieldErrors.email}
           />
 
           <TextField
             label="Password"
             secureTextEntry={!showPassword}
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(text) => {
+              setPassword(text);
+              clearFieldError("password");
+            }}
             placeholder="At least 8 characters"
+            error={fieldErrors.password}
             rightElement={
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
-                hitSlop={8}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? "Hide password" : "Show password"}
               >
                 <MaterialCommunityIcons
-                  name={showPassword ? "eye-off" : "eye"}
-                  size={22}
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
                   color={colors.textMuted}
                 />
               </TouchableOpacity>
@@ -225,23 +238,33 @@ export function RegisterScreen({ navigation }: Props) {
           />
 
           <TextField
-            label="Confirm Password"
+            label="Confirm password"
             secureTextEntry={!showPassword}
             value={confirmPassword}
-            onChangeText={setConfirmPassword}
+            onChangeText={(text) => {
+              setConfirmPassword(text);
+              clearFieldError("confirm");
+            }}
             placeholder="Repeat password"
+            error={fieldErrors.confirm}
           />
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {/* Server and Google errors, next to the button that caused them (G4 m1). */}
+          {error ? (
+            <View style={styles.errorContainer} accessibilityLiveRegion="polite">
+              <MaterialCommunityIcons
+                name="alert-circle-outline"
+                size={18}
+                color={colors.danger}
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+              />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
 
-          <Button
-            label="Continue"
-            onPress={handleContinue}
-            loading={isLoading}
-            disabled={
-              !email || password.length < 8 || !confirmPassword || !name.trim()
-            }
-          />
+          {/* Always enabled: pressing it says what's missing, instead of a silent grey button. */}
+          <Button label="Continue" onPress={handleContinue} loading={isLoading} />
 
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
@@ -253,6 +276,8 @@ export function RegisterScreen({ navigation }: Props) {
             style={styles.googleBtn}
             onPress={handleGoogleSignIn}
             disabled={isLoading}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: isLoading, busy: isLoading }}
           >
             {isLoading ? (
               <ActivityIndicator size="small" color={colors.textPrimary} />
@@ -266,12 +291,17 @@ export function RegisterScreen({ navigation }: Props) {
             <Text style={styles.googleBtnText}>Continue with Google</Text>
           </TouchableOpacity>
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account?</Text>
-            <TouchableOpacity onPress={() => navigation.navigate("Login")}>
-              <Text style={styles.link}> Log in</Text>
-            </TouchableOpacity>
-          </View>
+          {/* One row-wide target, as on the sign-in screen (P16). */}
+          <TouchableOpacity
+            style={styles.footer}
+            onPress={() => navigation.navigate("Login")}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+          >
+            <Text style={styles.footerText}>
+              Already have an account? <Text style={styles.link}>Sign in</Text>
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>
@@ -284,12 +314,31 @@ const styles = StyleSheet.create({
   header: { marginTop: spacing.xl, marginBottom: spacing.xl },
   title: { ...typography.title },
   subtitle: { ...typography.caption, marginTop: spacing.xs },
-  error: { color: colors.danger, marginBottom: spacing.md, fontSize: 13 },
-  footer: {
+  // The sign-in screen's error block (W10).
+  errorContainer: {
     flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    backgroundColor: colors.dangerMuted,
+    borderWidth: 1,
+    borderColor: colors.dangerMuted,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.md,
+  },
+  errorText: {
+    ...typography.small,
+    fontWeight: "500",
+    color: colors.danger,
+    flexShrink: 1,
+  },
+  footer: {
+    alignItems: "center",
     justifyContent: "center",
+    minHeight: size.minTouch,
     marginTop: spacing.xl,
-    paddingBottom: spacing.xxl,
+    marginBottom: spacing.xxl,
   },
   footerText: { ...typography.caption },
   link: { ...typography.caption, color: colors.accentText, fontWeight: "700" },
@@ -315,8 +364,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingVertical: 14,
-    borderRadius: 12,
+    minHeight: 54,
+    borderRadius: radius.md,
   },
   googleBtnText: {
     ...typography.body,

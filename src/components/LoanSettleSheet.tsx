@@ -1,21 +1,21 @@
 import React, { useEffect, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { amountSchema, check, parseAmount } from "../utils/validation";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BottomSheet } from "./BottomSheet";
 import { TextField } from "./TextField";
 import { Button } from "./Button";
+import { MoneyText } from "./MoneyText";
 import { colors } from "../theme/colors";
-import { spacing } from "../theme/spacing";
+import { radius, spacing } from "../theme/spacing";
 import { typography } from "../theme/typography";
 import { formatCurrency, formatAmountInput } from "../utils/currency";
 import { Loan } from "../types/models";
 import { getErrorMessage } from "../api/client";
 import { hapticSuccess } from "../utils/haptics";
+
+/** A 20pt icon plus 14 on every side: the 48pt minimum target (W13, B6). */
+const ICON_HIT_SLOP = 14;
 
 interface LoanSettleSheetProps {
   loan: Loan | null;
@@ -34,7 +34,8 @@ export function LoanSettleSheet({
   onEdit,
 }: LoanSettleSheetProps) {
   const [partialAmount, setPartialAmount] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Which button is working, so only that one spins (W13). Both are disabled meanwhile.
+  const [submitting, setSubmitting] = useState<"full" | "partial" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Retain the last loan so the sheet still has something to render while it animates out.
@@ -60,7 +61,7 @@ export function LoanSettleSheet({
 
   const handleSettleFull = async () => {
     if (!shown) return;
-    setIsSubmitting(true);
+    setSubmitting("full");
     setError(null);
     try {
       await onSettle(shown.id);
@@ -69,23 +70,24 @@ export function LoanSettleSheet({
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(null);
     }
   };
 
   const handleSettlePartial = async () => {
     if (!shown) return;
-    const num = parseFloat(partialAmount.replace(/,/g, ""));
-    if (isNaN(num) || num <= 0) {
-      setError("Please enter a valid amount greater than 0");
+    const num = parseAmount(partialAmount);
+    const problem = check(amountSchema, num);
+    if (problem) {
+      setError(problem);
       return;
     }
     if (num > remaining) {
-      setError(`Amount cannot exceed remaining balance of ${formatCurrency(remaining)}`);
+      setError(`That's more than the ${formatCurrency(remaining)} left.`);
       return;
     }
 
-    setIsSubmitting(true);
+    setSubmitting("partial");
     setError(null);
     try {
       await onSettle(shown.id, num);
@@ -94,7 +96,7 @@ export function LoanSettleSheet({
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(null);
     }
   };
 
@@ -114,23 +116,10 @@ export function LoanSettleSheet({
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.titleRow}>
-            <View
-              style={[
-                styles.typeTag,
-                {
-                  backgroundColor: isLent
-                    ? "rgba(16, 185, 129, 0.12)"
-                    : "rgba(239, 68, 68, 0.12)",
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.typeTagText,
-                  { color: isLent ? colors.success : colors.danger },
-                ]}
-              >
-                {isLent ? "MONEY LENT" : "MONEY BORROWED"}
+            {/* One colour per loan direction, never green/red (D-59, W4). */}
+            <View style={[styles.typeTag, isLent ? styles.lentTag : styles.borrowedTag]}>
+              <Text style={[styles.typeTagText, isLent ? styles.lentText : styles.borrowedText]}>
+                {isLent ? "Money lent" : "Money borrowed"}
               </Text>
             </View>
             <View style={styles.headerActions}>
@@ -139,7 +128,7 @@ export function LoanSettleSheet({
                   pendingEdit.current = shown;
                   onClose();
                 }}
-                hitSlop={{ top: 12, bottom: 12, left: 10, right: 10 }}
+                hitSlop={ICON_HIT_SLOP}
                 accessibilityRole="button"
                 accessibilityLabel="Edit loan"
               >
@@ -150,7 +139,7 @@ export function LoanSettleSheet({
                   onClose();
                   if (shown) onDelete(shown.id);
                 }}
-                hitSlop={{ top: 12, bottom: 12, left: 10, right: 10 }}
+                hitSlop={ICON_HIT_SLOP}
                 accessibilityRole="button"
                 accessibilityLabel="Delete loan"
               >
@@ -160,42 +149,46 @@ export function LoanSettleSheet({
           </View>
 
           <Text style={styles.personName}>{shown?.personName}</Text>
-          {shown?.notes ? <Text style={styles.notes}>{shown.notes}</Text> : null}
+          {/* Opened from any month, the sheet always shows and acts on today's loan (D-63). */}
+          <Text style={styles.asOfToday}>As of today</Text>
         </View>
 
-        {/* Balance Breakdown */}
+        {/* Balance breakdown */}
         <View style={styles.balanceCard}>
           <View style={styles.balanceCol}>
-            <Text style={styles.balanceLabel}>TOTAL</Text>
-            <Text style={styles.balanceVal}>{formatCurrency(shown?.amount ?? 0)}</Text>
+            <Text style={styles.balanceLabel}>Total</Text>
+            <MoneyText amount={shown?.amount ?? 0} style={styles.balanceVal} />
           </View>
           <View style={styles.balanceDivider} />
           <View style={styles.balanceCol}>
-            <Text style={styles.balanceLabel}>SETTLED</Text>
-            <Text style={[styles.balanceVal, { color: colors.success }]}>
-              {formatCurrency(shown?.settledAmount ?? 0)}
-            </Text>
+            <Text style={styles.balanceLabel}>Settled</Text>
+            <MoneyText amount={shown?.settledAmount ?? 0} style={[styles.balanceVal, styles.settledVal]} />
           </View>
           <View style={styles.balanceDivider} />
           <View style={styles.balanceCol}>
-            <Text style={styles.balanceLabel}>REMAINING</Text>
-            <Text style={[styles.balanceVal, { color: isSettled ? colors.textMuted : colors.accent }]}>
-              {formatCurrency(remaining)}
-            </Text>
+            <Text style={styles.balanceLabel}>Remaining</Text>
+            <MoneyText
+              amount={remaining}
+              style={[styles.balanceVal, isSettled ? styles.remainingDone : styles.remainingOpen]}
+            />
           </View>
         </View>
 
         {/* Actions if not fully settled */}
         {!isSettled ? (
           <View style={styles.actionSection}>
-            <Text style={styles.actionSectionTitle}>Record Settlement / Payment</Text>
+            <Text style={styles.actionSectionTitle}>Record a payment</Text>
 
-            {error && <Text style={styles.errorText}>{error}</Text>}
+            {error ? (
+              <Text style={styles.errorText} accessibilityLiveRegion="polite">
+                {error}
+              </Text>
+            ) : null}
 
             <TextField
-              label="Partial Amount"
-              placeholder="0.00"
-              keyboardType="numeric"
+              label="Amount paid"
+              placeholder="0"
+              keyboardType="decimal-pad"
               value={partialAmount}
               onChangeText={(text) => setPartialAmount(formatAmountInput(text))}
             />
@@ -203,18 +196,21 @@ export function LoanSettleSheet({
             <View style={styles.buttonsRow}>
               {partialAmount.trim().length > 0 && (
                 <Button
-                  label="Pay Partial"
+                  label="Save payment"
                   variant="secondary"
                   onPress={handleSettlePartial}
-                  loading={isSubmitting}
+                  loading={submitting === "partial"}
+                  disabled={submitting !== null}
                   style={styles.flexBtn}
                 />
               )}
+              {/* The amount is the Remaining figure just above, so the label stays short (W13). */}
               <Button
-                label={`Settle in Full (${formatCurrency(remaining)})`}
+                label="Settle in full"
                 variant="primary"
                 onPress={handleSettleFull}
-                loading={isSubmitting}
+                loading={submitting === "full"}
+                disabled={submitting !== null}
                 style={styles.flexBtn}
               />
             </View>
@@ -240,7 +236,11 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   header: {
-    gap: 4,
+    gap: spacing.xs,
+  },
+  asOfToday: {
+    ...typography.small,
+    color: colors.textSecondary,
   },
   headerActions: {
     flexDirection: "row",
@@ -254,29 +254,29 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   typeTag: {
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: radius.sm,
   },
+  lentTag: { backgroundColor: colors.lentMuted },
+  borrowedTag: { backgroundColor: colors.borrowedMuted },
   typeTagText: {
-    fontSize: 11,
+    ...typography.small,
     fontWeight: "700",
-    letterSpacing: 0.6,
+    textTransform: "uppercase",
   },
+  lentText: { color: colors.lent },
+  borrowedText: { color: colors.borrowed },
   personName: {
-    ...typography.title,
-    fontSize: 22,
+    ...typography.subtitle,
+    fontWeight: "700",
     color: colors.textPrimary,
   },
-  notes: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
+  // A grouped card inside the raised sheet: `surface`, 1pt `borderLight`, `radius.lg` (W5).
   balanceCard: {
     flexDirection: "row",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
-    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
     borderWidth: 1,
@@ -291,30 +291,34 @@ const styles = StyleSheet.create({
     backgroundColor: colors.borderLight,
   },
   balanceLabel: {
-    fontSize: 10,
+    ...typography.small,
     fontWeight: "700",
     color: colors.textMuted,
-    letterSpacing: 0.6,
-    marginBottom: 4,
+    textTransform: "uppercase",
+    marginBottom: spacing.xs,
   },
   balanceVal: {
-    fontSize: 15,
+    ...typography.caption,
     fontWeight: "700",
     color: colors.textPrimary,
   },
+  settledVal: { color: colors.success },
+  remainingOpen: { color: colors.accent },
+  remainingDone: { color: colors.textMuted },
   actionSection: {
     gap: spacing.sm,
     marginTop: spacing.xs,
   },
   actionSectionTitle: {
-    fontSize: 13,
+    ...typography.small,
     fontWeight: "700",
     color: colors.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   errorText: {
-    fontSize: 13,
+    ...typography.small,
+    fontWeight: "400",
     color: colors.danger,
   },
   buttonsRow: {
@@ -331,12 +335,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.sm,
     paddingVertical: spacing.md,
-    backgroundColor: "rgba(16, 185, 129, 0.08)",
-    borderRadius: 14,
+    backgroundColor: colors.successMuted,
+    borderRadius: radius.lg,
     marginTop: spacing.xs,
   },
   settledBadgeText: {
-    fontSize: 14,
+    ...typography.small,
     fontWeight: "600",
     color: colors.success,
   },

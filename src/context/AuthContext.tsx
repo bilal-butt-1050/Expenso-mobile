@@ -24,6 +24,8 @@ interface AuthContextValue {
   loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  /** Records a just-saved opening cash, so onboarding moves on even if a refetch fails (D-64). */
+  applyOpeningBalance: (openingBalance: number) => Promise<void>;
   updateProfile: (data: { name?: string; currency?: string; avatarUrl?: string | null }) => Promise<void>;
   changePassword: (body: { currentPassword?: string; newPassword: string; googleIdToken?: string }) => Promise<void>;
 }
@@ -156,6 +158,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshUser: async () => {
         const u = await authApi.fetchCurrentUser();
         await saveUserAndCache(u);
+      },
+      applyOpeningBalance: async (openingBalance) => {
+        if (user) await saveUserAndCache({ ...user, openingBalance });
       },
       updateProfile: async (data) => {
         const u = await authApi.updateProfile(data);

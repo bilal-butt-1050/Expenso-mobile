@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import * as loansApi from "../api/loans";
-import { Loan, LoanInput, LoansSummary, LoanStatus, LoanType } from "../types/models";
+import { Loan, LoanInput, LoanStatus, LoanType } from "../types/models";
 import { queryKeys } from "../lib/queryClient";
 import {
   CreateLoanVars,
@@ -13,22 +13,32 @@ import {
 import { useAuth } from "../context/AuthContext";
 
 /**
- * Loans and their summary.
- *
- * The previous implementation fired four requests per mutation: each of `addLoan`,
- * `recordPayment` and `removeLoan` called `notifyDataChanged()` — which bumped a counter every
- * hook depended on — *and* called `refresh()` directly, so both paths re-fetched the list and
- * the summary. Every screen mounting `useLoans` did that independently.
+ * The Loans tab's month view (R-41): loans visible in `month`, as of its end. Only fetched while
+ * the Loans segment shows. "Pending" counts as loading, so a month never fetched (offline) doesn't
+ * claim to have no loans (§5.4).
+ */
+export function useLoansForMonth(month: string, enabled = true) {
+  const query = useQuery({
+    queryKey: queryKeys.loansForMonth(month),
+    queryFn: () => loansApi.fetchLoansForMonth(month),
+    enabled,
+  });
+  return {
+    loans: (query.data ?? []) as Loan[],
+    isLoading: query.isPending,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+/**
+ * Today's loans, and every loan write. Writes go through the shared mutation defaults, which
+ * invalidate every money query once, instead of each caller refetching.
  */
 export function useLoans(filterType?: LoanType, filterStatus?: LoanStatus) {
   const loansQuery = useQuery({
     queryKey: queryKeys.loans(filterType, filterStatus),
     queryFn: () => loansApi.fetchLoans({ type: filterType, status: filterStatus }),
-  });
-
-  const summaryQuery = useQuery({
-    queryKey: queryKeys.loansSummary(),
-    queryFn: loansApi.fetchLoansSummary,
   });
 
   // Every write goes through the shared defaults in lib/mutations.ts (function, order, errors),
@@ -47,11 +57,10 @@ export function useLoans(filterType?: LoanType, filterStatus?: LoanStatus) {
 
   return {
     loans: (loansQuery.data ?? []) as Loan[],
-    summary: (summaryQuery.data ?? null) as LoansSummary | null,
-    isLoading: loansQuery.isLoading || summaryQuery.isLoading,
+    isLoading: loansQuery.isLoading,
     error: loansQuery.error ? String(loansQuery.error) : null,
     refresh: async () => {
-      await Promise.all([loansQuery.refetch(), summaryQuery.refetch()]);
+      await loansQuery.refetch();
     },
     addLoan: (input: LoanInput) => submitWrite(add, { input, title: `the loan with ${input.personName}` }),
     editLoan: (id: string, input: Partial<LoanInput>) => submitWrite(edit, { id, input, title: titleOf(id) }),

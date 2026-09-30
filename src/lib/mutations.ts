@@ -228,7 +228,7 @@ queryClient.setMutationDefaults(mutationKeys.deleteLoan, {
   scope: MONEY_SCOPE,
   onMutate: async (vars: DeleteLoanVars) => {
     await queryClient.cancelQueries({ queryKey: ["loans"] });
-    // ["loans"] also prefixes the summary query, which isn't a list: leave it alone.
+    // Every list under ["loans"], including each month view, drops the loan at once.
     queryClient.setQueriesData({ queryKey: ["loans"] }, (old: unknown) =>
       Array.isArray(old) ? (old as Loan[]).filter((l) => l.id !== vars.id) : old
     );

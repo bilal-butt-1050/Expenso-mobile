@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { Animated, DimensionValue, StyleSheet, View, ViewStyle } from "react-native";
 import { colors } from "../theme/colors";
 import { radius, spacing } from "../theme/spacing";
+import { useReduceMotion } from "../hooks/useReduceMotion";
 
 interface SkeletonProps {
   width?: DimensionValue;
@@ -12,12 +13,18 @@ interface SkeletonProps {
 
 /**
  * Animated shimmer skeleton block.
- * Uses a pulsing opacity animation for a smooth, modern loading feel.
+ * Uses a pulsing opacity animation for a smooth, modern loading feel. With reduced motion on, it
+ * holds still at a mid opacity instead (W3b).
  */
 export function Skeleton({ width = "100%", height = 20, borderRadius: br = 8, style }: SkeletonProps) {
   const pulse = useRef(new Animated.Value(0.35)).current;
+  const reduceMotion = useReduceMotion();
 
   useEffect(() => {
+    if (reduceMotion) {
+      pulse.setValue(0.5);
+      return;
+    }
     const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, { toValue: 0.7, duration: 800, useNativeDriver: true }),
@@ -26,7 +33,7 @@ export function Skeleton({ width = "100%", height = 20, borderRadius: br = 8, st
     );
     animation.start();
     return () => animation.stop();
-  }, [pulse]);
+  }, [pulse, reduceMotion]);
 
   return (
     <Animated.View
@@ -51,11 +58,11 @@ export function SkeletonRow() {
       <Skeleton width={42} height={42} borderRadius={21} />
       <View style={rowStyles.middle}>
         <Skeleton width="65%" height={16} />
-        <Skeleton width="40%" height={12} style={{ marginTop: 6 }} />
+        <Skeleton width="40%" height={12} style={{ marginTop: spacing.xs }} />
       </View>
       <View style={rowStyles.end}>
         <Skeleton width={72} height={16} />
-        <Skeleton width={52} height={20} borderRadius={10} style={{ marginTop: 6 }} />
+        <Skeleton width={52} height={20} borderRadius={10} style={{ marginTop: spacing.xs }} />
       </View>
     </View>
   );
@@ -72,28 +79,34 @@ export function SkeletonList({ rows = 5 }: { rows?: number }) {
   );
 }
 
-/** Skeleton for the HomeScreen dashboard */
+/** Skeleton for the HomeScreen dashboard: Home v3's shape (DESIGN S11). */
 export function HomeSkeleton() {
-  // Mirrors Home's real shape: greeting, hero figure, as-of label and opening line, then the
-  // cashflow card. (The debts card left Home in D-57.)
+  // The hero figure, then the month summary, spending and budgets cards.
   return (
     <View style={homeStyles.container} accessibilityLabel="Loading your figures">
       <View style={homeStyles.hero}>
-        <Skeleton width={140} height={14} />
-        <Skeleton width={220} height={38} borderRadius={radius.sm} />
-        <Skeleton width={160} height={15} />
-        <Skeleton width={240} height={14} />
+        <Skeleton width={120} height={15} />
+        <Skeleton width={200} height={32} borderRadius={radius.sm} />
       </View>
 
       <View style={homeStyles.card}>
-        <Skeleton width={130} height={15} />
         <View style={homeStyles.twoCol}>
           <Skeleton width="45%" height={44} borderRadius={radius.sm} />
           <Skeleton width="45%" height={44} borderRadius={radius.sm} />
         </View>
-        <Skeleton width="100%" height={14} />
-        <Skeleton width="100%" height={4} borderRadius={2} />
-        <Skeleton width="100%" height={14} />
+        <Skeleton width="100%" height={18} />
+      </View>
+
+      <View style={homeStyles.card}>
+        <Skeleton width={100} height={17} />
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} width="100%" height={22} />
+        ))}
+      </View>
+
+      <View style={homeStyles.card}>
+        <Skeleton width={90} height={17} />
+        <Skeleton width="100%" height={36} />
       </View>
     </View>
   );
@@ -106,7 +119,7 @@ export function ListScreenSkeleton() {
       {/* Hero */}
       <View style={listScreenStyles.hero}>
         <Skeleton width={60} height={12} />
-        <Skeleton width={180} height={36} borderRadius={6} style={{ marginTop: 8 }} />
+        <Skeleton width={180} height={36} borderRadius={6} style={{ marginTop: spacing.sm }} />
       </View>
 
       {/* Filters */}
@@ -130,11 +143,11 @@ export function BudgetSkeleton() {
       <View style={budgetStyles.summary}>
         <View style={{ flex: 1 }}>
           <Skeleton width={70} height={12} />
-          <Skeleton width={100} height={24} style={{ marginTop: 6 }} />
+          <Skeleton width={100} height={24} style={{ marginTop: spacing.xs }} />
         </View>
         <View style={{ flex: 1 }}>
           <Skeleton width={60} height={12} />
-          <Skeleton width={100} height={24} style={{ marginTop: 6 }} />
+          <Skeleton width={100} height={24} style={{ marginTop: spacing.xs }} />
         </View>
       </View>
 
@@ -149,7 +162,7 @@ export function BudgetSkeleton() {
           </View>
           <View style={{ alignItems: "flex-end" }}>
             <Skeleton width={72} height={16} />
-            <Skeleton width={52} height={12} style={{ marginTop: 4 }} />
+            <Skeleton width={52} height={12} style={{ marginTop: spacing.xs }} />
           </View>
         </View>
       ))}
@@ -210,10 +223,10 @@ const budgetStyles = StyleSheet.create({
   container: {},
   summary: {
     flexDirection: "row",
-    backgroundColor: colors.surfaceRaised,
+    backgroundColor: colors.surface,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     padding: spacing.lg,
     gap: spacing.md,
   },

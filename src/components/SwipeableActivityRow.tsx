@@ -5,20 +5,22 @@ import {
   Animated,
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   Easing,
   Dimensions,
 } from "react-native";
+import { PressableScale } from "./PressableScale";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Swipeable, { type SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import type { Loan, Transaction } from "../types/models";
 import { AnimatedProgressBar } from "./AnimatedProgressBar";
+import { MoneyText } from "./MoneyText";
 import { formatCurrency } from "../utils/currency";
 import { colors } from "../theme/colors";
-import { spacing } from "../theme/spacing";
+import { radius, spacing } from "../theme/spacing";
 import { typography } from "../theme/typography";
 import { hapticDelete, hapticLight } from "../utils/haptics";
+import { useReduceMotion } from "../hooks/useReduceMotion";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
@@ -48,6 +50,8 @@ export interface UnifiedActivityItem {
 
 const SIGN: Record<UnifiedActivityItem["tone"], string> = { in: "+", out: "−", neutral: "" };
 const SPOKEN_SIGN: Record<UnifiedActivityItem["tone"], string> = { in: "plus ", out: "minus ", neutral: "" };
+/** The swipe's alternative for screen readers (W11): TalkBack lists it in the row's actions. */
+const A11Y_ACTIONS = [{ name: "delete", label: "Delete" }];
 
 interface SwipeableActivityRowProps {
   item: UnifiedActivityItem;
@@ -72,6 +76,9 @@ export function SwipeableActivityRow({
   const onDeleteAnimFinishRef = useLatest(onDeleteAnimFinish);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const swipeableRef = useRef<SwipeableMethods>(null);
+  // Reduced motion (W3b). A dependency, not a ref: the setting resolves after mount, and re-running
+  // the highlight then swaps its fade for the instant version.
+  const reduceMotion = useReduceMotion();
 
   useEffect(() => {
     if (isNewlyAdded) {
@@ -81,42 +88,48 @@ export function SwipeableActivityRow({
           duration: 0,
           useNativeDriver: false,
         }),
+        // Reduced motion: the highlight holds for the same time, then goes at once, not a fade.
         Animated.timing(highlightAnim, {
           toValue: 0,
-          duration: 2200,
-          delay: 400,
+          duration: reduceMotion ? 0 : 2200,
+          delay: reduceMotion ? 2600 : 400,
           useNativeDriver: false,
         }),
       ]).start();
     }
-  }, [isNewlyAdded, highlightAnim]);
+  }, [isNewlyAdded, highlightAnim, reduceMotion]);
 
   useEffect(() => {
     if (isDeleting) {
-      Animated.parallel([
-        Animated.timing(deleteAnim, {
-          toValue: 1,
-          duration: 250,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
+      const fade = Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      });
+      // Reduced motion: the row fades out in place, with no slide or shrink.
+      (reduceMotion
+        ? fade
+        : Animated.parallel([
+            Animated.timing(deleteAnim, {
+              toValue: 1,
+              duration: 250,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: true,
+            }),
+            fade,
+          ])
+      ).start(() => {
         onDeleteAnimFinishRef.current?.();
       });
     }
-  }, [isDeleting, deleteAnim, fadeAnim, onDeleteAnimFinishRef]);
+  }, [isDeleting, deleteAnim, fadeAnim, onDeleteAnimFinishRef, reduceMotion]);
 
   // Revealed by swiping right-to-left, matching Mail, Gmail and every other list.
   const renderRightActions = () => {
     return (
       <View style={styles.rightAction}>
         <View style={styles.deleteIconBubble}>
-          <MaterialCommunityIcons name="trash-can-outline" size={22} color="#FFFFFF" />
+          <MaterialCommunityIcons name="trash-can-outline" size={22} color={colors.accentForeground} />
         </View>
       </View>
     );
@@ -133,14 +146,13 @@ export function SwipeableActivityRow({
     }
   };
 
-  // Vibrant, friendly icon colors & soft background bubbles
   // Expenses are red and income green, icon and amount alike, so a row's colour always means the
   // same thing (D-59). Categories are still told apart by their icon.
   const getIconBg = () => {
     if (item.type === "INCOME") return colors.successMuted;
     if (item.type === "EXPENSE") return colors.dangerMuted;
     if (item.loanDirection) {
-      return item.loanDirection === "LENT" ? "rgba(96, 165, 250, 0.14)" : "rgba(245, 158, 11, 0.14)";
+      return item.loanDirection === "LENT" ? colors.lentMuted : colors.borrowedMuted;
     }
     return colors.accentMuted;
   };
@@ -149,7 +161,7 @@ export function SwipeableActivityRow({
     if (item.type === "INCOME") return colors.success;
     if (item.type === "EXPENSE") return colors.danger;
     if (item.loanDirection) {
-      return item.loanDirection === "LENT" ? "#60A5FA" : colors.warning;
+      return item.loanDirection === "LENT" ? colors.lent : colors.borrowed;
     }
     return colors.accent;
   };
@@ -181,7 +193,7 @@ export function SwipeableActivityRow({
           onSwipeableOpen={onSwipeableOpen}
           friction={2}
           rightThreshold={60}
-          containerStyle={{ borderRadius: 22 }}
+          containerStyle={styles.swipeContainer}
         >
           <Animated.View
             style={[
@@ -189,18 +201,18 @@ export function SwipeableActivityRow({
               {
                 backgroundColor: highlightAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [colors.surfaceRaised, "rgba(99, 102, 241, 0.22)"],
+                  outputRange: [colors.surfaceRaised, colors.highlight],
                 }),
               },
             ]}
           >
-            <TouchableOpacity
+            <PressableScale
+              scaleTo={0.98}
               style={styles.rowTouchArea}
               onPress={() => {
                 hapticLight();
                 onPress();
               }}
-              activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel={[
                 item.title,
@@ -211,6 +223,10 @@ export function SwipeableActivityRow({
               ]
                 .filter(Boolean)
                 .join(", ")}
+              accessibilityActions={A11Y_ACTIONS}
+              onAccessibilityAction={(e) => {
+                if (e.nativeEvent.actionName === "delete") onDelete();
+              }}
             >
               <View style={styles.rowMain}>
               {/* Bubbly soft icon circle */}
@@ -241,7 +257,9 @@ export function SwipeableActivityRow({
 
               {/* Amount: signed for income and spending, unsigned for loans (R-28) */}
               <View style={styles.rowEnd}>
-                <Text
+                <MoneyText
+                  amount={item.amount}
+                  prefix={SIGN[item.tone]}
                   style={[
                     styles.rowAmount,
                     item.tone === "in"
@@ -250,10 +268,7 @@ export function SwipeableActivityRow({
                         ? styles.amountExpense
                         : styles.amountDefault,
                   ]}
-                >
-                  {SIGN[item.tone]}
-                  {formatCurrency(item.amount)}
-                </Text>
+                />
               </View>
               </View>
 
@@ -281,7 +296,7 @@ export function SwipeableActivityRow({
                   </View>
                 </View>
               ) : null}
-            </TouchableOpacity>
+            </PressableScale>
           </Animated.View>
         </Swipeable>
       </Animated.View>
@@ -291,8 +306,8 @@ export function SwipeableActivityRow({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 10,
-    borderRadius: 22,
+    marginBottom: spacing.sm,
+    borderRadius: radius.lg,
     overflow: "hidden",
   },
   rightAction: {
@@ -301,12 +316,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "flex-end",
     paddingRight: spacing.lg,
-    borderRadius: 22,
+    borderRadius: radius.lg,
+  },
+  swipeContainer: {
+    borderRadius: radius.lg,
   },
   deleteIconBubble: {
     width: 38,
     height: 38,
     borderRadius: 19,
+    // A white wash on the red delete action; no token is meant for "on danger".
+    // eslint-disable-next-line no-restricted-syntax
     backgroundColor: "rgba(255, 255, 255, 0.22)",
     alignItems: "center",
     justifyContent: "center",
@@ -314,10 +334,10 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     backgroundColor: colors.surfaceRaised,
-    borderRadius: 22,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
@@ -362,21 +382,20 @@ const styles = StyleSheet.create({
   rowTitle: {
     ...typography.body,
     fontWeight: "600",
-    fontSize: 16,
     color: colors.textPrimary,
     letterSpacing: -0.2,
   },
   rowSubtitle: {
-    fontSize: 13,
+    ...typography.small,
+    fontWeight: "400",
     color: colors.textMuted,
-    marginTop: 2,
   },
   rowEnd: {
     alignItems: "flex-end",
     justifyContent: "center",
   },
   rowAmount: {
-    fontSize: 16,
+    ...typography.body,
     fontWeight: "700",
     letterSpacing: -0.3,
   },

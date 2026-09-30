@@ -12,10 +12,12 @@ import {
   Platform,
 } from "react-native";
 import { colors } from "../theme/colors";
-import { spacing } from "../theme/spacing";
+import { radius, spacing } from "../theme/spacing";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRegisterOverlay } from "../lib/overlays";
 import { useLatest } from "../hooks/useLatest";
+import { useReduceMotion } from "../hooks/useReduceMotion";
+import { useKeyboardOffset } from "../hooks/useKeyboardHeight";
 
 interface Props {
   visible: boolean;
@@ -36,8 +38,12 @@ export function BottomSheet({ visible, onClose, onHidden, children }: Props) {
   const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
-  const keyboardHeight = useAndroidKeyboardHeight(showModal);
+  const keyboardHeight = useKeyboardOffset(showModal);
   useRegisterOverlay(showModal);
+  // Reduced motion: the sheet fades in and out in place instead of sliding (W3b). A drag still
+  // moves it, since the finger drives that.
+  const reduceMotion = useReduceMotion();
+  const reduceMotionRef = useLatest(reduceMotion);
 
   // Depends on `visible` alone. It previously also depended on `showModal`, which this effect
   // sets — so opening ran the entrance animation, re-ran the effect, and restarted it from
@@ -46,33 +52,43 @@ export function BottomSheet({ visible, onClose, onHidden, children }: Props) {
     if (visible) {
       setShowModal(true);
       Keyboard.dismiss();
-      panY.setValue(SCREEN_HEIGHT);
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.spring(panY, {
-          toValue: 0,
-          useNativeDriver: true,
-          tension: 250,
-          friction: 25,
-        }),
-      ]).start();
+      const fadeIn = Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      });
+      if (reduceMotionRef.current) {
+        panY.setValue(0);
+        fadeIn.start();
+      } else {
+        panY.setValue(SCREEN_HEIGHT);
+        Animated.parallel([
+          fadeIn,
+          Animated.spring(panY, {
+            toValue: 0,
+            useNativeDriver: true,
+            tension: 250,
+            friction: 25,
+          }),
+        ]).start();
+      }
     } else if (showModalRef.current) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(panY, {
-          toValue: SCREEN_HEIGHT,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
+      const fadeOut = Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      });
+      const exit = reduceMotionRef.current
+        ? fadeOut
+        : Animated.parallel([
+            fadeOut,
+            Animated.timing(panY, {
+              toValue: SCREEN_HEIGHT,
+              duration: 250,
+              useNativeDriver: true,
+            }),
+          ]);
+      exit.start(() => {
         setShowModal(false);
         onHiddenRef.current?.();
       });
@@ -98,6 +114,8 @@ export function BottomSheet({ visible, onClose, onHidden, children }: Props) {
       onPanResponderRelease: (_, gestureState) => {
         if (gestureState.dy > 100 || gestureState.vy > 1.5) {
           handleClose();
+        } else if (reduceMotionRef.current) {
+          panY.setValue(0);
         } else {
           Animated.spring(panY, {
             toValue: 0,
@@ -113,7 +131,13 @@ export function BottomSheet({ visible, onClose, onHidden, children }: Props) {
   return (
     <Modal visible={showModal} transparent animationType="none" onRequestClose={handleClose}>
       <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleClose} />
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={handleClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        />
       </Animated.View>
 
       <KeyboardAvoidingView
@@ -131,11 +155,17 @@ export function BottomSheet({ visible, onClose, onHidden, children }: Props) {
           style={[styles.shrink, { transform: [{ translateY: panY }] }]}
           {...panResponder.panHandlers}
         >
-          <TouchableOpacity activeOpacity={1} style={[
+          {/* A touchable only so a tap on the sheet doesn't reach the scrim. Not accessible, or
+              TalkBack gets an extra, unlabelled stop that reads the whole sheet as one blob. */}
+          <TouchableOpacity
+            activeOpacity={1}
+            accessible={false}
+            style={[
               styles.sheetContent,
               // With the keyboard up, it already covers the navigation bar area.
               { paddingBottom: keyboardHeight > 0 ? spacing.lg : Math.max(insets.bottom, spacing.lg) },
-            ]}>
+            ]}
+          >
             <View style={styles.dragHandle} />
             {children}
           </TouchableOpacity>
@@ -143,27 +173,6 @@ export function BottomSheet({ visible, onClose, onHidden, children }: Props) {
       </KeyboardAvoidingView>
     </Modal>
   );
-}
-
-/**
- * The keyboard's height while it's open, on Android only (iOS uses KeyboardAvoidingView). Listens
- * only while the sheet is showing.
- */
-function useAndroidKeyboardHeight(active: boolean): number {
-  const [height, setHeight] = React.useState(0);
-  useEffect(() => {
-    if (Platform.OS !== "android" || !active) {
-      setHeight(0);
-      return;
-    }
-    const show = Keyboard.addListener("keyboardDidShow", (e) => setHeight(e.endCoordinates.height));
-    const hide = Keyboard.addListener("keyboardDidHide", () => setHeight(0));
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, [active]);
-  return height;
 }
 
 const styles = StyleSheet.create({
@@ -174,7 +183,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    backgroundColor: colors.scrim,
   },
   sheetWrap: {
     flex: 1,
@@ -183,20 +192,20 @@ const styles = StyleSheet.create({
   sheetContent: {
     flexShrink: 1,
     backgroundColor: colors.surfaceRaised,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
     borderWidth: 1,
     borderBottomWidth: 0,
     borderColor: colors.border,
-    paddingHorizontal: 24,
-    paddingTop: 12,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
   },
   dragHandle: {
     width: 36,
     height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: radius.pill,
+    backgroundColor: colors.border,
     alignSelf: "center",
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
 });

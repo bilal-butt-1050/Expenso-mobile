@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { iconName } from "../../utils/icons";
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { check, nameSchema } from "../../utils/validation";
 import md5 from "md5";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import * as Updates from "expo-updates";
 import { useAuth } from "../../context/AuthContext";
 import { useDialog } from "../../context/DialogContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
@@ -20,7 +20,7 @@ import { colors } from "../../theme/colors";
 import { spacing, radius } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { RootStackParamList } from "../../types/navigation";
-import { describeRunningUpdate } from "../../services/updateService";
+import { describeLastUpdated } from "../../services/updateService";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -47,8 +47,9 @@ export function SettingsScreen() {
 
   const handleSaveName = async () => {
     setNameError(null);
-    if (!nameInput.trim()) {
-      setNameError("Name cannot be empty");
+    const problem = check(nameSchema, nameInput);
+    if (problem) {
+      setNameError(problem);
       return;
     }
     setIsSavingName(true);
@@ -64,67 +65,17 @@ export function SettingsScreen() {
 
   const confirmLogout = () => {
     confirm({
-      title: "Log out?",
-      message: "Are you sure you want to log out of your account?",
-      confirmText: "Log Out",
+      title: "Sign out?",
+      message: "Are you sure you want to sign out of your account?",
+      confirmText: "Sign out",
       destructive: true,
       icon: "logout",
       onConfirm: logout,
     });
   };
 
-  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   // Fixed for the life of the process: a reload is what changes the running bundle.
-  const [runningUpdate] = useState(describeRunningUpdate);
-
-  const handleCheckForUpdates = async () => {
-    if (__DEV__ || !Updates.isEnabled) {
-      alert({
-        title: "Development Mode",
-        message: "Over-the-air updates are only active in standalone APK/production builds.",
-        icon: "information-outline",
-      });
-      return;
-    }
-
-    setIsCheckingUpdate(true);
-    try {
-      const update = await Updates.checkForUpdateAsync();
-      if (update.isAvailable) {
-        alert({
-          title: "Update Available",
-          message: "Downloading the latest version in the background...",
-          icon: "download",
-        });
-        const res = await Updates.fetchUpdateAsync();
-        if (res.isNew) {
-          confirm({
-            title: "Update Downloaded",
-            message: "The latest update has been downloaded. Would you like to restart the app to apply it now?",
-            confirmText: "Restart Now",
-            icon: "restart",
-            onConfirm: async () => {
-              await Updates.reloadAsync();
-            },
-          });
-        }
-      } else {
-        alert({
-          title: "Up to Date",
-          message: "You are running the latest version of Expenso.",
-          icon: "check-circle-outline",
-        });
-      }
-    } catch {
-      alert({
-        title: "Update Check Failed",
-        message: "Unable to reach update servers. Please check your internet connection.",
-        icon: "alert-circle-outline",
-      });
-    } finally {
-      setIsCheckingUpdate(false);
-    }
-  };
+  const [lastUpdated] = useState(describeLastUpdated);
 
   const email = user?.email || "";
   const nameFromEmail = email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, l => l.toUpperCase());
@@ -139,10 +90,6 @@ export function SettingsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, spacing.lg) + spacing.xl }}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Settings</Text>
-        </View>
-
         <Card style={styles.profileCard}>
           <View style={styles.avatar}>
             {avatarUrl && !imageError ? (
@@ -166,7 +113,7 @@ export function SettingsScreen() {
         <Text style={styles.sectionTitle}>Account</Text>
         <SettingsRow
           icon="account-edit-outline"
-          label="Edit Profile"
+          label="Edit profile"
           subtitle="Change your display name"
           onPress={() => {
             setNameInput(displayName);
@@ -178,7 +125,7 @@ export function SettingsScreen() {
         {user?.hasPassword !== undefined ? (
           <SettingsRow
             icon="lock-reset"
-            label={user.hasPassword ? "Change Password" : "Set a Password"}
+            label={user.hasPassword ? "Change password" : "Set a password"}
             subtitle={user.hasPassword ? "Update your account password" : "Also sign in with your email"}
             onPress={() => {
               setPasswordSheetKey((k) => k + 1);
@@ -187,40 +134,27 @@ export function SettingsScreen() {
           />
         ) : null}
 
-        <Text style={styles.sectionTitle}>App & System</Text>
-        <SettingsRow
-          icon="cloud-sync-outline"
-          label={isCheckingUpdate ? "Checking for Updates..." : "Check for Updates"}
-          // The channel moved to the footer; the hardcoded "v1.0.0" was never true (§5.4).
-          subtitle="Get the latest version"
-          onPress={handleCheckForUpdates}
-        />
-
+        <Text style={styles.sectionTitle}>App & system</Text>
         <SettingsRow
           icon="compass-outline"
-          label="App Tour"
+          label="App tour"
           subtitle="Replay the welcome feature tour"
           onPress={() => navigation.navigate("OnboardingTour", { fromSettings: true })}
         />
 
-        <TouchableOpacity style={styles.logout} onPress={confirmLogout} activeOpacity={0.8}>
-          <MaterialCommunityIcons name="logout" size={18} color={colors.danger} />
-          <Text style={styles.logoutText}>Log Out</Text>
-        </TouchableOpacity>
+        <Button label="Sign out" variant="danger" onPress={confirmLogout} style={styles.logout} />
 
-        <Text style={styles.buildFooter} selectable accessibilityLabel={runningUpdate.a11y}>
-          {runningUpdate.text}
-        </Text>
+        {lastUpdated ? <Text style={styles.buildFooter}>{lastUpdated}</Text> : null}
       </ScrollView>
 
       <BottomSheet visible={isEditNameOpen} onClose={() => setIsEditNameOpen(false)}>
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Edit Profile</Text>
+          <Text style={styles.modalTitle}>Edit profile</Text>
           <TextField
-            label="Display Name"
+            label="Display name"
             value={nameInput}
             onChangeText={setNameInput}
-            placeholder="e.g. Jane Doe"
+            placeholder="Your name"
             autoCapitalize="words"
             error={nameError}
           />
@@ -246,7 +180,7 @@ export function SettingsScreen() {
           const wasSet = !user?.hasPassword;
           setIsPasswordOpen(false);
           alert({
-            title: wasSet ? "Password Set" : "Password Updated",
+            title: wasSet ? "Password set" : "Password updated",
             message: wasSet
               ? "You can now also sign in with your email and this password. Other devices were signed out."
               : "Other devices were signed out. This one stays signed in.",
@@ -270,7 +204,12 @@ function SettingsRow({
   onPress: () => void;
 }) {
   return (
-    <TouchableOpacity onPress={onPress}>
+    <TouchableOpacity
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={subtitle}
+    >
       <Card style={styles.row}>
         <View style={styles.rowIcon}>
           <MaterialCommunityIcons name={iconName(icon)} size={20} color={colors.accent} />
@@ -286,59 +225,42 @@ function SettingsRow({
 }
 
 const styles = StyleSheet.create({
-  header: {
-    paddingTop: spacing.lg + 4,
-    marginBottom: spacing.xs,
-  },
-  title: { ...typography.title, fontSize: 24, letterSpacing: -0.3 },
   profileCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.md },
   avatar: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: radius.pill,
     backgroundColor: colors.accentMuted,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
   avatarImage: { width: "100%", height: "100%" },
-  avatarFallbackText: { fontSize: 20, fontWeight: "700", color: colors.accent },
+  avatarFallbackText: { ...typography.subtitle, fontWeight: "700", color: colors.accent },
   name: { ...typography.body, fontWeight: "700" },
-  email: { ...typography.caption, marginTop: 2 },
+  email: { ...typography.caption },
   sectionTitle: { ...typography.small, color: colors.textMuted, marginTop: spacing.xl, marginBottom: spacing.xs, marginLeft: spacing.sm, textTransform: "uppercase", letterSpacing: 0.5 },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.sm },
   rowIcon: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: radius.sm,
     backgroundColor: colors.accentMuted,
     alignItems: "center",
     justifyContent: "center",
   },
   rowLabel: { ...typography.body, fontWeight: "600" },
-  rowSubtitle: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
-  logout: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginTop: spacing.xl + 4,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: spacing.md,
-    backgroundColor: "rgba(239, 68, 68, 0.08)",
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.2)",
-    minHeight: 50,
-  },
-  logoutText: { color: colors.danger, fontWeight: "700", fontSize: 15 },
+  rowSubtitle: { ...typography.caption, color: colors.textSecondary },
+  logout: { marginTop: spacing.xl },
   buildFooter: {
     ...typography.small,
     color: colors.textSecondary,
     marginTop: spacing.xl,
     textAlign: "center",
   },
-  modalContent: { padding: spacing.xl, gap: spacing.md },
-  modalTitle: { ...typography.title, fontSize: 20, marginBottom: spacing.sm },
+  // No padding of its own: BottomSheet already insets its content, like every other sheet (P15).
+  modalContent: { gap: spacing.md },
+  modalTitle: { ...typography.subtitle, color: colors.textPrimary, fontWeight: "700" },
   modalActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.md },
-  errorText: { color: colors.danger, ...typography.caption, marginBottom: -spacing.sm },
+  errorText: { ...typography.caption, color: colors.danger, marginBottom: -spacing.sm },
 });

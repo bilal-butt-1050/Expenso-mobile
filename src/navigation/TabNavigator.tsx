@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { BottomTabBarButtonProps, createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { PressableScale } from "../components/PressableScale";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -9,15 +10,15 @@ import { TabParamList, RootStackParamList } from "../types/navigation";
 import { colors } from "../theme/colors";
 import { radius, size, spacing } from "../theme/spacing";
 import { elevation } from "../theme/elevation";
+import { typography } from "../theme/typography";
 import { HomeScreen } from "../screens/home/HomeScreen";
 import { ActivityScreen } from "../screens/activity/ActivityScreen";
 import { BudgetScreen } from "../screens/budget/BudgetScreen";
 import { QuickActionSheet } from "../components/QuickActionSheet";
 import { hapticLight, hapticMedium } from "../utils/haptics";
 import { dockHeight, dockPaddingBottom } from "./dock";
-import { NotchedTabBackground } from "./NotchedTabBackground";
+import { HOME_BUTTON_DROP, HOME_BUTTON_SIZE, NotchedTabBackground } from "./NotchedTabBackground";
 import { SnackbarHost } from "../components/snackbar/SnackbarHost";
-import { UpdatePrompt } from "../components/UpdatePrompt";
 import { DiscardedWritesNotice } from "../components/DiscardedWritesNotice";
 
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -59,8 +60,11 @@ function PlainTabButton({
   );
 }
 
-/** How far the raised Home button rises above the top edge of the dock: half its height. */
-const HOME_RISE = size.fab / 2;
+/**
+ * The raised Home button's bottom edge, measured down from the dock's top edge: half the button
+ * plus its drop, so its centre sits HOME_BUTTON_DROP below the edge, at the cutout's centre (D-61).
+ */
+const HOME_BOTTOM_BELOW_DOCK_TOP = HOME_BUTTON_SIZE / 2 + HOME_BUTTON_DROP;
 
 /**
  * Three tabs, Activity · Home · Budget, with Home raised in the centre as the main screen (D-57),
@@ -90,9 +94,14 @@ export function TabNavigator() {
     <View style={styles.root}>
       <Tab.Navigator
         initialRouteName="Home"
+        // Back from Activity or Budget goes to Home, then out of the app (the default went to the
+        // first tab, Activity).
+        backBehavior="initialRoute"
         screenListeners={({ route }) => ({ focus: () => setFocusedTab(route.name) })}
         screenOptions={({ route }) => ({
           headerShown: false,
+          // A short cross-fade between tabs instead of a hard cut.
+          animation: "fade",
           tabBarActiveTintColor: colors.accent,
           tabBarInactiveTintColor: colors.textMuted,
           // Transparent, so the cutout drawn by the background shows the app behind it (D-61).
@@ -101,10 +110,10 @@ export function TabNavigator() {
             borderTopWidth: 0,
             height: dock,
             paddingBottom: dockPaddingBottom(insets.bottom),
-            paddingTop: 6,
+            paddingTop: spacing.xs,
             elevation: 0,
           },
-          tabBarLabelStyle: { fontSize: 11, fontWeight: "600", marginTop: 2 },
+          tabBarLabelStyle: { ...typography.tabLabel, marginTop: 2 },
           tabBarButton: (props) => <PlainTabButton {...props} />,
           tabBarBackground: () => <NotchedTabBackground height={dock} />,
           tabBarIcon: ({ color, focused }) => {
@@ -141,18 +150,19 @@ export function TabNavigator() {
         }}
         style={[
           styles.homeButton,
-          { bottom: dock - HOME_RISE },
+          { bottom: dock - HOME_BOTTOM_BELOW_DOCK_TOP },
           homeFocused ? styles.homeButtonActive : styles.homeButtonIdle,
         ]}
       >
         <MaterialCommunityIcons
           name={homeFocused ? ICONS.Home.active : ICONS.Home.inactive}
-          size={26}
+          size={28}
           color={homeFocused ? colors.accentForeground : colors.accent}
         />
       </Pressable>
 
-      <Pressable
+      <PressableScale
+        scaleTo={0.9}
         accessibilityRole="button"
         accessibilityLabel="Add a transaction"
         accessibilityHint="Choose expense, income, lend or borrow"
@@ -160,18 +170,13 @@ export function TabNavigator() {
           hapticMedium();
           setQuickActionVisible(true);
         }}
-        style={({ pressed }) => [
-          styles.fab,
-          { right: spacing.lg + insets.right, bottom: dock + spacing.md },
-          pressed && styles.fabPressed,
-        ]}
+        style={[styles.fab, { right: spacing.lg + insets.right, bottom: dock + spacing.md }]}
       >
         <MaterialCommunityIcons name="plus" size={24} color={colors.accentForeground} />
-      </Pressable>
+      </PressableScale>
 
       {/* After the button, so it layers above it. It sits above the button's top edge anyway. */}
       <SnackbarHost />
-      <UpdatePrompt />
       <DiscardedWritesNotice />
 
       <QuickActionSheet
@@ -194,24 +199,24 @@ const styles = StyleSheet.create({
     width: size.fab,
     height: size.fab,
     borderRadius: radius.pill,
-    backgroundColor: colors.accent,
+    // Filled controls use the deeper shade, so the white icon reads clearly (B5).
+    backgroundColor: colors.accentFill,
     alignItems: "center",
     justifyContent: "center",
     ...elevation.floating,
   },
-  fabPressed: { opacity: 0.85 },
   iconPlaceholder: { width: 24, height: 24 },
   homeButton: {
     position: "absolute",
     left: "50%",
-    marginLeft: -size.fab / 2,
-    width: size.fab,
-    height: size.fab,
+    marginLeft: -HOME_BUTTON_SIZE / 2,
+    width: HOME_BUTTON_SIZE,
+    height: HOME_BUTTON_SIZE,
     borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
     ...elevation.floating,
   },
-  homeButtonActive: { backgroundColor: colors.accent },
+  homeButtonActive: { backgroundColor: colors.accentFill },
   homeButtonIdle: { backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border },
 });

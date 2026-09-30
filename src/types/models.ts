@@ -12,6 +12,8 @@ export interface User {
   createdAt?: string | null;
   /** Whether the account has a password (Google-only accounts don't). Missing from older servers. */
   hasPassword?: boolean;
+  /** The user's cash before their first entry (R-34). Null until set. Missing from older servers. */
+  openingBalance?: number | null;
 }
 
 export interface Category {
@@ -125,6 +127,34 @@ export interface UpcomingObligation {
   isOverdue: boolean;
 }
 
+export type MonthPeriod = "past" | "current" | "future";
+
+export interface CashAvailable {
+  amount: number;
+  period: MonthPeriod;
+  /** Null until the user sets it; Home then asks for it (R-34). */
+  openingBalance: number | null;
+  /** This month's story: startOfMonth + income + borrowed + collected − expenses − lent − repaid. */
+  breakdown: {
+    startOfMonth: number;
+    income: number;
+    expenses: number;
+    lent: number;
+    borrowed: number;
+    collected: number;
+    repaid: number;
+  };
+}
+
+export interface SpendingComparison {
+  currentTotal: number;
+  currentByCategory: { categoryId: string; amount: number }[];
+  previousTotal: number;
+  previousByCategory: { categoryId: string; amount: number }[];
+  /** The day both sides stop at, for the current month; null for a past month. */
+  toDay: number | null;
+}
+
 export interface DashboardSummary {
   month: string;
 
@@ -169,6 +199,11 @@ export interface DashboardSummary {
   categoryBreakdown: CategoryBreakdownItem[];
   budgetVsActual: BudgetVsActualItem[];
   trend: TrendPoint[];
+
+  /** Home's hero (R-35): today's cash for the current month, the month-end cash otherwise. */
+  cashAvailable: CashAvailable;
+  /** This month's spending against the previous month's, same-day for the current month (R-39). */
+  comparison: SpendingComparison | null;
 }
 
 export type LoanType = "LENT" | "BORROWED";
@@ -185,7 +220,10 @@ export interface Loan {
   remainingAmount?: number;
   dueDate: string | null; // ISO string
   status: LoanStatus;
-  notes: string | null;
+  /** When the money moved (D-62). Missing from older servers and cached payloads: use `loanDate()`. */
+  date?: string;
+  /** Present on the month view (`GET /loans?month`): the loan as of that month's end. */
+  asOf?: { settledAmount: number; remainingAmount: number; status: LoanStatus };
   createdAt: string;
   updatedAt: string;
 }
@@ -195,24 +233,20 @@ export interface LoanInput {
   personName: string;
   amount: number;
   dueDate?: string | null;
-  notes?: string | null;
   /**
    * Whether the principal moves now. Defaults to true server-side. False records a debt that
    * predates the app without fabricating a cash movement today.
    */
   recordCashflow?: boolean;
+  /** When the money moved: an ISO date-time, never in the future (D-63). */
+  date?: string;
 }
 
-export interface LoansSummary {
-  totalLentPending: number;
-  totalBorrowedPending: number;
-  netBalance: number;
-  totalLentOverall: number;
-  totalBorrowedOverall: number;
-  activeLentCount: number;
-  activeBorrowedCount: number;
-  totalActiveCount: number;
+/** A loan's own date, falling back to when it was recorded for older payloads (R-42). */
+export function loanDate(loan: Pick<Loan, "date" | "createdAt">): string {
+  return loan.date ?? loan.createdAt;
 }
+
 
 
 // --- Unified ledger -------------------------------------------------------------------------

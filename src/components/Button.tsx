@@ -4,11 +4,12 @@ import {
   GestureResponderEvent,
   StyleSheet,
   Text,
-  TouchableOpacity,
   ViewStyle,
 } from "react-native";
+import { PressableScale } from "./PressableScale";
 import { colors } from "../theme/colors";
 import { radius, spacing } from "../theme/spacing";
+import { typography } from "../theme/typography";
 
 type Variant = "primary" | "secondary" | "danger" | "ghost";
 
@@ -25,37 +26,40 @@ export function Button({ label, onPress, variant = "primary", loading, disabled,
   const isDisabled = disabled || loading;
 
   return (
-    <TouchableOpacity
+    <PressableScale
       onPress={onPress}
       disabled={isDisabled}
-      activeOpacity={0.8}
       style={[styles.base, variantStyles[variant], isDisabled && styles.disabled, style]}
       accessibilityRole="button"
       accessibilityLabel={label}
+      // Otherwise a disabled Save is announced as active, and a busy one gives no sign (P7).
+      accessibilityState={{ disabled: !!isDisabled, busy: !!loading }}
     >
       {loading ? (
         <ActivityIndicator color={variant === "primary" ? colors.accentForeground : colors.textPrimary} />
       ) : (
         <Text style={[styles.label, textVariantStyles[variant]]}>{label}</Text>
       )}
-    </TouchableOpacity>
+    </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
-    height: 54,
+    // minHeight, so a label at 200% font grows the button instead of clipping.
+    minHeight: 54,
+    paddingVertical: spacing.sm,
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: spacing.lg,
   },
-  label: { fontSize: 16, fontWeight: "700" },
+  label: { ...typography.button, textAlign: "center" },
   disabled: { opacity: 0.5 },
 });
 
 const variantStyles: Record<Variant, ViewStyle> = {
-  primary: { backgroundColor: colors.accent },
+  primary: { backgroundColor: colors.accentFill },
   secondary: { backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border },
   danger: { backgroundColor: colors.dangerMuted, borderWidth: 1, borderColor: colors.danger },
   ghost: { backgroundColor: "transparent" },

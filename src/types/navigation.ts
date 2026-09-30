@@ -27,6 +27,8 @@ export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
   Tabs: NavigatorScreenParams<TabParamList>;
   Settings: undefined;
+  /** Asked once, before anything else, when the opening balance was never set (D-64). */
+  OpeningCash: undefined;
   /** `loan` present means edit; absent means create. */
   LoanForm: { initialType?: LoanType; loan?: Loan } | undefined;
   /** `transaction` present means edit; absent means create. */

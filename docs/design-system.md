@@ -15,6 +15,12 @@ We use a high-contrast dark navy theme with vibrant indigo/emerald accents:
 - **Accent text** `accentText`: `#818CF8`, for accent-coloured *text* (links, text buttons, the snackbar action). `accent` `#6366F1` as text is only 4.29 / 3.97 / 3.29:1 on background / surface / surfaceRaised. `#818CF8` is 6.42 / 5.95 / 4.92:1. Keep `accent` for fills (FAB, primary button, selected borders).
 - **Shadow** `shadow`: `#000000`, used only as `shadowColor` through `elevation.floating`.
 - **Contrast rule**: `textMuted` (3.0–4.0:1 on our surfaces) is for disabled and decorative content only, never readable text. Use `textSecondary` (≥ 5.78:1).
+  - **Existing text colours are not changed for contrast (Bilal, D-65).** This rule guides new text only.
+- **Accent fill** `accentFill`: `#4F46E5`, for filled primary controls (primary button, FAB, the active Home button): white reads 6.29:1 on it (B5, fixes D-33). `accent` stays for borders, bars and the brand.
+- **Highlight** `highlight`: `rgba(99, 102, 241, 0.22)`, the flash on a row just added or edited.
+- **Scrim** `scrim`: `rgba(0, 0, 0, 0.7)`, behind every sheet and dialog.
+- **Destructive fill** `dangerStrong`: `#DC2626`, for a filled destructive button (white 4.83:1).
+- **Loans** (D-59, one colour per direction everywhere): `lent` `#60A5FA` / `lentMuted`, `borrowed` `#F59E0B` / `borrowedMuted`. Never green or red, which mean income and spending.
 
 _`accentText`, `shadow`, `size.*` and `elevation.floating` are specified in `docs/DESIGN.md` (next phase). Add them to `src/theme/` in T1.4 / T2.0._
 
@@ -27,9 +33,11 @@ A single, clean font family is used with a strict hierarchy for maximum readabil
 - **Body**: 17pt, Medium (500)
 - **Caption**: 15pt, Medium (500)
 - **Small**: 14pt, SemiBold (600)
+- Two exceptions: **button** 16pt Bold (button labels) and **tabLabel** 11pt SemiBold (tab bar). No other sizes; lint warns on any `fontSize` literal.
+- Money values render through `MoneyText` (tabular digits, compact fallback).
 
 ## Spacing & Sizing
-Generous, breathable 4/8pt-based spacing system:
+Generous, breathable spacing (not a strict 4/8 grid; kept as is rather than shift every screen):
 - `xs: 6px`
 - `sm: 10px`
 - `md: 16px`
@@ -38,15 +46,17 @@ Generous, breathable 4/8pt-based spacing system:
 - `xxl: 40px`
 
 Sizes (`size`, in `src/theme/spacing.ts`):
-- `minTouch: 44`: minimum hit area for anything tappable
+- `minTouch: 48`: minimum hit area for anything tappable (48dp, Android's guideline; B6)
 - `fab: 56`: floating action button diameter
 
 Elevation (`elevation`, in `src/theme/elevation.ts`): one scale, no per-component shadows.
 - `floating`: `{ elevation: 6, shadowColor: colors.shadow, shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } }`. For the FAB and the snackbar.
 
 ## Component Guidelines
-- **Touch Targets**: Minimum 44x44pt. Standard buttons and inputs are 54-56pt tall.
-- **Buttons**: Full width, heavily rounded (`14px`), bold label (16pt, 700). Primary button is Electric Indigo with white text.
+- **Touch Targets**: Minimum 48x48 (`size.minTouch`). Standard buttons and inputs are at least 54-56pt tall (`minHeight`, so large text grows them).
+- **Buttons**: Full width, heavily rounded (`14px`), bold label (`typography.button`). Primary button is `accentFill` with white text. Buttons announce disabled and busy states.
+- **Surfaces**: two levels only. A grouped card is `surface` + 1pt `borderLight` + `radius.lg`. A list row is `surfaceRaised` + 1pt `borderLight` + `radius.lg`. Bottom sheets use `radius.sheet` (24).
+- **Selection**: one style for chips, segments, the month grid, the date picker and toggles: `accentMuted` fill, 1pt `accent` border, `textPrimary` label at 700.
 - **Inputs**: Solid borders (`#374151`), muted text placeholder, 56pt height.
 - **Cards/Surfaces**: Minimal borders, `14px` or `20px` radius, strictly used to group dense related data, not as decorative wrappers.
 - **Loading States**: Use pulsing shimmer skeletons matching the content's final shape. Avoid generic spinners for main content.

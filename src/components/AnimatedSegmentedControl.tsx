@@ -16,8 +16,12 @@ import Animated, {
 } from "react-native-reanimated";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
-import { radius } from "../theme/spacing";
+import { radius, size, spacing } from "../theme/spacing";
+import { typography } from "../theme/typography";
 import { hapticLight } from "../utils/haptics";
+
+/** Gap between the track's edge and the sliding indicator; the indicator's width maths uses it. */
+const INSET = 4;
 
 export interface SegmentOption<T extends string = string> {
   label: string;
@@ -45,13 +49,13 @@ export function AnimatedSegmentedControl<T extends string = string>({
   const selectedIndex = options.findIndex((opt) => opt.value === selected);
   const activeIndex = selectedIndex >= 0 ? selectedIndex : 0;
 
-  const segmentWidth = containerWidth > 0 ? (containerWidth - 8) / options.length : 0;
+  const segmentWidth = containerWidth > 0 ? (containerWidth - 2 * INSET) / options.length : 0;
   const translateX = useSharedValue(0);
 
   const onLayout = (e: LayoutChangeEvent) => {
     const w = e.nativeEvent.layout.width;
     if (w > 0) {
-      const sw = (w - 8) / options.length;
+      const sw = (w - 2 * INSET) / options.length;
       if (!isMeasuredRef.current) {
         isMeasuredRef.current = true;
         // Snap immediately to active index on initial layout (no lame fly-in from 0)
@@ -95,7 +99,7 @@ export function AnimatedSegmentedControl<T extends string = string>({
   };
 
   return (
-    <View style={[styles.container, style]} onLayout={onLayout}>
+    <View style={[styles.container, style]} onLayout={onLayout} accessibilityRole="tablist">
       {segmentWidth > 0 && (
         <Animated.View style={[styles.indicator, indicatorStyle]} />
       )}
@@ -107,6 +111,8 @@ export function AnimatedSegmentedControl<T extends string = string>({
             style={styles.segment}
             activeOpacity={0.7}
             onPress={() => handlePress(opt.value, index)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: isSelected }}
           >
             <View style={styles.segmentContent}>
               {opt.icon && (
@@ -149,28 +155,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     backgroundColor: colors.surfaceRaised,
     borderRadius: radius.pill,
-    padding: 4,
+    padding: INSET,
     position: "relative",
     borderWidth: 1,
     borderColor: colors.borderLight,
     overflow: "hidden",
   },
+  // The app's one selection style, as on the chips and the month grid (W6).
   indicator: {
     position: "absolute",
-    top: 4,
-    bottom: 4,
-    left: 4,
-    backgroundColor: colors.accent,
+    top: INSET,
+    bottom: INSET,
+    left: INSET,
+    backgroundColor: colors.accentMuted,
+    borderWidth: 1,
+    borderColor: colors.accent,
     borderRadius: radius.pill,
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 5,
-    elevation: 3,
   },
   segment: {
     flex: 1,
-    paddingVertical: 9,
+    minHeight: size.minTouch,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1,
@@ -181,33 +185,33 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   icon: {
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   label: {
-    fontSize: 13,
-    fontWeight: "600",
+    ...typography.small,
     letterSpacing: -0.1,
   },
   labelActive: {
     color: colors.textPrimary,
+    fontWeight: "700",
   },
   labelInactive: {
     color: colors.textSecondary,
   },
   badge: {
-    marginLeft: 6,
-    paddingHorizontal: 6,
+    marginLeft: spacing.xs,
+    paddingHorizontal: spacing.xs,
     paddingVertical: 1,
     borderRadius: radius.pill,
   },
   badgeActive: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: colors.iconBorder,
   },
   badgeInactive: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: colors.borderLight,
   },
   badgeText: {
-    fontSize: 10,
+    ...typography.small,
     fontWeight: "700",
     color: colors.textPrimary,
   },

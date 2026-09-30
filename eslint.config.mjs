@@ -35,8 +35,14 @@ export default tseslint.config(
         },
         {
           selector:
-            "Property[key.name=/^(margin|padding|gap|rowGap|columnGap)(Top|Bottom|Left|Right|Horizontal|Vertical)?$/] > Literal[value=/^([2-9]|[1-9][0-9]+)$/]",
+            // `raw`, not `value`: esquery's regex only tests strings, so a numeric `padding: 16`
+            // never matched and this rule never fired (W1).
+            "Property[key.name=/^(margin|padding|gap|rowGap|columnGap)(Top|Bottom|Left|Right|Horizontal|Vertical)?$/] > Literal[raw=/^([5-9]|[1-9][0-9]+)$/]",
           message: "Spacing literal: use a token from src/theme/spacing.",
+        },
+        {
+          selector: 'Property[key.name="fontSize"] > Literal',
+          message: "Font size literal: use a style from src/theme/typography.",
         },
       ],
     },

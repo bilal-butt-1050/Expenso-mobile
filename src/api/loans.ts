@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import { Loan, LoanInput, LoansSummary, LoanType, LoanStatus } from "../types/models";
+import { Loan, LoanInput, LoanType, LoanStatus } from "../types/models";
 
 export async function fetchLoans(params?: {
   type?: LoanType;
@@ -9,8 +9,9 @@ export async function fetchLoans(params?: {
   return data;
 }
 
-export async function fetchLoansSummary(): Promise<LoansSummary> {
-  const { data } = await apiClient.get<LoansSummary>("/loans/summary");
+/** The loans visible in `month`, each with its position as of that month's end in `asOf` (R-41). */
+export async function fetchLoansForMonth(month: string): Promise<Loan[]> {
+  const { data } = await apiClient.get<Loan[]>("/loans", { params: { month } });
   return data;
 }
 
