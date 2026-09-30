@@ -141,7 +141,8 @@ export function IncomeFormScreen({ route, navigation }: Props) {
       setSelectedMonth(monthKey);
 
       // A saved record, new or edited, opens its own Activity tab, highlighted (D-58, D-59).
-      navigation.navigate("Tabs", { screen: "Activity", params: { filter: "INCOME", highlightId: savedId } });
+      // popTo closes the form and returns to the Tabs underneath; navigate would stack new Tabs on it.
+      navigation.popTo("Tabs", { screen: "Activity", params: { filter: "INCOME", highlightId: savedId } });
     } catch (err) {
       hapticError();
       setError(getErrorMessage(err));

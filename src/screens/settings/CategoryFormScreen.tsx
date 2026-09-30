@@ -39,7 +39,8 @@ export function CategoryFormScreen({ route, navigation }: Props) {
         const created = await addCategory({ name: name.trim(), icon, color });
         // A new category has no budget and no spending, so it would fold into the collapsed
         // "unused" group and seem to vanish. Open its budget sheet instead.
-        navigation.navigate("Tabs", {
+        // popTo closes the form and returns to the Tabs underneath; navigate would stack new Tabs on it.
+        navigation.popTo("Tabs", {
           screen: "Budget",
           params: { openCategoryId: created.id },
         });

@@ -94,6 +94,9 @@ export function TabNavigator() {
     <View style={styles.root}>
       <Tab.Navigator
         initialRouteName="Home"
+        // Back from Activity or Budget goes to Home, then out of the app (the default went to the
+        // first tab, Activity).
+        backBehavior="initialRoute"
         screenListeners={({ route }) => ({ focus: () => setFocusedTab(route.name) })}
         screenOptions={({ route }) => ({
           headerShown: false,

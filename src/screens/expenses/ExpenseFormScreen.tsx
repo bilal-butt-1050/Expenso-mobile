@@ -10,6 +10,7 @@ import {
   View,
   Keyboard
 } from "react-native";
+import { StackActions } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext";
@@ -189,7 +190,11 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
             a11yLabel: `Adjust the ${budgetItem!.name} budget`,
             onPress: () => {
               if (navigationRef.isReady()) {
-                navigationRef.navigate("Tabs", { screen: "Budget", params: { openCategoryId: categoryId } });
+                // popTo, not navigate: React Navigation 7's navigate stacks a second Tabs over whatever
+                // is open, and Back then walks through it.
+                navigationRef.dispatch(
+                  StackActions.popTo("Tabs", { screen: "Budget", params: { openCategoryId: categoryId } })
+                );
               }
             },
           },
@@ -201,7 +206,8 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
       // Follow the saved entry to its month so it is actually visible.
       setSelectedMonth(expenseMonth);
       // A saved record, new or edited, opens its own Activity tab, highlighted (D-58, D-59).
-      navigation.navigate("Tabs", { screen: "Activity", params: { filter: "EXPENSES", highlightId: savedId } });
+      // popTo closes the form and returns to the Tabs underneath; navigate would stack new Tabs on it.
+      navigation.popTo("Tabs", { screen: "Activity", params: { filter: "EXPENSES", highlightId: savedId } });
     } catch (err) {
       hapticError();
       setError(getErrorMessage(err));

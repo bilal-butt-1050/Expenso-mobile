@@ -131,7 +131,8 @@ export function LoanFormScreen({ route, navigation }: Props) {
       // switch; otherwise the whole app would jump months after a small edit.
       if (toMonthKey(date) > selectedMonth) setSelectedMonth(toMonthKey(date));
       // A saved loan, new or edited, opens the Loans tab, highlighted (D-58, D-59).
-      navigation.navigate("Tabs", {
+      // popTo closes the form and returns to the Tabs underneath; navigate would stack new Tabs on it.
+      navigation.popTo("Tabs", {
         screen: "Activity",
         params: { filter: "LOANS", highlightId: editing?.id ?? created?.id },
       });
