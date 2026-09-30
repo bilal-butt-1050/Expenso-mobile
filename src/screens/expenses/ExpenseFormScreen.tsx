@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { TabActions } from "@react-navigation/native";
 import { useAuth } from "../../context/AuthContext";
 import { useCategories } from "../../hooks/useCategories";
 import { useTransactionMutations } from "../../hooks/useTransactions";
@@ -200,8 +199,12 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
       // Follow the saved entry to its month so it is actually visible.
       setSelectedMonth(expenseMonth);
-      navigation.dispatch(TabActions.jumpTo("Activity", { highlightId: savedId }));
-      navigation.goBack();
+      if (editing) {
+        navigation.goBack();
+      } else {
+        // A new record opens its own Activity tab, highlighted (D-58).
+        navigation.navigate("Tabs", { screen: "Activity", params: { filter: "EXPENSES", highlightId: savedId } });
+      }
     } catch (err) {
       hapticError();
       setError(getErrorMessage(err));

@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RootStackParamList } from "../../types/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { useLoans } from "../../hooks/useLoans";
-import { LoanType } from "../../types/models";
+import { Loan, LoanType } from "../../types/models";
 import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
 import { DatePicker } from "../../components/DatePicker";
@@ -82,6 +82,9 @@ export function LoanFormScreen({ route, navigation }: Props) {
     }
 
     setIsSubmitting(true);
+    // Online, the new loan comes back with its id; offline it's queued and there's nothing to
+    // highlight yet, but the Loans tab still opens.
+    let created: Loan | undefined;
     try {
       if (editing) {
         await editLoan(editing.id, {
@@ -91,7 +94,7 @@ export function LoanFormScreen({ route, navigation }: Props) {
           notes: notes.trim() || null,
         });
       } else {
-        await addLoan({
+        created = await addLoan({
           type,
           personName: cleanName,
           amount: numericAmount,
@@ -102,8 +105,12 @@ export function LoanFormScreen({ route, navigation }: Props) {
       }
 
       hapticRecordCreated();
-      // Back to where the form was opened: usually Activity, where loans live (D-57).
-      navigation.goBack();
+      if (editing) {
+        navigation.goBack();
+      } else {
+        // A new loan opens the Loans tab, highlighted (D-58).
+        navigation.navigate("Tabs", { screen: "Activity", params: { filter: "LOANS", highlightId: created?.id } });
+      }
     } catch (err) {
       hapticError();
       setError(getErrorMessage(err));

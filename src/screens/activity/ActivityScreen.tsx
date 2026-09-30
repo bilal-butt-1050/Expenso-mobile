@@ -128,7 +128,26 @@ export function ActivityScreen() {
   // set, so this banner could not appear and offline changes were invisible.
   const pendingWrites = usePendingWriteCount();
 
-  const highlightId = route.params?.highlightId;
+  // The record a form just saved, highlighted once. Held here and cleared from the route, or it
+  // would re-highlight every time the rows remount (switching segments).
+  const [highlightId, setHighlightId] = useState<string | undefined>(undefined);
+  // A ref, not the effect's cleanup: clearing the param re-runs the effect, and a cleanup there
+  // would cancel the timer, leaving the highlight on for good.
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const incoming = route.params?.highlightId;
+    if (!incoming) return;
+    setHighlightId(incoming);
+    navigation.setParams({ highlightId: undefined });
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    highlightTimer.current = setTimeout(() => setHighlightId(undefined), 3000);
+  }, [route.params?.highlightId, navigation]);
+  useEffect(
+    () => () => {
+      if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    },
+    []
+  );
 
   // Apply an incoming filter, then clear it. The param is sticky otherwise: arriving with the
   // same value twice does not re-fire this effect, so a user who had switched segments in the
@@ -191,7 +210,7 @@ export function ActivityScreen() {
       const byNewest = [...(loans || [])].sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
-      return byNewest.map((loan) => {
+      return byNewest.filter((loan) => !hiddenIds.has(`loan-${loan.id}`)).map((loan) => {
         const isLent = loan.type === "LENT";
         const status = loan.status === "SETTLED" ? "settled" : isOverdue(loan) ? "overdue" : "open";
         // The due date was on the old Loans screen; without it, "Overdue" is the first warning.
@@ -220,7 +239,11 @@ export function ActivityScreen() {
     }
 
     // Already ordered by the server on (date desc, id desc).
-    return (transactions || []).filter((tx) => !hiddenIds.has(tx.id)).map((tx): UnifiedActivityItem => {
+    // A loan waiting out its undo window takes its movements with it.
+    const visible = (transactions || []).filter(
+      (tx) => !hiddenIds.has(tx.id) && !(tx.loanId && hiddenIds.has(`loan-${tx.loanId}`))
+    );
+    return visible.map((tx): UnifiedActivityItem => {
       const tone = toneOf(tx.kind);
       if (tone === "neutral") {
         const loan = tx.loanId ? loansById.get(tx.loanId) : undefined;
@@ -363,8 +386,34 @@ export function ActivityScreen() {
    * timeout, Android back, leaving the tabs or the app going to the background.
    */
   const swipeDelete = (item: UnifiedActivityItem) => {
+    // A swiped loan gets the same undo as income and expenses (D-58). Its payments go with it,
+    // which is why the sheet's explicit Delete button still asks first.
     if (item.type === "LOAN") {
-      confirmDeleteLoan(item.raw as Loan);
+      const loan = item.raw as Loan;
+      hapticDelete();
+      animateLayout();
+      setHidden(item.id, true);
+      snackbar.show({
+        id: `S-1-${item.id}`,
+        text: `Deleted the loan with ${loan.personName} · ${formatCurrency(loan.amount)}`,
+        action: {
+          label: "Undo",
+          a11yLabel: `Undo deleting the loan with ${loan.personName}`,
+          onPress: () => {
+            animateLayout();
+            setHidden(item.id, false);
+          },
+        },
+        duration: 5000,
+        priority: 1,
+        onExpire: () => {
+          if (committedIds.current.has(item.id)) return;
+          committedIds.current.add(item.id);
+          removeLoan(loan.id)
+            .catch((err) => alert({ title: "Couldn't delete the loan", message: getErrorMessage(err) }))
+            .finally(() => setHidden(item.id, false));
+        },
+      });
       return;
     }
 
@@ -494,17 +543,20 @@ export function ActivityScreen() {
             activeTab === "LOANS" && loansSummary ? (
               <View style={styles.loansOverviewCard}>
                 <View style={styles.loanCol}>
-                  <Text style={styles.loanColLabel}>OWED TO YOU</Text>
+                  <Text style={styles.loanColLabel}>YOU LENT</Text>
                   <Text style={[styles.loanColValue, { color: colors.success }]}>
                     {formatCurrency(loansSummary.totalLentPending)}
                   </Text>
+                  {/* The figure is what's still out, so the label says so (ui-review §5.4). */}
+                  <Text style={styles.loanColNote}>still to come back</Text>
                 </View>
                 <View style={styles.loanDivider} />
                 <View style={styles.loanCol}>
-                  <Text style={styles.loanColLabel}>YOU OWE</Text>
+                  <Text style={styles.loanColLabel}>YOU BORROWED</Text>
                   <Text style={[styles.loanColValue, { color: colors.danger }]}>
                     {formatCurrency(loansSummary.totalBorrowedPending)}
                   </Text>
+                  <Text style={styles.loanColNote}>still to pay back</Text>
                 </View>
               </View>
             ) : null
@@ -616,6 +668,11 @@ const styles = StyleSheet.create({
   loanColValue: {
     fontSize: 17,
     fontWeight: "700",
+  },
+  loanColNote: {
+    ...typography.small,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   listContent: {
     paddingHorizontal: spacing.lg,

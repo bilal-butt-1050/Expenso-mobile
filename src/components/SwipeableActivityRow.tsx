@@ -248,7 +248,11 @@ export function SwipeableActivityRow({
                 <Text
                   style={[
                     styles.rowAmount,
-                    item.tone === "in" ? styles.amountIncome : styles.amountDefault,
+                    item.tone === "in"
+                      ? styles.amountIncome
+                      : item.tone === "out"
+                        ? styles.amountExpense
+                        : styles.amountDefault,
                   ]}
                 >
                   {SIGN[item.tone]}
@@ -385,5 +389,9 @@ const styles = StyleSheet.create({
   },
   amountIncome: {
     color: colors.success,
+  },
+  // Spending in red with its minus sign, mirroring income's green + (D-58).
+  amountExpense: {
+    color: colors.danger,
   },
 });
