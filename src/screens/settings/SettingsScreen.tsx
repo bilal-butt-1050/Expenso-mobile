@@ -19,7 +19,7 @@ import { colors } from "../../theme/colors";
 import { spacing, radius } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { RootStackParamList } from "../../types/navigation";
-import { describeRunningUpdate } from "../../services/updateService";
+import { describeLastUpdated } from "../../services/updateService";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -73,7 +73,7 @@ export function SettingsScreen() {
   };
 
   // Fixed for the life of the process: a reload is what changes the running bundle.
-  const [runningUpdate] = useState(describeRunningUpdate);
+  const [lastUpdated] = useState(describeLastUpdated);
 
   const email = user?.email || "";
   const nameFromEmail = email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, l => l.toUpperCase());
@@ -142,9 +142,7 @@ export function SettingsScreen() {
 
         <Button label="Sign out" variant="danger" onPress={confirmLogout} style={styles.logout} />
 
-        <Text style={styles.buildFooter} selectable accessibilityLabel={runningUpdate.a11y}>
-          {runningUpdate.text}
-        </Text>
+        {lastUpdated ? <Text style={styles.buildFooter}>{lastUpdated}</Text> : null}
       </ScrollView>
 
       <BottomSheet visible={isEditNameOpen} onClose={() => setIsEditNameOpen(false)}>

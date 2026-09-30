@@ -81,28 +81,9 @@ export const updateService = new UpdateService();
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August",
   "September", "October", "November", "December"];
 
-/**
- * One line naming the bundle that is actually running, for the Settings footer (DESIGN §S9).
- * It is the evidence R-10 needs that a given update reached this phone, so it's selectable.
- */
-export function describeRunningUpdate(): { text: string; a11y: string } {
-  const { isEnabled, channel, updateId, isEmbeddedLaunch, createdAt } = updateService.getDiagnostics();
-  if (__DEV__ || !isEnabled) {
-    return { text: "development", a11y: "Development build" };
-  }
-  const ch = channel || "unknown channel";
-  if (isEmbeddedLaunch || !updateId) {
-    return { text: `${ch} · built-in bundle`, a11y: `Running the built-in bundle on the ${ch} channel` };
-  }
-  const id = updateId.slice(0, 8);
-  if (!createdAt) {
-    return { text: `${ch} · update ${id}`, a11y: `Running update ${id} on the ${ch} channel` };
-  }
-  const day = createdAt.getDate();
-  const month = MONTHS[createdAt.getMonth()];
-  const year = createdAt.getFullYear();
-  return {
-    text: `${ch} · update ${id} · ${day} ${month.slice(0, 3)} ${year}`,
-    a11y: `Running update ${id} on the ${ch} channel, published ${day} ${month} ${year}`,
-  };
+/** "Last updated 1 Oct 2026": when the running update was published. Null in development or when unknown. */
+export function describeLastUpdated(): string | null {
+  const { isEnabled, createdAt } = updateService.getDiagnostics();
+  if (__DEV__ || !isEnabled || !createdAt) return null;
+  return `Last updated ${createdAt.getDate()} ${MONTHS[createdAt.getMonth()].slice(0, 3)} ${createdAt.getFullYear()}`;
 }
