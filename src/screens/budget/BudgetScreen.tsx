@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import {
   FlatList,
   LayoutAnimation,
+  RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -51,7 +53,7 @@ export function BudgetScreen() {
   const rootNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { selectedMonth, setSelectedMonth } = useAppData();
   const { data: summary, error, isOffline, refetch } = useDashboard();
-  const { data: categories, removeCategory } = useCategories();
+  const { data: categories, error: categoriesError, refetch: refetchCategories, removeCategory } = useCategories();
   const { setBudget, clearBudget } = useBudgets(selectedMonth);
   const { alert, confirm } = useDialog();
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -66,8 +68,8 @@ export function BudgetScreen() {
   const pendingCategoryEdit = React.useRef<Category | null>(null);
   const bottomPadding = useTabBarPadding();
   const snackbar = useSnackbar();
-  // Collapsed on each mount; kept across month changes while the screen stays mounted (§S5).
-  const [unusedExpanded, setUnusedExpanded] = useState(false);
+  // Picking categories to budget (D-64): from the "No budgets" screen, or "Set another budget".
+  const [settingUp, setSettingUp] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const reduceMotion = useReduceMotion();
 
@@ -123,20 +125,15 @@ export function BudgetScreen() {
     return a.category.name.localeCompare(b.category.name);
   });
 
-  // "Unused" = no budget and nothing spent this month. They fold into one row so the list shows
-  // what matters, without hiding a category that has either (§S5, R-5).
-  const usedRows = rows.filter((r) => r.hasBudget || r.actual > 0);
-  const unusedRows = rows
-    .filter((r) => !r.hasBudget && r.actual === 0)
-    .sort((a, b) => a.category.name.localeCompare(b.category.name));
-  // With nothing in the main list, the group is the list, so it opens expanded.
-  const showUnused = unusedExpanded || usedRows.length === 0;
-  const unusedLabel = `${unusedRows.length} unused ${unusedRows.length === 1 ? "category" : "categories"}`;
+  // The list shows budgets, not every category with "no budget" beside it (D-64). Spending that
+  // no budget watches is listed under the budgets, so it isn't hidden either.
+  const budgetedRows = rows.filter((r) => r.budget > 0);
+  const unbudgetedSpent = rows.filter((r) => r.budget === 0 && r.actual > 0);
+  const hasBudgets = budgetedRows.length > 0;
 
-  const toggleUnused = () => {
+  const startSetup = () => {
     hapticLight();
-    if (!reduceMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setUnusedExpanded((v) => !v);
+    setSettingUp(true);
   };
 
   const categoryCount = categories?.length ?? 0;
@@ -207,7 +204,9 @@ export function BudgetScreen() {
         accessibilityRole="button"
         accessibilityHint="Double-tap to set a budget. Long-press to edit or delete the category."
         accessibilityLabel={
-          isOver
+          item.budget === 0
+            ? `${item.category.name}, ${formatCurrency(item.actual)} spent, no budget yet`
+            : isOver
             ? `${item.category.name}, ${formatCurrency(item.actual)} spent, ${formatCurrency(item.actual - item.budget)} over a ${formatCurrency(item.budget)} budget`
             : `${item.category.name}, ${formatCurrency(item.actual)} of ${formatCurrency(item.budget)}`
         }
@@ -218,10 +217,12 @@ export function BudgetScreen() {
             <Text style={styles.capsuleLabel}>{item.category.name}</Text>
           </View>
           <View style={styles.capsuleRight}>
-            <Text style={styles.capsuleAmount}>{formatCurrency(item.actual)}</Text>
-            <Text style={[styles.capsuleBudget, isOver && { color: colors.danger }]}>
-              {!item.hasBudget
-                ? "no budget"
+            {item.budget > 0 || item.actual > 0 ? (
+              <Text style={styles.capsuleAmount}>{formatCurrency(item.actual)}</Text>
+            ) : null}
+            <Text style={[styles.capsuleBudget, isOver && { color: colors.danger }, item.budget === 0 && styles.setLink]}>
+              {item.budget === 0
+                ? "Set budget ›"
                 : isOver
                   ? `${formatCurrency(item.actual - item.budget)} over`
                   : `of ${formatCurrency(item.budget)}`}
@@ -246,19 +247,51 @@ export function BudgetScreen() {
     <ScreenContainer>
       <Text style={styles.title}>Budget</Text>
 
-      {!summary && (error || isOffline) ? (
+      {(!summary && (error || isOffline)) || (!categories && categoriesError) ? (
         // A failed load used to render the list with "BUDGETED Rs 0", which is false (§5.4).
         <View style={styles.errorBlock}>
           <MaterialCommunityIcons name="cloud-alert-outline" size={48} color={colors.textSecondary} />
           <Text style={styles.errorTitle}>Couldn't load your budget</Text>
-          <Text style={styles.errorSubtitle}>{error ? getErrorMessage(error) : OFFLINE_MESSAGE}</Text>
-          <Button label="Try again" variant="secondary" onPress={() => refetch()} />
+          <Text style={styles.errorSubtitle}>{error ? getErrorMessage(error) : isOffline ? OFFLINE_MESSAGE : "Something went wrong. Try again."}</Text>
+          <Button
+            label="Try again"
+            variant="secondary"
+            onPress={() => {
+              refetch();
+              refetchCategories();
+            }}
+          />
         </View>
-      ) : !summary ? (
+      ) : !summary || !categories ? (
         <BudgetSkeleton />
+      ) : !hasBudgets && !settingUp ? (
+        // No budgets this month: say so, and offer the one next step (D-64).
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: bottomPadding }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        >
+          <View style={styles.topRow}>
+            <View style={{ flex: 1 }}>
+              <MonthPicker month={selectedMonth} onChange={setSelectedMonth} allowFuture />
+            </View>
+          </View>
+          <EmptyState
+            icon="chart-donut"
+            title={`No budgets for ${monthLabel}`}
+            subtitle="Give the categories you spend on a monthly limit, and see how each one is going."
+          />
+          <Button label="Set budgets" onPress={startSetup} />
+          {/* Home's "View all" lands here, so the month's spending is still listed (G4 M3). */}
+          {unbudgetedSpent.length > 0 ? (
+            <>
+              <Text style={[styles.sectionTitle, styles.emptySpentTitle]}>Spent in {monthLabel}</Text>
+              {unbudgetedSpent.map(renderRow)}
+            </>
+          ) : null}
+        </ScrollView>
       ) : (
         <FlatList
-          data={usedRows}
+          data={settingUp ? rows : budgetedRows}
           keyExtractor={(item) => item.category.id}
           refreshing={refreshing}
           onRefresh={handleRefresh}
@@ -271,91 +304,87 @@ export function BudgetScreen() {
                 </View>
               </View>
 
-
-              {/* Summary */}
-              <View style={styles.summaryCard}>
-                <View style={styles.summaryRow}>
-                  <View style={styles.summaryCol}>
-                    <Text style={styles.summaryLabel}>BUDGETED</Text>
-                    <Text style={styles.summaryValue}>{formatCurrency(totalBudgeted)}</Text>
+              {settingUp ? (
+                <View style={styles.setupHead}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionTitle}>Set budgets for {monthLabel}</Text>
+                    <Text style={styles.sectionHint}>Tap a category to give it a monthly limit</Text>
                   </View>
-                  <View style={styles.summaryDivider} />
-                  <View style={styles.summaryCol}>
-                    <Text style={styles.summaryLabel}>LEFT TO BUDGET</Text>
-                    <Text style={[styles.summaryValue, leftToBudget < 0 && { color: colors.danger }]}>
-                      {monthlyIncome > 0 ? formatCurrency(leftToBudget) : "—"}
-                    </Text>
-                  </View>
+                  <Button label="Done" variant="secondary" onPress={() => setSettingUp(false)} />
                 </View>
+              ) : (
+                <>
+                  {/* Summary */}
+                  <View style={styles.summaryCard}>
+                    <View style={styles.summaryRow}>
+                      <View style={styles.summaryCol}>
+                        <Text style={styles.summaryLabel}>BUDGETED</Text>
+                        <Text style={styles.summaryValue}>{formatCurrency(totalBudgeted)}</Text>
+                      </View>
+                      <View style={styles.summaryDivider} />
+                      <View style={styles.summaryCol}>
+                        <Text style={styles.summaryLabel}>LEFT TO BUDGET</Text>
+                        <Text style={[styles.summaryValue, leftToBudget < 0 && { color: colors.danger }]}>
+                          {monthlyIncome > 0 ? formatCurrency(leftToBudget) : "—"}
+                        </Text>
+                      </View>
+                    </View>
 
-                {monthlyIncome > 0 ? (
-                  <>
-                    <AnimatedProgressBar
-                      progress={totalBudgeted / monthlyIncome}
-                      height={6}
-                      style={{ marginTop: spacing.md }}
-                    />
-                    <Text style={styles.unallocatedText}>
-                      {leftToBudget < 0
-                        ? `Budgeted ${formatCurrency(Math.abs(leftToBudget))} more than your income`
-                        : `of ${formatCurrency(monthlyIncome)} income in ${monthLabel}`}
-                    </Text>
-                  </>
-                ) : (
-                  <Text style={styles.unallocatedText}>
-                    Log income for {monthLabel} to see what's left to budget
-                  </Text>
-                )}
-              </View>
+                    {monthlyIncome > 0 ? (
+                      <>
+                        <AnimatedProgressBar
+                          progress={totalBudgeted / monthlyIncome}
+                          height={6}
+                          style={{ marginTop: spacing.md }}
+                        />
+                        <Text style={styles.unallocatedText}>
+                          {leftToBudget < 0
+                            ? `Budgeted ${formatCurrency(Math.abs(leftToBudget))} more than your income`
+                            : `of ${formatCurrency(monthlyIncome)} income in ${monthLabel}`}
+                        </Text>
+                      </>
+                    ) : (
+                      <Text style={styles.unallocatedText}>
+                        Log income for {monthLabel} to see what's left to budget
+                      </Text>
+                    )}
+                  </View>
 
-              <Text style={styles.sectionTitle}>Categories</Text>
-              <Text style={styles.sectionHint}>Tap to set a budget · long-press to edit</Text>
+                  <Text style={styles.sectionTitle}>Budgets</Text>
+                  <Text style={styles.sectionHint}>Tap to change · long-press to edit the category</Text>
+                </>
+              )}
             </>
           }
-          ListEmptyComponent={
-            rows.length === 0 ? (
-              <EmptyState icon="chart-donut" title="No categories yet" />
-            ) : (
-              <Text style={styles.emptyMonthText}>
-                No budgets or spending in {formatMonthLabel(selectedMonth)}
-              </Text>
-            )
-          }
+          ListEmptyComponent={rows.length === 0 ? <EmptyState icon="chart-donut" title="No categories yet" /> : null}
           ListFooterComponent={
             <>
-            {unusedRows.length > 0 ? (
-              <>
-                {usedRows.length > 0 && (
-                  <TouchableOpacity
-                    style={[styles.capsule, styles.groupRow]}
-                    onPress={toggleUnused}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityState={{ expanded: showUnused }}
-                    accessibilityLabel={unusedLabel}
-                  >
-                    <Text style={styles.groupLabel}>
-                      {showUnused ? `Hide ${unusedLabel}` : unusedLabel}
-                    </Text>
-                    <MaterialCommunityIcons
-                      name={showUnused ? "chevron-up" : "chevron-down"}
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                )}
-                {showUnused && unusedRows.map(renderRow)}
-              </>
-            ) : null}
-            <TouchableOpacity
-              style={[styles.capsule, styles.groupRow]}
-              onPress={addCategory}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Add category"
-            >
-              <Text style={[styles.groupLabel, { color: colors.accent }]}>+ Add category</Text>
-            </TouchableOpacity>
+              {!settingUp && unbudgetedSpent.length > 0 ? (
+                <>
+                  <Text style={styles.sectionTitle}>Spent without a budget</Text>
+                  {unbudgetedSpent.map(renderRow)}
+                </>
+              ) : null}
+              {!settingUp ? (
+                <TouchableOpacity
+                  style={[styles.capsule, styles.groupRow]}
+                  onPress={startSetup}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Set another budget"
+                >
+                  <Text style={[styles.groupLabel, { color: colors.accent }]}>+ Set another budget</Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity
+                style={[styles.capsule, styles.groupRow]}
+                onPress={addCategory}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Add category"
+              >
+                <Text style={[styles.groupLabel, { color: colors.accent }]}>+ Add category</Text>
+              </TouchableOpacity>
             </>
           }
           renderItem={({ item }) => renderRow(item)}
@@ -517,8 +546,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     minHeight: size.minTouch,
   },
+  setupHead: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.sm },
+  setLink: { color: colors.accent },
+  emptySpentTitle: { marginTop: spacing.xl },
   groupLabel: { ...typography.body, fontWeight: "600", color: colors.textSecondary, flexShrink: 1 },
-  emptyMonthText: { ...typography.caption, color: colors.textSecondary, marginBottom: spacing.md },
   errorBlock: { alignItems: "center", gap: spacing.sm, paddingTop: spacing.xl },
   errorTitle: { ...typography.body, fontWeight: "600", color: colors.textSecondary, textAlign: "center" },
   errorSubtitle: { ...typography.caption, textAlign: "center", marginBottom: spacing.sm },

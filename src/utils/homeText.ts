@@ -29,6 +29,26 @@ export function savedLine(
     : { label: `Saved${soFar}`, amount: saved, overspent: false };
 }
 
+/**
+ * The hero's figure (D-64): money can't be negative. If the entries add up to less than zero,
+ * something is missing (an income, or a loan), so the figure shows 0 and says so.
+ */
+export function cashShown(amount: number): { amount: number; incomplete: boolean } {
+  return amount < 0 ? { amount: 0, incomplete: true } : { amount, incomplete: false };
+}
+
+/**
+ * Spending in categories without a budget this month, largest first (D-64). "All budgets are on
+ * track" isn't true while money goes out where no budget is watching.
+ */
+export function unbudgetedSpending(
+  breakdown: CategoryBreakdownItem[],
+  budgets: Pick<BudgetVsActualItem, "categoryId" | "budget">[]
+): CategoryBreakdownItem[] {
+  const budgeted = new Set(budgets.filter((b) => b.budget > 0).map((b) => b.categoryId));
+  return breakdown.filter((c) => c.amount > 0 && !budgeted.has(c.categoryId)).sort((a, b) => b.amount - a.amount);
+}
+
 /** The top categories by spending, then the rest as "+ N more" (R-37). */
 export function spendingSummary(breakdown: CategoryBreakdownItem[], top = 4) {
   const sorted = [...breakdown].filter((c) => c.amount > 0).sort((a, b) => b.amount - a.amount);

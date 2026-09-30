@@ -15,6 +15,7 @@ import { IncomeFormScreen } from "../screens/income/IncomeFormScreen";
 import { CategoryFormScreen } from "../screens/settings/CategoryFormScreen";
 import { LoanFormScreen } from "../screens/loans/LoanFormScreen";
 import { OnboardingTourScreen } from "../screens/onboarding/OnboardingTourScreen";
+import { OpeningCashScreen } from "../screens/onboarding/OpeningCashScreen";
 import { SettingsScreen } from "../screens/settings/SettingsScreen";
 import { AnimatedSplash } from "../components/AnimatedSplash";
 
@@ -87,19 +88,22 @@ export function RootNavigator() {
   }, []);
 
   const isNavigatorReady = !isLoading && needsTour !== null;
+  // Opening cash is asked for once, before the tour or the tabs (D-64). Strictly null: a user cached
+  // by an older build lacks the field (undefined) until /auth/me refreshes it, and isn't stopped.
+  const needsOpeningCash = !!user && user.openingBalance === null;
 
   return (
     <View style={styles.root}>
       <NavigationContainer ref={navigationRef} theme={navigationTheme}>
         {isNavigatorReady && (
           <Stack.Navigator
-            key={user ? (needsTour ? "tour-stack" : "tabs-stack") : "auth-stack"}
+            key={user ? (needsOpeningCash ? "opening-stack" : needsTour ? "tour-stack" : "tabs-stack") : "auth-stack"}
             screenOptions={{ headerShown: false }}
             // Must name a screen that exists in the branch rendered below. Signed out, only
             // `Auth` is registered — pointing at `Tabs` there threw
             // "Couldn't find a screen named 'Tabs' to use as 'initialRouteName'" and took the
             // whole app down on launch. React Navigation 6 only warned about this; 7 throws.
-            initialRouteName={user ? (needsTour ? "OnboardingTour" : "Tabs") : "Auth"}
+            initialRouteName={user ? (needsOpeningCash ? "OpeningCash" : needsTour ? "OnboardingTour" : "Tabs") : "Auth"}
           >
             {user ? (
               <>
@@ -110,6 +114,7 @@ export function RootNavigator() {
                   options={{ animation: "slide_from_right" }}
                 />
                 <Stack.Screen name="OnboardingTour" component={OnboardingTourScreen} />
+                <Stack.Screen name="OpeningCash" component={OpeningCashScreen} options={{ gestureEnabled: false }} />
                 <Stack.Group screenOptions={{ presentation: "modal", headerShown: true }}>
                   <Stack.Screen name="ExpenseForm" component={ExpenseFormScreen} options={{ title: "Expense" }} />
                   <Stack.Screen name="IncomeForm" component={IncomeFormScreen} options={{ title: "Log Income" }} />

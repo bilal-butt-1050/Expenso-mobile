@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import md5 from "md5";
 import {
   Image,
@@ -24,22 +24,22 @@ import { HomeSkeleton } from "../../components/Skeleton";
 import { MoneyText } from "../../components/MoneyText";
 import { Button } from "../../components/Button";
 import { AnimatedProgressBar } from "../../components/AnimatedProgressBar";
-import { CashBreakdownSheet } from "../../components/home/CashBreakdownSheet";
-import { OpeningCashSheet } from "../../components/home/OpeningCashSheet";
 import { useSnackbar } from "../../components/snackbar/SnackbarContext";
 import { useTabBarPadding } from "../../hooks/useTabBarPadding";
 import { colors } from "../../theme/colors";
 import { radius, size, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { formatCurrency, formatCurrencySpoken } from "../../utils/currency";
-import { currentMonthKey, formatMonthLabel } from "../../utils/date";
+import { formatMonthLabel } from "../../utils/date";
 import {
   budgetUsage,
   budgetsNeedingAttention,
+  cashShown,
   heroLabel,
   insightFor,
   savedLine,
   spendingSummary,
+  unbudgetedSpending,
 } from "../../utils/homeText";
 import { OFFLINE_MESSAGE, getErrorMessage } from "../../api/client";
 import { RootStackParamList } from "../../types/navigation";
@@ -61,14 +61,8 @@ export function HomeScreen() {
   const { user } = useAuth();
   const { selectedMonth, setSelectedMonth } = useAppData();
   const { data, error, isOffline, refetch } = useDashboard();
-  // Today's figure, for the opening-cash sheet whichever month is showing.
-  const { data: today } = useDashboard(currentMonthKey());
   const snackbar = useSnackbar();
   const [refreshing, setRefreshing] = useState(false);
-  const [breakdownOpen, setBreakdownOpen] = useState(false);
-  const [openingOpen, setOpeningOpen] = useState(false);
-  // A fresh opening sheet per opening, so its field starts from today's figure (§8.2).
-  const [openingKey, setOpeningKey] = useState(0);
 
   // Keep the figures already on screen; just say they're not fresh (S-6).
   const showRefreshFailed = () =>
@@ -95,14 +89,6 @@ export function HomeScreen() {
       setRefreshing(false);
     }
   };
-
-  const openOpeningSheet = () => {
-    setOpeningKey((k) => k + 1);
-    setOpeningOpen(true);
-  };
-  // From the breakdown sheet, the opening sheet waits for it to finish closing: two modals at
-  // once would double the dim and fight over the keyboard.
-  const openingAfterBreakdown = useRef(false);
 
   const [imageError, setImageError] = useState(false);
   const email = user?.email || "";
@@ -144,8 +130,6 @@ export function HomeScreen() {
         {data ? (
           <HomeSections
             data={data}
-            onOpenBreakdown={() => setBreakdownOpen(true)}
-            onSetOpening={openOpeningSheet}
             onOpenBudget={() => navigation.navigate("Tabs", { screen: "Budget" })}
             onOpenLoans={() => navigation.navigate("Tabs", { screen: "Activity", params: { filter: "LOANS" } })}
           />
@@ -161,42 +145,16 @@ export function HomeScreen() {
         )}
       </ScrollView>
 
-      <CashBreakdownSheet
-        cash={breakdownOpen ? data?.cashAvailable ?? null : null}
-        month={selectedMonth}
-        visible={breakdownOpen}
-        onClose={() => setBreakdownOpen(false)}
-        onEditOpening={() => {
-          openingAfterBreakdown.current = true;
-          setBreakdownOpen(false);
-        }}
-        onHidden={() => {
-          if (!openingAfterBreakdown.current) return;
-          openingAfterBreakdown.current = false;
-          openOpeningSheet();
-        }}
-      />
-      <OpeningCashSheet
-        key={openingKey}
-        visible={openingOpen}
-        onClose={() => setOpeningOpen(false)}
-        cashToday={today?.cashAvailable.amount ?? null}
-        openingBalance={today?.cashAvailable.openingBalance ?? null}
-      />
     </ScreenContainer>
   );
 }
 
 function HomeSections({
   data,
-  onOpenBreakdown,
-  onSetOpening,
   onOpenBudget,
   onOpenLoans,
 }: {
   data: DashboardSummary;
-  onOpenBreakdown: () => void;
-  onSetOpening: () => void;
   onOpenBudget: () => void;
   onOpenLoans: () => void;
 }) {
@@ -214,6 +172,8 @@ function HomeSections({
   const saved = savedLine(data.monthlyIncome, data.totalExpenses, cash.period);
   const spending = spendingSummary(data.categoryBreakdown);
   const attention = budgetsNeedingAttention(data.budgetVsActual);
+  const unbudgeted = unbudgetedSpending(data.categoryBreakdown, data.budgetVsActual);
+  const shown = cashShown(cash.amount);
   const hasBudgets = data.budgetVsActual.some((b) => b.budget > 0);
   const insight = insightFor(data.comparison, cash.period, data.month, categoryName);
   const owed = data.netDebtSnapshot;
@@ -221,25 +181,16 @@ function HomeSections({
 
   return (
     <>
-      {/* 1. Cash available: the one hero figure (R-35) */}
-      <Pressable
+      {/* 1. Cash available: the one hero figure, centred, never below zero (R-35, D-64) */}
+      <View
         style={styles.hero}
-        onPress={onOpenBreakdown}
-        accessibilityRole="button"
-        accessibilityLabel={`${label}, ${formatCurrencySpoken(cash.amount)}`}
-        accessibilityHint="Shows how this is worked out"
+        accessible
+        accessibilityLabel={`${label}, ${formatCurrencySpoken(shown.amount)}${shown.incomplete ? ". Some income or a loan may be missing" : ""}`}
       >
-        <View style={styles.heroLabelRow}>
-          <Text style={styles.heroLabel}>{label}</Text>
-          <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textSecondary} />
-        </View>
-        <MoneyText amount={cash.amount} style={[styles.heroAmount, cash.amount < 0 && styles.negative]} />
-      </Pressable>
-      {cash.openingBalance === null ? (
-        <Pressable onPress={onSetOpening} style={styles.promptRow} accessibilityRole="button">
-          <Text style={styles.prompt}>Set your opening cash so this matches your money ›</Text>
-        </Pressable>
-      ) : null}
+        <Text style={styles.heroLabel}>{label}</Text>
+        <MoneyText amount={shown.amount} style={styles.heroAmount} />
+        {shown.incomplete ? <Text style={styles.heroNote}>Some income or a loan may be missing</Text> : null}
+      </View>
 
       {/* 2. What happened this month (R-36) */}
       <View style={styles.card}>
@@ -299,11 +250,11 @@ function HomeSections({
       {/* 4. Budgets that need attention (R-38) */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Budgets</Text>
-        {!hasBudgets ? (
+        {!hasBudgets && unbudgeted.length === 0 ? (
           <Pressable onPress={onOpenBudget} style={styles.link} accessibilityRole="button">
             <Text style={styles.muted}>No budgets for {monthLabel} · <Text style={styles.linkText}>Set one ›</Text></Text>
           </Pressable>
-        ) : attention.length === 0 ? (
+        ) : attention.length === 0 && unbudgeted.length === 0 ? (
           <View style={styles.onTrack}>
             <MaterialCommunityIcons name="check-circle-outline" size={18} color={colors.success} accessibilityElementsHidden importantForAccessibility="no" />
             <Text style={styles.onTrackText}>All budgets are on track</Text>
@@ -326,6 +277,21 @@ function HomeSections({
             );
           })
         )}
+        {/* Money going out where no budget watches it (D-64). */}
+        {unbudgeted.slice(0, 3).map((c) => (
+          <Pressable
+            key={c.categoryId}
+            onPress={onOpenBudget}
+            style={[styles.spendHead, styles.unbudgetedRow, stacked && styles.twoColStacked]}
+            accessibilityRole="button"
+            accessibilityLabel={`${c.name}, ${formatCurrencySpoken(c.amount)} spent with no budget`}
+            accessibilityHint="Opens Budget to set one"
+          >
+            <Text style={styles.spendName} numberOfLines={1}>{c.name}</Text>
+            <Text style={styles.budgetFigures}>{formatCurrency(c.amount)} · no budget</Text>
+          </Pressable>
+        ))}
+        {unbudgeted.length > 3 ? <Text style={styles.muted}>+ {unbudgeted.length - 3} more without a budget</Text> : null}
       </View>
 
       {/* 5. One observation, only when it's meaningful (R-39) */}
@@ -390,12 +356,10 @@ const styles = StyleSheet.create({
   headerAvatarImage: { width: "100%", height: "100%" },
   headerAvatarText: { ...typography.body, fontWeight: "700", color: colors.accent },
 
-  hero: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.sm, minHeight: size.minTouch },
-  heroLabelRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  heroLabel: { ...typography.caption, color: colors.textSecondary },
-  heroAmount: { ...typography.metricValue },
-  promptRow: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, minHeight: size.minTouch, justifyContent: "center" },
-  prompt: { ...typography.small, color: colors.accent },
+  hero: { alignItems: "center", paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.md, gap: spacing.xs },
+  heroLabel: { ...typography.caption, color: colors.textSecondary, textAlign: "center" },
+  heroAmount: { ...typography.metricValue, textAlign: "center" },
+  heroNote: { ...typography.small, color: colors.warning, textAlign: "center" },
   negative: { color: colors.danger },
 
   card: {
@@ -438,6 +402,7 @@ const styles = StyleSheet.create({
   budgetRow: { gap: spacing.xs, paddingVertical: spacing.xs },
   budgetFigures: { ...typography.small, color: colors.textSecondary },
   budgetStatus: { ...typography.small, color: colors.textSecondary },
+  unbudgetedRow: { minHeight: size.minTouch },
   onTrack: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   onTrackText: { ...typography.caption, color: colors.textPrimary },
 
