@@ -16,7 +16,10 @@ function hasCurrentShape(d: DashboardSummary | undefined): d is DashboardSummary
     typeof d.closingNetWorth === "number" &&
     typeof d.openingNetWorth === "number" &&
     typeof d.closingCash === "number" &&
-    typeof d.savingsThisMonth === "number"
+    typeof d.savingsThisMonth === "number" &&
+    // Home v3 (R-42): a payload cached by an older build lacks these, so it's refetched, not drawn.
+    typeof d.cashAvailable?.amount === "number" &&
+    "comparison" in d
   );
 }
 

@@ -12,6 +12,8 @@ export interface User {
   createdAt?: string | null;
   /** Whether the account has a password (Google-only accounts don't). Missing from older servers. */
   hasPassword?: boolean;
+  /** The user's cash before their first entry (R-34). Null until set. Missing from older servers. */
+  openingBalance?: number | null;
 }
 
 export interface Category {
@@ -125,6 +127,34 @@ export interface UpcomingObligation {
   isOverdue: boolean;
 }
 
+export type MonthPeriod = "past" | "current" | "future";
+
+export interface CashAvailable {
+  amount: number;
+  period: MonthPeriod;
+  /** Null until the user sets it; Home then asks for it (R-34). */
+  openingBalance: number | null;
+  /** This month's story: startOfMonth + income + borrowed + collected − expenses − lent − repaid. */
+  breakdown: {
+    startOfMonth: number;
+    income: number;
+    expenses: number;
+    lent: number;
+    borrowed: number;
+    collected: number;
+    repaid: number;
+  };
+}
+
+export interface SpendingComparison {
+  currentTotal: number;
+  currentByCategory: { categoryId: string; amount: number }[];
+  previousTotal: number;
+  previousByCategory: { categoryId: string; amount: number }[];
+  /** The day both sides stop at, for the current month; null for a past month. */
+  toDay: number | null;
+}
+
 export interface DashboardSummary {
   month: string;
 
@@ -169,6 +199,11 @@ export interface DashboardSummary {
   categoryBreakdown: CategoryBreakdownItem[];
   budgetVsActual: BudgetVsActualItem[];
   trend: TrendPoint[];
+
+  /** Home's hero (R-35): today's cash for the current month, the month-end cash otherwise. */
+  cashAvailable: CashAvailable;
+  /** This month's spending against the previous month's, same-day for the current month (R-39). */
+  comparison: SpendingComparison | null;
 }
 
 export type LoanType = "LENT" | "BORROWED";

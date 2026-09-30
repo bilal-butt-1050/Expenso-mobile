@@ -72,28 +72,34 @@ export function SkeletonList({ rows = 5 }: { rows?: number }) {
   );
 }
 
-/** Skeleton for the HomeScreen dashboard */
+/** Skeleton for the HomeScreen dashboard: Home v3's shape (DESIGN S11). */
 export function HomeSkeleton() {
-  // Mirrors Home's real shape: greeting, hero figure, as-of label and opening line, then the
-  // cashflow card. (The debts card left Home in D-57.)
+  // The hero figure, then the month summary, spending and budgets cards.
   return (
     <View style={homeStyles.container} accessibilityLabel="Loading your figures">
       <View style={homeStyles.hero}>
-        <Skeleton width={140} height={14} />
-        <Skeleton width={220} height={38} borderRadius={radius.sm} />
-        <Skeleton width={160} height={15} />
-        <Skeleton width={240} height={14} />
+        <Skeleton width={120} height={15} />
+        <Skeleton width={200} height={32} borderRadius={radius.sm} />
       </View>
 
       <View style={homeStyles.card}>
-        <Skeleton width={130} height={15} />
         <View style={homeStyles.twoCol}>
           <Skeleton width="45%" height={44} borderRadius={radius.sm} />
           <Skeleton width="45%" height={44} borderRadius={radius.sm} />
         </View>
-        <Skeleton width="100%" height={14} />
-        <Skeleton width="100%" height={4} borderRadius={2} />
-        <Skeleton width="100%" height={14} />
+        <Skeleton width="100%" height={18} />
+      </View>
+
+      <View style={homeStyles.card}>
+        <Skeleton width={100} height={17} />
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} width="100%" height={22} />
+        ))}
+      </View>
+
+      <View style={homeStyles.card}>
+        <Skeleton width={90} height={17} />
+        <Skeleton width="100%" height={36} />
       </View>
     </View>
   );
