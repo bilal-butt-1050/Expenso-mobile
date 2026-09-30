@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
 import { spacing } from "../theme/spacing";
+import { typography } from "../theme/typography";
 
 interface Props {
   icon: string;
@@ -22,8 +23,14 @@ export function EmptyState({ icon, title, subtitle }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { alignItems: "center", justifyContent: "center", paddingVertical: spacing.xxl + 16, gap: spacing.sm },
-  title: { color: colors.textSecondary, fontSize: 17, fontWeight: "600" },
+  container: { alignItems: "center", justifyContent: "center", paddingVertical: spacing.xxl + spacing.md, gap: spacing.sm },
+  title: { ...typography.body, color: colors.textSecondary, fontWeight: "600" },
   // textSecondary, not textMuted: muted fails 4.5:1 and is for disabled content only (§4.1).
-  subtitle: { color: colors.textSecondary, fontSize: 15, textAlign: "center", paddingHorizontal: spacing.xl },
+  subtitle: {
+    ...typography.caption,
+    fontWeight: "400",
+    color: colors.textSecondary,
+    textAlign: "center",
+    paddingHorizontal: spacing.xl,
+  },
 });

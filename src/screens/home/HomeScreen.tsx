@@ -230,7 +230,7 @@ function HomeSections({
               <View key={c.categoryId} style={styles.spendRow} accessible accessibilityLabel={`${c.name}, ${formatCurrencySpoken(c.amount)}`}>
                 <View style={[styles.spendHead, stacked && styles.twoColStacked]}>
                   <Text style={styles.spendName} numberOfLines={1}>{c.name}</Text>
-                  <Text style={styles.spendAmount}>{formatCurrency(c.amount)}</Text>
+                  <MoneyText amount={c.amount} style={styles.spendAmount} />
                 </View>
                 <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
                   <AnimatedProgressBar progress={spending.max > 0 ? c.amount / spending.max : 0} height={4} color={colors.accent} />
@@ -238,9 +238,9 @@ function HomeSections({
               </View>
             ))}
             {spending.restCount > 0 ? (
-              <View style={styles.spendHead}>
+              <View style={styles.spendHead} accessible accessibilityLabel={`${spending.restCount} more, ${formatCurrencySpoken(spending.restTotal)}`}>
                 <Text style={styles.muted}>+ {spending.restCount} more</Text>
-                <Text style={styles.spendAmount}>{formatCurrency(spending.restTotal)}</Text>
+                <MoneyText amount={spending.restTotal} style={styles.spendAmount} />
               </View>
             ) : null}
           </>
@@ -267,10 +267,14 @@ function HomeSections({
               <View key={b.categoryId} style={styles.budgetRow} accessible accessibilityLabel={`${b.name}, ${formatCurrencySpoken(b.actual)} of ${formatCurrencySpoken(b.budget)}, ${status}`}>
                 <View style={[styles.spendHead, stacked && styles.twoColStacked]}>
                   <Text style={styles.spendName} numberOfLines={1}>{b.name}</Text>
-                  <Text style={styles.budgetFigures}>{formatCurrency(b.actual)} / {formatCurrency(b.budget)}</Text>
+                  <View style={styles.figurePair}>
+                    <MoneyText amount={b.actual} style={styles.budgetFigures} />
+                    <Text style={styles.budgetFigures}> / </Text>
+                    <MoneyText amount={b.budget} style={styles.budgetFigures} />
+                  </View>
                 </View>
                 <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-                  <AnimatedProgressBar progress={budgetUsage(b)} height={6} />
+                  <AnimatedProgressBar progress={budgetUsage(b)} height={6} autoColor />
                 </View>
                 <Text style={[styles.budgetStatus, over && styles.negative]}>{status}</Text>
               </View>
@@ -288,7 +292,10 @@ function HomeSections({
             accessibilityHint="Opens Budget to set one"
           >
             <Text style={styles.spendName} numberOfLines={1}>{c.name}</Text>
-            <Text style={styles.budgetFigures}>{formatCurrency(c.amount)} · no budget</Text>
+            <View style={styles.figurePair}>
+              <MoneyText amount={c.amount} style={styles.budgetFigures} />
+              <Text style={styles.budgetFigures}> · no budget</Text>
+            </View>
           </Pressable>
         ))}
         {unbudgeted.length > 3 ? <Text style={styles.muted}>+ {unbudgeted.length - 3} more without a budget</Text> : null}
@@ -312,15 +319,15 @@ function HomeSections({
             </Pressable>
           </View>
           {owed.totalLent > 0 ? (
-            <View style={[styles.spendHead, stacked && styles.twoColStacked]}>
+            <View style={[styles.spendHead, stacked && styles.twoColStacked]} accessible accessibilityLabel={`Still to come back, ${formatCurrencySpoken(owed.totalLent)}`}>
               <Text style={styles.spendName}>Still to come back</Text>
-              <Text style={styles.spendAmount}>{formatCurrency(owed.totalLent)}</Text>
+              <MoneyText amount={owed.totalLent} style={styles.spendAmount} />
             </View>
           ) : null}
           {owed.totalBorrowed > 0 ? (
-            <View style={[styles.spendHead, stacked && styles.twoColStacked]}>
+            <View style={[styles.spendHead, stacked && styles.twoColStacked]} accessible accessibilityLabel={`Still to pay back, ${formatCurrencySpoken(owed.totalBorrowed)}`}>
               <Text style={styles.spendName}>Still to pay back</Text>
-              <Text style={styles.spendAmount}>{formatCurrency(owed.totalBorrowed)}</Text>
+              <MoneyText amount={owed.totalBorrowed} style={styles.spendAmount} />
             </View>
           ) : null}
         </View>
@@ -401,6 +408,9 @@ const styles = StyleSheet.create({
 
   budgetRow: { gap: spacing.xs, paddingVertical: spacing.xs },
   budgetFigures: { ...typography.small, color: colors.textSecondary },
+  // A figure with its neighbouring text, each money value still compacting on its own (W8).
+  // Wraps at large text instead of running past the card's edge (NFR-4, G4 M2).
+  figurePair: { flexDirection: "row", flexWrap: "wrap", alignItems: "baseline" },
   budgetStatus: { ...typography.small, color: colors.textSecondary },
   unbudgetedRow: { minHeight: size.minTouch },
   onTrack: { flexDirection: "row", alignItems: "center", gap: spacing.sm },

@@ -1,18 +1,12 @@
 import React, { createContext, useCallback, useContext, useRef, useState } from "react";
-import {
-  Animated,
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
-} from "react-native";
+import { Animated, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRegisterOverlay } from "../lib/overlays";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
-import { spacing } from "../theme/spacing";
+import { radius, size, spacing } from "../theme/spacing";
+import { typography } from "../theme/typography";
+import { useReduceMotion } from "../hooks/useReduceMotion";
 
 export interface ConfirmOptions {
   title: string;
@@ -49,6 +43,8 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
   const [dialogState, setDialogState] = useState<DialogState>({ type: "none" });
   useRegisterOverlay(dialogState.type !== "none");
+  // Reduced motion: the dialog fades in place instead of also scaling up (W3b).
+  const reduceMotion = useReduceMotion();
 
   const modalAnim = useRef(new Animated.Value(0)).current;
 
@@ -129,93 +125,104 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
         onRequestClose={dialogState.type === "confirm" ? handleCancel : handleDismiss}
         statusBarTranslucent
       >
-        <TouchableWithoutFeedback
-          onPress={dialogState.type === "confirm" ? handleCancel : handleDismiss}
+        <Animated.View
+          style={[
+            styles.backdrop,
+            { paddingBottom: Math.max(insets.bottom, spacing.lg), opacity: modalAnim },
+          ]}
         >
-          <Animated.View style={[styles.backdrop, { 
-            paddingBottom: Math.max(insets.bottom, spacing.lg),
-            opacity: modalAnim,
-          }]}>
-            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <Animated.View style={[styles.dialogCard, {
-                transform: [{
-                  scale: modalAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.9, 1]
-                  })
-                }]
-              }]}>
-                {dialogIcon && (
-                  <View
-                    style={[
-                      styles.iconCircle,
-                      isDestructive ? styles.iconCircleDanger : styles.iconCircleAccent,
-                    ]}
-                  >
-                    <MaterialCommunityIcons
-                      name={dialogIcon}
-                      size={26}
-                      color={isDestructive ? colors.danger : colors.accent}
-                    />
-                  </View>
-                )}
+          {/* The scrim is a sibling behind the card, so a tap on the card never reaches it. It's
+              hidden from screen readers: every dialog has its own Cancel / dismiss button, and Back
+              closes it too. (A TouchableWithoutFeedback wrapping the card made the whole dialog
+              one accessible blob.) */}
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={dialogState.type === "confirm" ? handleCancel : handleDismiss}
+            accessible={false}
+            importantForAccessibility="no"
+          />
+          <Animated.View
+            style={[
+              styles.dialogCard,
+              !reduceMotion && {
+                transform: [
+                  { scale: modalAnim.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) },
+                ],
+              },
+            ]}
+          >
+            {dialogIcon && (
+              <View
+                style={[
+                  styles.iconCircle,
+                  isDestructive ? styles.iconCircleDanger : styles.iconCircleAccent,
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name={dialogIcon}
+                  size={26}
+                  color={isDestructive ? colors.danger : colors.accent}
+                />
+              </View>
+            )}
 
-                {dialogState.type !== "none" && (
-                  <>
-                    <Text style={styles.dialogTitle}>{dialogState.title}</Text>
-                    {dialogState.message ? (
-                      <Text style={styles.dialogMessage}>{dialogState.message}</Text>
-                    ) : null}
+            {dialogState.type !== "none" && (
+              <>
+                <Text style={styles.dialogTitle}>{dialogState.title}</Text>
+                {dialogState.message ? (
+                  <Text style={styles.dialogMessage}>{dialogState.message}</Text>
+                ) : null}
 
-                    {dialogState.type === "confirm" ? (
-                      <View style={styles.buttonRow}>
-                        <TouchableOpacity
-                          style={styles.cancelBtn}
-                          onPress={handleCancel}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={styles.cancelBtnText}>
-                            {dialogState.cancelText || "Cancel"}
-                          </Text>
-                        </TouchableOpacity>
+                {dialogState.type === "confirm" ? (
+                  <View style={styles.buttonRow}>
+                    <TouchableOpacity
+                      style={styles.cancelBtn}
+                      onPress={handleCancel}
+                      activeOpacity={0.8}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.cancelBtnText}>
+                        {dialogState.cancelText || "Cancel"}
+                      </Text>
+                    </TouchableOpacity>
 
-                        <TouchableOpacity
-                          style={[
-                            styles.confirmBtn,
-                            isDestructive ? styles.confirmBtnDanger : styles.confirmBtnPrimary,
-                          ]}
-                          onPress={handleConfirm}
-                          activeOpacity={0.8}
-                        >
-                          <Text
-                            style={[
-                              styles.confirmBtnText,
-                              isDestructive
-                                ? styles.confirmBtnTextDanger
-                                : styles.confirmBtnTextPrimary,
-                            ]}
-                          >
-                            {dialogState.confirmText || "Confirm"}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    ) : (
-                      <TouchableOpacity
-                        style={styles.singleBtn}
-                        onPress={handleDismiss}
-                        activeOpacity={0.8}
+                    <TouchableOpacity
+                      style={[
+                        styles.confirmBtn,
+                        isDestructive ? styles.confirmBtnDanger : styles.confirmBtnPrimary,
+                      ]}
+                      onPress={handleConfirm}
+                      activeOpacity={0.8}
+                      accessibilityRole="button"
+                    >
+                      <Text
+                        style={[
+                          styles.confirmBtnText,
+                          isDestructive
+                            ? styles.confirmBtnTextDanger
+                            : styles.confirmBtnTextPrimary,
+                        ]}
                       >
-                        <Text style={styles.singleBtnText}>
-                          {dialogState.buttonText || "Got it"}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </>
+                        {dialogState.confirmText || "Confirm"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.singleBtn}
+                    onPress={handleDismiss}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.singleBtnText}>
+                      {dialogState.buttonText || "Got it"}
+                    </Text>
+                  </TouchableOpacity>
                 )}
-              </Animated.View>
-            </TouchableWithoutFeedback>
+              </>
+            )}
           </Animated.View>
-        </TouchableWithoutFeedback>
+        </Animated.View>
       </Modal>
     </DialogContext.Provider>
   );
@@ -232,7 +239,7 @@ export function useDialog(): DialogContextValue {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "#000000C4",
+    backgroundColor: colors.scrim,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: spacing.lg,
@@ -241,7 +248,7 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 340,
     backgroundColor: colors.surfaceRaised,
-    borderRadius: 20,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.xl,
@@ -250,25 +257,26 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 52,
     height: 52,
-    borderRadius: 26,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: spacing.md,
   },
+  // The muted tokens are already translucent. Appending "55" made an invalid colour (P6a).
   iconCircleDanger: {
-    backgroundColor: colors.dangerMuted + "55",
+    backgroundColor: colors.dangerMuted,
   },
   iconCircleAccent: {
-    backgroundColor: colors.accentMuted + "55",
+    backgroundColor: colors.accentMuted,
   },
   dialogTitle: {
-    fontSize: 19,
+    ...typography.subtitle,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: colors.textPrimary,
     textAlign: "center",
   },
   dialogMessage: {
-    fontSize: 14,
+    ...typography.small,
     fontWeight: "500",
     color: colors.textSecondary,
     textAlign: "center",
@@ -284,8 +292,8 @@ const styles = StyleSheet.create({
   },
   cancelBtn: {
     flex: 1,
-    height: 48,
-    borderRadius: 12,
+    minHeight: size.minTouch,
+    borderRadius: radius.md,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -293,37 +301,40 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   cancelBtnText: {
-    fontSize: 15,
+    ...typography.caption,
     fontWeight: "600",
     color: colors.textSecondary,
   },
   confirmBtn: {
     flex: 1,
-    height: 48,
-    borderRadius: 12,
+    minHeight: size.minTouch,
+    borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
   },
+  // White reads on red-600; on `danger` it was 3.76:1 (P6b).
   confirmBtnDanger: {
-    backgroundColor: colors.danger,
+    backgroundColor: colors.dangerStrong,
   },
+  // The same fill as every other primary button (B5).
   confirmBtnPrimary: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.accentFill,
   },
   confirmBtnText: {
-    fontSize: 15,
+    ...typography.caption,
     fontWeight: "700",
   },
   confirmBtnTextDanger: {
-    color: "#FFFFFF",
+    color: colors.accentForeground,
   },
+  // White, like every other primary button's label (P6c).
   confirmBtnTextPrimary: {
-    color: colors.background,
+    color: colors.accentForeground,
   },
   singleBtn: {
     width: "100%",
-    height: 48,
-    borderRadius: 12,
+    minHeight: size.minTouch,
+    borderRadius: radius.md,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.accent,
@@ -332,7 +343,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   singleBtnText: {
-    fontSize: 15,
+    ...typography.caption,
     fontWeight: "700",
     color: colors.accent,
   },

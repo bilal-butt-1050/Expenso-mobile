@@ -1,5 +1,7 @@
 import React, { useRef, useState } from "react";
 import {
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,6 +25,7 @@ import { DatePicker } from "../../components/DatePicker";
 import { CategoryPill } from "../../components/CategoryPill";
 import { BottomSheet } from "../../components/BottomSheet";
 import { ChipGroup } from "../../components/ChipGroup";
+import { FormFooter } from "../../components/FormFooter";
 import { useSnackbar } from "../../components/snackbar/SnackbarContext";
 import { useFocusAfterTransition } from "../../hooks/useFocusAfterTransition";
 import { navigationRef } from "../../navigation/navigationRef";
@@ -30,9 +33,8 @@ import { budgetNoticeFor } from "../../utils/budgetNotice";
 import { newTransactionId } from "../../lib/newId";
 import { toMonthKey } from "../../utils/date";
 import { colors } from "../../theme/colors";
-import { radius, spacing } from "../../theme/spacing";
+import { radius, size, spacing } from "../../theme/spacing";
 import { NeedWant, PaymentMethod } from "../../types/models";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatAmountInput } from "../../utils/currency";
 import { typography } from "../../theme/typography";
 import { RootStackParamList } from "../../types/navigation";
@@ -44,7 +46,6 @@ const PAYMENT_METHODS: PaymentMethod[] = ["Cash", "Bank Transfer", "Card", "Cheq
 const NEED_WANT: NeedWant[] = ["Need", "Want"];
 
 export function ExpenseFormScreen({ route, navigation }: Props) {
-  const insets = useSafeAreaInsets();
   const editing = route.params?.transaction;
   const { user } = useAuth();
   const { data: categories } = useCategories();
@@ -229,7 +230,13 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
     if (editing) {
       navigation.setOptions({
         headerRight: () => (
-          <TouchableOpacity onPress={handleDelete} hitSlop={12} accessibilityRole="button" style={{ marginRight: spacing.sm }}>
+          <TouchableOpacity
+            onPress={handleDelete}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Delete expense"
+            style={styles.headerAction}
+          >
             <MaterialCommunityIcons name="trash-can-outline" size={24} color={colors.danger} />
           </TouchableOpacity>
         ),
@@ -239,77 +246,88 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
   return (
     <>
-      <ScrollView
+      <KeyboardAvoidingView
         style={styles.container}
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: Math.max(insets.bottom, 24) },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        bounces={false}
-        showsVerticalScrollIndicator={false}
+        // iOS only: on Android `padding` fights the window and double-lifts (ui-review 8.1); the
+        // footer lifts itself there instead (FormFooter).
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <TextField
-          ref={amountRef}
-          label={`Amount (${user?.currency || "PKR"})`}
-          keyboardType="decimal-pad"
-          value={amount}
-          onChangeText={(val) => {
-            setAmount(formatAmountInput(val));
-            if (amountError) setAmountError(null);
-          }}
-          placeholder="0"
-          error={amountError}
-        />
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          // "handled": a tap on empty space dismisses the keyboard; taps on fields and chips still land.
+          keyboardShouldPersistTaps="handled"
+          bounces={false}
+          showsVerticalScrollIndicator={false}
+        >
+          <TextField
+            ref={amountRef}
+            label={`Amount (${user?.currency || "PKR"})`}
+            keyboardType="decimal-pad"
+            value={amount}
+            onChangeText={(val) => {
+              setAmount(formatAmountInput(val));
+              if (amountError) setAmountError(null);
+            }}
+            placeholder="0"
+            error={amountError}
+          />
 
-        <TextField
-          label="Description (optional)"
-          value={description}
-          onChangeText={setDescription}
-          placeholder="e.g. Lunch at Kolachi"
-          maxLength={40}
-          numberOfLines={1}
-        />
+          <TextField
+            label="Description (optional)"
+            value={description}
+            onChangeText={setDescription}
+            placeholder="e.g. Lunch at Kolachi"
+            maxLength={40}
+            numberOfLines={1}
+          />
 
-        {/* Category */}
-        <View style={styles.fieldWrap}>
-          <Text style={styles.label}>Category</Text>
-          <TouchableOpacity
-            style={[styles.dropdownTrigger, categoryError ? styles.dropdownTriggerError : null]}
-            onPress={openSheet}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel={selectedCategory ? `Category, ${selectedCategory.name}` : "Choose a category"}
-          >
-            {selectedCategory ? (
-              <View style={styles.dropdownSelectedRow}>
-                <CategoryPill icon={selectedCategory.icon} color={selectedCategory.color} size={28} />
-                <Text style={styles.dropdownText}>{selectedCategory.name}</Text>
-              </View>
-            ) : (
-              <Text style={styles.dropdownPlaceholder}>Choose a category</Text>
-            )}
-            <MaterialCommunityIcons name="chevron-down" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-          {categoryError ? <Text style={styles.fieldError}>{categoryError}</Text> : null}
-        </View>
+          {/* Category */}
+          <View style={styles.fieldWrap}>
+            <Text style={styles.label}>Category</Text>
+            <TouchableOpacity
+              style={[styles.dropdownTrigger, categoryError ? styles.dropdownTriggerError : null]}
+              onPress={openSheet}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={selectedCategory ? `Category, ${selectedCategory.name}` : "Choose a category"}
+            >
+              {selectedCategory ? (
+                <View style={styles.dropdownSelectedRow}>
+                  <CategoryPill icon={selectedCategory.icon} color={selectedCategory.color} size={28} />
+                  <Text style={styles.dropdownText}>{selectedCategory.name}</Text>
+                </View>
+              ) : (
+                <Text style={styles.dropdownPlaceholder}>Choose a category</Text>
+              )}
+              <MaterialCommunityIcons name="chevron-down" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+            {categoryError ? <Text style={styles.fieldError}>{categoryError}</Text> : null}
+          </View>
 
-        {/* Date */}
-        <DatePicker value={date} onChange={setDate} label="Date" maxDate={new Date()} />
+          {/* Date */}
+          <DatePicker value={date} onChange={setDate} label="Date" maxDate={new Date()} />
 
-        <ChipGroup label="Payment method" options={PAYMENT_METHODS} value={paymentMethod} onChange={setPaymentMethod} />
-        <ChipGroup label="Need or want" options={NEED_WANT} value={needWant} onChange={setNeedWant} />
+          <ChipGroup label="Payment method" options={PAYMENT_METHODS} value={paymentMethod} onChange={setPaymentMethod} />
+          <ChipGroup label="Need or want" options={NEED_WANT} value={needWant} onChange={setNeedWant} />
+        </ScrollView>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        <Button label={editing ? "Save changes" : "Add expense"} onPress={handleSave} loading={isSaving} disabled={!hasChanges} />
-      </ScrollView>
+        {/* Save stays reachable with the keyboard up (B1); a save error shows right above it. */}
+        <FormFooter trackKeyboard={!isPickerOpen}>
+          {error ? (
+            <Text style={styles.error} accessibilityLiveRegion="polite">
+              {error}
+            </Text>
+          ) : null}
+          <Button label={editing ? "Save changes" : "Add expense"} onPress={handleSave} loading={isSaving} disabled={!hasChanges} />
+        </FormFooter>
+      </KeyboardAvoidingView>
 
       {/* Category Sheet */}
       <BottomSheet visible={isPickerOpen} onClose={closeSheet}>
         <View style={styles.sheetHeader}>
           <Text style={styles.sheetTitle}>Category</Text>
-          <TouchableOpacity onPress={closeSheet} hitSlop={12}>
+          <TouchableOpacity onPress={closeSheet} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
             <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
@@ -326,14 +344,19 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
               autoCorrect={false}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery("")}>
+              <TouchableOpacity
+                onPress={() => setSearchQuery("")}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+              >
                 <MaterialCommunityIcons name="close-circle" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
             )}
           </View>
         )}
 
-        <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <ScrollView style={styles.optionList} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {filteredCategories.map((c) => {
             const isSelected = c.id === categoryId;
             return (
@@ -346,6 +369,8 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
                   closeSheet();
                 }}
                 activeOpacity={0.7}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: isSelected }}
               >
                 <CategoryPill icon={c.icon} color={c.color} size={32} />
                 <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
@@ -356,8 +381,8 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
             );
           })}
           {filteredCategories.length === 0 && (
-            <View style={{ paddingVertical: spacing.xl, alignItems: "center" }}>
-              <Text style={{ color: colors.textMuted, fontSize: 15 }}>No matching categories</Text>
+            <View style={styles.noMatch}>
+              <Text style={styles.noMatchText}>No matching categories</Text>
             </View>
           )}
         </ScrollView>
@@ -369,14 +394,16 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  scroll: { flex: 1 },
   content: { padding: spacing.lg },
-  label: { fontSize: 15, fontWeight: "600", color: colors.textSecondary, marginBottom: spacing.xs },
+  headerAction: { marginRight: spacing.sm },
+  label: { ...typography.caption, fontWeight: "600", color: colors.textSecondary, marginBottom: spacing.xs },
   fieldWrap: { marginBottom: spacing.md },
-  error: { color: colors.danger, marginBottom: spacing.md, fontSize: 14 },
+  error: { ...typography.small, fontWeight: "400", color: colors.danger, marginBottom: spacing.sm },
   fieldError: { ...typography.small, fontWeight: "500", color: colors.danger, marginTop: spacing.xs },
 
   dropdownTrigger: {
-    height: 56,
+    minHeight: 56,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
@@ -393,7 +420,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     flex: 1,
   },
-  dropdownText: { fontSize: 17, fontWeight: "600", color: colors.textPrimary },
+  dropdownText: { ...typography.body, fontWeight: "600", color: colors.textPrimary },
   dropdownPlaceholder: { ...typography.body, fontWeight: "400", color: colors.textSecondary },
 
   sheetHeader: {
@@ -402,7 +429,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: spacing.md,
   },
-  sheetTitle: { fontSize: 18, fontWeight: "700", color: colors.textPrimary },
+  sheetTitle: { ...typography.subtitle, fontWeight: "700", color: colors.textPrimary },
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -412,16 +439,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: spacing.md,
-    height: 48,
+    height: size.minTouch,
     marginBottom: spacing.sm,
   },
   searchInput: {
     flex: 1,
+    ...typography.body,
+    fontWeight: "400",
     color: colors.textPrimary,
-    fontSize: 16,
     paddingVertical: 0,
   },
-  optionList: {},
+  optionList: { maxHeight: 380 },
+  noMatch: { paddingVertical: spacing.xl, alignItems: "center" },
+  noMatchText: { ...typography.caption, fontWeight: "400", color: colors.textMuted },
   optionRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -429,9 +459,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm + 4,
     paddingHorizontal: spacing.sm,
     borderRadius: radius.md,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
-  optionRowSelected: { backgroundColor: "rgba(255,255,255,0.08)" },
-  optionText: { flex: 1, fontSize: 17, fontWeight: "500", color: colors.textSecondary },
+  optionRowSelected: { backgroundColor: colors.borderLight },
+  optionText: { flex: 1, ...typography.body, fontWeight: "500", color: colors.textSecondary },
   optionTextSelected: { color: colors.textPrimary, fontWeight: "700" },
 });

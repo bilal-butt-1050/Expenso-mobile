@@ -1,7 +1,8 @@
 import React from "react";
 import { StyleSheet, Text, TextInput, TextInputProps, View } from "react-native";
 import { colors } from "../theme/colors";
-import { radius, spacing } from "../theme/spacing";
+import { radius, size, spacing } from "../theme/spacing";
+import { typography } from "../theme/typography";
 
 interface Props extends TextInputProps {
   /** React 19 passes `ref` as a prop; it reaches the TextInput, so forms can focus a field. */
@@ -17,36 +18,43 @@ export function TextField({ label, error, rightElement, style, ...inputProps }: 
       {label ? <Text style={styles.label}>{label}</Text> : null}
       <View style={styles.inputWrap}>
         <TextInput
+          // The visible label names the field; otherwise TalkBack reads the placeholder (P10).
+          accessibilityLabel={inputProps.accessibilityLabel ?? label}
           placeholderTextColor={colors.textMuted}
           style={[styles.input, !!error && styles.inputError, style, !!rightElement && styles.inputWithRight]}
           {...inputProps}
         />
         {rightElement && <View style={styles.rightElementWrap}>{rightElement}</View>}
       </View>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <Text style={styles.error} accessibilityLiveRegion="polite">
+          {error}
+        </Text>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrapper: { marginBottom: spacing.md },
-  label: { fontSize: 15, fontWeight: "600", color: colors.textSecondary, marginBottom: spacing.xs },
+  label: { ...typography.caption, fontWeight: "600", marginBottom: spacing.xs },
   inputWrap: {
     position: "relative",
     justifyContent: "center",
   },
   input: {
-    height: 56,
+    minHeight: 56,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
     color: colors.textPrimary,
-    fontSize: 17,
+    ...typography.body,
+    fontWeight: "400",
   },
   inputWithRight: {
-    paddingRight: 48,
+    paddingRight: size.minTouch,
   },
   rightElementWrap: {
     position: "absolute",
@@ -56,5 +64,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   inputError: { borderColor: colors.danger },
-  error: { color: colors.danger, fontSize: 14, marginTop: spacing.xs },
+  error: { ...typography.small, fontWeight: "500", color: colors.danger, marginTop: spacing.xs },
 });

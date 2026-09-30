@@ -69,7 +69,7 @@ export function CategoryFormScreen({ route, navigation }: Props) {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Button label={editing ? "Save Changes" : "Create Category"} onPress={handleSave} loading={isSaving} />
+      <Button label={editing ? "Save changes" : "Create category"} onPress={handleSave} loading={isSaving} />
     </ScrollView>
   );
 }
@@ -79,5 +79,5 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, paddingBottom: spacing.xxl },
   preview: { alignItems: "center", gap: spacing.sm, marginBottom: spacing.xl },
   previewName: { ...typography.subtitle, color: colors.textPrimary },
-  error: { color: colors.danger, marginBottom: spacing.md, fontSize: 13 },
+  error: { ...typography.small, fontWeight: "400", color: colors.danger, marginBottom: spacing.md },
 });

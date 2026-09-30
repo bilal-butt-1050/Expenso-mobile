@@ -1,8 +1,7 @@
 import React from "react";
 import { iconName } from "../utils/icons";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { radius, spacing } from "../theme/spacing";
 import { colors } from "../theme/colors";
 
 interface Props {
@@ -39,31 +38,6 @@ export function CategoryPill({ icon, size = 38 }: Props) {
   );
 }
 
-/**
- * @deprecated Expenses are strictly settled cashflows ("Paid"). Retained for
- * backward compatibility with screens that still import it.
- */
-export function StatusBadge({ status }: { status: "Paid" }) {
-  return (
-    <View
-      style={[
-        styles.badge,
-        styles.badgePaid,
-      ]}
-    >
-      <MaterialCommunityIcons name="check" size={11} color={colors.textPrimary} />
-      <Text
-        style={[
-          styles.badgeText,
-          { color: colors.textPrimary },
-        ]}
-      >
-        {status}
-      </Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   circle: {
     alignItems: "center",
@@ -72,19 +46,4 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.iconBorder,
   },
-  badge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: 3,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    alignSelf: "flex-start",
-  },
-  badgePaid: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderColor: "rgba(255, 255, 255, 0.14)",
-  },
-  badgeText: { fontSize: 11, fontWeight: "700" },
 });

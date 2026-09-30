@@ -18,7 +18,7 @@ import { ScreenContainer } from "../../components/ScreenContainer";
 import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
 import { colors } from "../../theme/colors";
-import { spacing } from "../../theme/spacing";
+import { radius, size, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { AuthStackParamList } from "../../types/navigation";
 
@@ -83,8 +83,14 @@ export function LoginScreen() {
 
           <View style={styles.form}>
             {error ? (
-              <View style={styles.errorContainer}>
-                <MaterialCommunityIcons name="alert-circle-outline" size={18} color={colors.danger} />
+              <View style={styles.errorContainer} accessibilityLiveRegion="polite">
+                <MaterialCommunityIcons
+                  name="alert-circle-outline"
+                  size={18}
+                  color={colors.danger}
+                  accessibilityElementsHidden
+                  importantForAccessibility="no"
+                />
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             ) : null}
@@ -105,7 +111,12 @@ export function LoginScreen() {
               onChangeText={setPassword}
               placeholder="Your password"
               rightElement={
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} hitSlop={10}>
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  hitSlop={12}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                >
                   <MaterialCommunityIcons
                     name={showPassword ? "eye-off-outline" : "eye-outline"}
                     size={20}
@@ -116,7 +127,7 @@ export function LoginScreen() {
             />
 
             <Button
-              label="Sign In"
+              label="Sign in"
               onPress={handleEmailLogin}
               loading={isLoading}
               style={{ marginTop: spacing.sm }}
@@ -133,6 +144,8 @@ export function LoginScreen() {
               onPress={handleGoogleSignIn}
               disabled={isLoading}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: isLoading }}
             >
               <MaterialCommunityIcons name="google" size={20} color={colors.textPrimary} />
               <Text style={styles.googleBtnText}>Continue with Google</Text>
@@ -142,16 +155,13 @@ export function LoginScreen() {
               style={styles.signupLink}
               onPress={() => navigation.navigate("Register")}
               activeOpacity={0.7}
+              accessibilityRole="button"
             >
               <Text style={styles.signupText}>
                 Don't have an account? <Text style={styles.signupHighlight}>Sign up</Text>
               </Text>
             </TouchableOpacity>
           </View>
-
-          <Text style={styles.disclaimer}>
-            By continuing, you agree to our Terms & Privacy Policy.
-          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>
@@ -161,7 +171,6 @@ export function LoginScreen() {
 const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
-    justifyContent: "space-between",
     paddingBottom: spacing.xl,
   },
   hero: {
@@ -171,7 +180,6 @@ const styles = StyleSheet.create({
   },
   wordmark: {
     ...typography.display,
-    fontSize: 40,
     color: colors.accent,
     letterSpacing: -1,
   },
@@ -187,18 +195,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
-    backgroundColor: "rgba(239, 68, 68, 0.12)",
+    backgroundColor: colors.dangerMuted,
     borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.25)",
+    // Over the same tint, this draws a slightly stronger edge.
+    borderColor: colors.dangerMuted,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: 12,
+    borderRadius: radius.md,
     marginBottom: spacing.md,
   },
   errorText: {
-    ...typography.caption,
+    ...typography.small,
+    fontWeight: "500",
     color: colors.danger,
-    fontSize: 13,
     flexShrink: 1,
   },
   dividerRow: {
@@ -213,8 +222,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
   },
   dividerText: {
-    fontSize: 13,
-    fontWeight: "600",
+    ...typography.small,
     color: colors.textMuted,
     textTransform: "uppercase",
   },
@@ -227,7 +235,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     minHeight: 54,
-    borderRadius: 14,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.md,
   },
   googleBtnText: {
@@ -237,23 +245,18 @@ const styles = StyleSheet.create({
   },
   signupLink: {
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: size.minTouch,
     marginTop: spacing.xl,
-    paddingVertical: spacing.xs,
   },
   signupText: {
-    fontSize: 15,
+    ...typography.caption,
+    fontWeight: "400",
     color: colors.textSecondary,
   },
   signupHighlight: {
     color: colors.accent,
     fontWeight: "700",
-  },
-  disclaimer: {
-    ...typography.caption,
-    fontSize: 12,
-    color: colors.textMuted,
-    textAlign: "center",
-    marginTop: spacing.lg,
   },
 });
 

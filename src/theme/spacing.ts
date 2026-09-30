@@ -13,6 +13,8 @@ export const radius = {
   sm: 10,
   md: 14,
   lg: 20,
+  /** Top corners of every bottom sheet (W14). */
+  sheet: 24,
   pill: 999,
 } as const;
 
@@ -28,8 +30,8 @@ export const dock = {
 } as const;
 
 export const size = {
-  /** Minimum hit area for anything tappable. */
-  minTouch: 44,
+  /** Minimum hit area for anything tappable: 48dp, Android's guideline (B6). */
+  minTouch: 48,
   /** Floating action button diameter. */
   fab: 56,
 } as const;

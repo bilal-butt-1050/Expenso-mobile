@@ -43,7 +43,7 @@ src/
    warnings for now: don't add new ones.
 4. **Design system is the authority** — see [docs/design-system.md](docs/design-system.md). Never
    invent colours or ad-hoc spacing; use `src/theme/` tokens.
-5. **Touch targets ≥ 44×44pt.** Buttons and inputs are 54–56pt tall.
+5. **Touch targets ≥ 48×48 (`size.minTouch`).** Buttons and inputs are 54–56pt tall.
 6. **Scroll containers must clear the elevated tab dock** — use `useTabBarPadding()`. Never a
    hardcoded pixel value; the dock's height depends on the device's safe-area inset. Screens
    outside the tab navigator (Settings, the forms) use `useSafeAreaInsets()` instead, because

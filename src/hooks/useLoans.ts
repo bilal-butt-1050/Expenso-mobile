@@ -26,7 +26,7 @@ export function useLoansForMonth(month: string, enabled = true) {
   return {
     loans: (query.data ?? []) as Loan[],
     isLoading: query.isPending,
-    error: query.error ? String(query.error) : null,
+    error: query.error,
     refetch: query.refetch,
   };
 }

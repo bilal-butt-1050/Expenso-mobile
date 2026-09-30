@@ -1,10 +1,14 @@
 import React, { useState } from "react";
-import { StyleProp, Text, TextStyle, useWindowDimensions } from "react-native";
+import { StyleProp, StyleSheet, Text, TextStyle, useWindowDimensions } from "react-native";
 import { formatCurrency, formatCurrencyCompact, formatCurrencySpoken } from "../utils/currency";
 
 interface Props {
   amount: number;
   style?: StyleProp<TextStyle>;
+  /** A sign drawn before the figure ("+" / "−"), kept out of the spoken value's number. */
+  prefix?: string;
+  /** Replaces the spoken label, e.g. "Spent, Rs 500". */
+  accessibilityLabel?: string;
 }
 
 /**
@@ -17,7 +21,7 @@ interface Props {
  * `numberOfLines` is deliberately left unset: with `1`, Android truncates to one line and
  * `onTextLayout` never reports the overflow this relies on.
  */
-export function MoneyText({ amount, style }: Props) {
+export function MoneyText({ amount, style, prefix = "", accessibilityLabel }: Props) {
   const { fontScale, width } = useWindowDimensions();
   // Compact applies only to the exact value and layout it was measured for, so a new value or
   // layout is measured afresh in full form, with no effect and no stale compact frame.
@@ -27,13 +31,19 @@ export function MoneyText({ amount, style }: Props) {
 
   return (
     <Text
-      style={style}
-      accessibilityLabel={formatCurrencySpoken(amount)}
+      // Tabular digits, so figures in a column line up (W8).
+      style={[styles.figure, style]}
+      accessibilityLabel={accessibilityLabel ?? formatCurrencySpoken(amount)}
       onTextLayout={(e) => {
         if (!compact && e.nativeEvent.lines.length > 1) setCompactFor(layoutKey);
       }}
     >
+      {prefix}
       {compact ? formatCurrencyCompact(amount) : formatCurrency(amount)}
     </Text>
   );
 }
+
+const styles = StyleSheet.create({
+  figure: { fontVariant: ["tabular-nums"] },
+});

@@ -77,7 +77,7 @@ export function PasswordSheet({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>{hasPassword ? "Change Password" : "Set a Password"}</Text>
+        <Text style={styles.title}>{hasPassword ? "Change password" : "Set a password"}</Text>
         {!hasPassword ? (
           <Text style={styles.note}>
             Then you can also sign in with your email and this password. Google will ask you to confirm
@@ -86,7 +86,7 @@ export function PasswordSheet({
         ) : null}
         {hasPassword ? (
           <PasswordField
-            label="Current Password"
+            label="Current password"
             value={currentPassword}
             onChangeText={setCurrentPassword}
             autoComplete="current-password"
@@ -94,7 +94,7 @@ export function PasswordSheet({
           />
         ) : null}
         <PasswordField
-          label="New Password"
+          label="New password"
           value={newPassword}
           onChangeText={setNewPassword}
           placeholder={`At least ${MIN_LENGTH} characters`}
@@ -102,7 +102,7 @@ export function PasswordSheet({
           textContentType="newPassword"
         />
         <PasswordField
-          label="Confirm New Password"
+          label="Confirm new password"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           autoComplete="new-password"
@@ -148,7 +148,7 @@ function PasswordField(props: TextInputProps & { label: string; error?: string |
 
 const styles = StyleSheet.create({
   scroll: { flexShrink: 1 },
-  content: { paddingHorizontal: spacing.xl, paddingVertical: spacing.sm, gap: spacing.md },
+  content: { paddingVertical: spacing.sm, gap: spacing.md },
   title: { ...typography.subtitle, color: colors.textPrimary },
   note: { ...typography.caption, color: colors.textSecondary },
   actions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.md },

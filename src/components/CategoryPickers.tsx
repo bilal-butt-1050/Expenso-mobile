@@ -3,7 +3,12 @@ import { iconName } from "../utils/icons";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
-import { radius, spacing } from "../theme/spacing";
+import { radius, size, spacing } from "../theme/spacing";
+import { typography } from "../theme/typography";
+
+const SWATCH = 32;
+/** Grows each colour swatch's hit area to the minimum touch size (B6). */
+const SWATCH_SLOP = (size.minTouch - SWATCH) / 2;
 
 // A curated set rather than a full icon-library browser — enough variety
 // to represent almost any spending category without overwhelming a
@@ -28,9 +33,10 @@ export function ColorPicker({ value, onChange }: ColorProps) {
           <TouchableOpacity
             key={c}
             onPress={() => onChange(c)}
-            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            hitSlop={SWATCH_SLOP}
             accessibilityRole="button"
             accessibilityLabel={`Select color ${c}`}
+            accessibilityState={{ selected: value === c }}
             style={[styles.swatch, { backgroundColor: c }, value === c && styles.swatchSelected]}
           />
         ))}
@@ -59,6 +65,7 @@ export function IconPicker({ value, color, onChange }: IconProps) {
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
               accessibilityRole="button"
               accessibilityLabel={`Select icon ${icon}`}
+              accessibilityState={{ selected }}
               style={[
                 styles.iconSlot,
                 { backgroundColor: selected ? `${color}26` : colors.surfaceRaised },
@@ -75,9 +82,10 @@ export function IconPicker({ value, color, onChange }: IconProps) {
 }
 
 const styles = StyleSheet.create({
-  label: { fontSize: 13, fontWeight: "600", color: colors.textSecondary, marginBottom: spacing.sm },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.lg },
-  swatch: { width: 32, height: 32, borderRadius: radius.pill, borderWidth: 2, borderColor: "transparent" },
+  label: { ...typography.small, color: colors.textSecondary, marginBottom: spacing.sm },
+  // md, not sm: each swatch's slop reaches 8pt past it, so a smaller gap overlaps the next one.
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md, marginBottom: spacing.lg },
+  swatch: { width: SWATCH, height: SWATCH, borderRadius: radius.pill, borderWidth: 2, borderColor: "transparent" },
   swatchSelected: { borderColor: colors.textPrimary },
   iconSlot: {
     width: 42,

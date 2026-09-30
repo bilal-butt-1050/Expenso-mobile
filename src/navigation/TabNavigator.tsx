@@ -9,6 +9,7 @@ import { TabParamList, RootStackParamList } from "../types/navigation";
 import { colors } from "../theme/colors";
 import { radius, size, spacing } from "../theme/spacing";
 import { elevation } from "../theme/elevation";
+import { typography } from "../theme/typography";
 import { HomeScreen } from "../screens/home/HomeScreen";
 import { ActivityScreen } from "../screens/activity/ActivityScreen";
 import { BudgetScreen } from "../screens/budget/BudgetScreen";
@@ -104,10 +105,10 @@ export function TabNavigator() {
             borderTopWidth: 0,
             height: dock,
             paddingBottom: dockPaddingBottom(insets.bottom),
-            paddingTop: 6,
+            paddingTop: spacing.xs,
             elevation: 0,
           },
-          tabBarLabelStyle: { fontSize: 11, fontWeight: "600", marginTop: 2 },
+          tabBarLabelStyle: { ...typography.tabLabel, marginTop: 2 },
           tabBarButton: (props) => <PlainTabButton {...props} />,
           tabBarBackground: () => <NotchedTabBackground height={dock} />,
           tabBarIcon: ({ color, focused }) => {
@@ -197,7 +198,8 @@ const styles = StyleSheet.create({
     width: size.fab,
     height: size.fab,
     borderRadius: radius.pill,
-    backgroundColor: colors.accent,
+    // Filled controls use the deeper shade, so the white icon reads clearly (B5).
+    backgroundColor: colors.accentFill,
     alignItems: "center",
     justifyContent: "center",
     ...elevation.floating,
@@ -215,6 +217,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     ...elevation.floating,
   },
-  homeButtonActive: { backgroundColor: colors.accent },
+  homeButtonActive: { backgroundColor: colors.accentFill },
   homeButtonIdle: { backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border },
 });

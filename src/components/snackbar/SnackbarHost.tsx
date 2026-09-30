@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
-  AccessibilityInfo,
   Animated,
   Easing,
   Pressable,
@@ -17,6 +16,7 @@ import { radius, size, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { elevation } from "../../theme/elevation";
 import { dockHeight } from "../../navigation/dock";
+import { useReduceMotion } from "../../hooks/useReduceMotion";
 import { SnackbarEntry, useSnackbarHost } from "./SnackbarContext";
 
 /** Font scale at which the action stacks under the message instead of beside it (NFR-4). */
@@ -35,27 +35,13 @@ export function SnackbarHost() {
   const [shown, setShown] = useState<SnackbarEntry | null>(null);
   const shownRef = useRef<SnackbarEntry | null>(null);
   const progress = useRef(new Animated.Value(0)).current;
-  const [reduceMotion, setReduceMotion] = useState(false);
+  const reduceMotion = useReduceMotion();
 
   useEffect(() => {
     setHostActive(isFocused);
   }, [isFocused, setHostActive]);
 
   useEffect(() => () => setHostActive(false), [setHostActive]);
-
-  useEffect(() => {
-    let cancelled = false;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((on) => {
-        if (!cancelled) setReduceMotion(on);
-      })
-      .catch(() => {});
-    const sub = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
-    return () => {
-      cancelled = true;
-      sub.remove();
-    };
-  }, []);
 
   // Swap messages with an exit-then-enter. The outgoing one stays mounted until its exit finishes
   // (ui-review 7.4). `shownRef` avoids depending on state this effect sets (7.3).

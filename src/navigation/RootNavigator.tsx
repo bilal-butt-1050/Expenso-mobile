@@ -111,22 +111,40 @@ export function RootNavigator() {
                 <Stack.Screen
                   name="Settings"
                   component={SettingsScreen}
-                  options={{ animation: "slide_from_right" }}
+                  // The native header gives Settings a visible back and its title (B4), styled by
+                  // the navigation theme like the form headers.
+                  options={{ animation: "slide_from_right", headerShown: true, title: "Settings" }}
                 />
                 <Stack.Screen name="OnboardingTour" component={OnboardingTourScreen} />
                 <Stack.Screen name="OpeningCash" component={OpeningCashScreen} options={{ gestureEnabled: false }} />
+                {/* Header titles follow the mode (P11): an edit says so, and a new loan names its
+                    direction like the + sheet does. LoanFormScreen updates it if the toggle flips. */}
                 <Stack.Group screenOptions={{ presentation: "modal", headerShown: true }}>
-                  <Stack.Screen name="ExpenseForm" component={ExpenseFormScreen} options={{ title: "Expense" }} />
-                  <Stack.Screen name="IncomeForm" component={IncomeFormScreen} options={{ title: "Log Income" }} />
+                  <Stack.Screen
+                    name="ExpenseForm"
+                    component={ExpenseFormScreen}
+                    options={({ route }) => ({ title: route.params?.transaction ? "Edit expense" : "Add expense" })}
+                  />
+                  <Stack.Screen
+                    name="IncomeForm"
+                    component={IncomeFormScreen}
+                    options={({ route }) => ({ title: route.params?.transaction ? "Edit income" : "Add income" })}
+                  />
                   <Stack.Screen
                     name="CategoryForm"
                     component={CategoryFormScreen}
-                    options={{ title: "Category" }}
+                    options={({ route }) => ({ title: route.params?.category ? "Edit category" : "Add category" })}
                   />
                   <Stack.Screen
                     name="LoanForm"
                     component={LoanFormScreen}
-                    options={{ title: "Record Loan" }}
+                    options={({ route }) => ({
+                      title: route.params?.loan
+                        ? "Edit loan"
+                        : route.params?.initialType === "BORROWED"
+                          ? "Borrow money"
+                          : "Lend money",
+                    })}
                   />
                 </Stack.Group>
               </>

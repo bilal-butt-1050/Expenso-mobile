@@ -11,4 +11,7 @@ export const typography: Record<string, TextStyle> = {
   caption: { fontSize: 15, fontWeight: "500", color: colors.textSecondary },
   small:   { fontSize: 14, fontWeight: "600", color: colors.textSecondary },
   metricValue: { fontSize: 32, fontWeight: "800", color: colors.textPrimary, letterSpacing: -0.3 },
+  // Two documented exceptions to the ramp (design-system.md): button labels and tab labels.
+  button: { fontSize: 16, fontWeight: "700" },
+  tabLabel: { fontSize: 11, fontWeight: "600" },
 };

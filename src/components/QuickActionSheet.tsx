@@ -19,6 +19,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { colors } from "../theme/colors";
 import { radius, spacing } from "../theme/spacing";
+import { typography } from "../theme/typography";
 import { hapticLight } from "../utils/haptics";
 import { useRegisterOverlay } from "../lib/overlays";
 import { useLatest } from "../hooks/useLatest";
@@ -146,21 +147,25 @@ export function QuickActionSheet({
       animationType="none"
       onRequestClose={() => dismissSheet()}
     >
-      <TouchableWithoutFeedback onPress={() => dismissSheet()}>
+      {/* Neither touchable is a screen-reader stop: each would group the whole sheet into one
+          unlabelled element. Back closes the sheet (W14). */}
+      <TouchableWithoutFeedback onPress={() => dismissSheet()} accessible={false}>
         <Animated.View style={[styles.backdrop, animatedBackdropStyle]}>
-          <TouchableWithoutFeedback>
+          <TouchableWithoutFeedback accessible={false}>
             <Animated.View
               style={[
                 styles.sheetContainer,
                 animatedSheetStyle,
-                { paddingBottom: Math.max(insets.bottom + 12, 28) + spacing.md },
+                { paddingBottom: Math.max(insets.bottom + spacing.sm, spacing.xl) + spacing.md },
               ]}
             >
               {/* Draggable Handle Header Area */}
               <View style={styles.dragHandleArea} {...panResponder.panHandlers}>
                 <View style={styles.handle} />
                 <View style={styles.header}>
-                  <Text style={styles.title}>Add New</Text>
+                  <Text style={styles.title} accessibilityRole="header">
+                    Add new
+                  </Text>
                 </View>
               </View>
 
@@ -177,14 +182,9 @@ export function QuickActionSheet({
                     dismissSheet(() => onSelectExpense());
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel="Add Expense"
+                  accessibilityLabel="Add expense"
                 >
-                  <View
-                    style={[
-                      styles.iconCircle,
-                      { backgroundColor: "rgba(239, 68, 68, 0.12)" },
-                    ]}
-                  >
+                  <View style={[styles.iconCircle, { backgroundColor: colors.dangerMuted }]}>
                     <MaterialCommunityIcons
                       name="arrow-down"
                       size={22}
@@ -199,7 +199,7 @@ export function QuickActionSheet({
                   />
                 </TouchableOpacity>
 
-                {/* Log Income */}
+                {/* Add Income */}
                 <TouchableOpacity
                   style={styles.actionCard}
                   activeOpacity={0.7}
@@ -208,14 +208,9 @@ export function QuickActionSheet({
                     dismissSheet(() => onSelectIncome());
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel="Log Income"
+                  accessibilityLabel="Add income"
                 >
-                  <View
-                    style={[
-                      styles.iconCircle,
-                      { backgroundColor: "rgba(16, 185, 129, 0.12)" },
-                    ]}
-                  >
+                  <View style={[styles.iconCircle, { backgroundColor: colors.successMuted }]}>
                     <MaterialCommunityIcons
                       name="arrow-up"
                       size={22}
@@ -232,7 +227,7 @@ export function QuickActionSheet({
 
                 {/* Section: Deferred Obligations */}
                 <Text style={[styles.sectionHeader, { marginTop: spacing.xs }]}>
-                  Loans & Debts
+                  Loans & debts
                 </Text>
 
                 {/* Lend */}
@@ -241,21 +236,17 @@ export function QuickActionSheet({
                   activeOpacity={0.7}
                   onPress={handleLend}
                   accessibilityRole="button"
-                  accessibilityLabel="Lend Money"
+                  accessibilityLabel="Lend money"
                 >
-                  <View
-                    style={[
-                      styles.iconCircle,
-                      { backgroundColor: "rgba(59, 130, 246, 0.12)" },
-                    ]}
-                  >
+                  {/* One colour per loan direction (D-59, W4). */}
+                  <View style={[styles.iconCircle, { backgroundColor: colors.lentMuted }]}>
                     <MaterialCommunityIcons
                       name="hand-coin-outline"
                       size={22}
-                      color="#60A5FA"
+                      color={colors.lent}
                     />
                   </View>
-                  <Text style={styles.actionTitle}>Lend Money</Text>
+                  <Text style={styles.actionTitle}>Lend money</Text>
                   <MaterialCommunityIcons
                     name="chevron-right"
                     size={20}
@@ -269,21 +260,16 @@ export function QuickActionSheet({
                   activeOpacity={0.7}
                   onPress={handleBorrow}
                   accessibilityRole="button"
-                  accessibilityLabel="Borrow Money"
+                  accessibilityLabel="Borrow money"
                 >
-                  <View
-                    style={[
-                      styles.iconCircle,
-                      { backgroundColor: "rgba(245, 158, 11, 0.12)" },
-                    ]}
-                  >
+                  <View style={[styles.iconCircle, { backgroundColor: colors.borrowedMuted }]}>
                     <MaterialCommunityIcons
                       name="account-cash-outline"
                       size={22}
-                      color={colors.warning}
+                      color={colors.borrowed}
                     />
                   </View>
-                  <Text style={styles.actionTitle}>Borrow Money</Text>
+                  <Text style={styles.actionTitle}>Borrow money</Text>
                   <MaterialCommunityIcons
                     name="chevron-right"
                     size={20}
@@ -291,19 +277,6 @@ export function QuickActionSheet({
                   />
                 </TouchableOpacity>
               </View>
-
-              <TouchableOpacity
-                style={styles.cancelButton}
-                activeOpacity={0.7}
-                onPress={() => {
-                  hapticLight();
-                  dismissSheet();
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Cancel"
-              >
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
             </Animated.View>
           </TouchableWithoutFeedback>
         </Animated.View>
@@ -315,13 +288,13 @@ export function QuickActionSheet({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    backgroundColor: colors.scrim,
     justifyContent: "flex-end",
   },
   sheetContainer: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
     paddingHorizontal: spacing.lg,
     borderTopWidth: 1,
     borderColor: colors.borderLight,
@@ -332,7 +305,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   handle: {
-    width: 38,
+    width: 36,
     height: 4,
     borderRadius: radius.pill,
     backgroundColor: colors.border,
@@ -343,7 +316,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: {
-    fontSize: 18,
+    ...typography.subtitle,
     fontWeight: "700",
     color: colors.textPrimary,
     letterSpacing: -0.2,
@@ -352,7 +325,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm + 2,
   },
   sectionHeader: {
-    fontSize: 12,
+    ...typography.small,
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 0.8,
@@ -363,9 +336,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.surfaceRaised,
-    borderRadius: 18,
+    borderRadius: radius.lg,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md + 2,
+    paddingHorizontal: spacing.md,
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
@@ -378,21 +351,9 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   actionTitle: {
+    ...typography.body,
     flex: 1,
-    fontSize: 16,
     fontWeight: "600",
     color: colors.textPrimary,
-  },
-  cancelButton: {
-    marginTop: spacing.md + 4,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 18,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  cancelText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: colors.textSecondary,
   },
 });

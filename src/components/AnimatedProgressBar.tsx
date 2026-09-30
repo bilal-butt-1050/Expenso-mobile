@@ -28,7 +28,7 @@ export function AnimatedProgressBar({
   progress,
   height = 8,
   color,
-  backgroundColor = "rgba(255, 255, 255, 0.08)",
+  backgroundColor = colors.borderLight,
   autoColor = false,
   animateOnFocus = true,
   style,
@@ -60,7 +60,8 @@ export function AnimatedProgressBar({
   const getBarColor = () => {
     if (color) return color;
     if (isOver) return colors.danger;
-    if (autoColor && normalizedProgress >= 0.85) return colors.warning;
+    // 80%, where the budget warning (S-3) fires, so the bar and the note agree (W9).
+    if (autoColor && normalizedProgress >= 0.8) return colors.warning;
     return colors.accent;
   };
 

@@ -29,6 +29,7 @@ import { colors } from "../../theme/colors";
 import { radius, size, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { formatCurrency, formatAmountInput } from "../../utils/currency";
+import { MoneyText } from "../../components/MoneyText";
 import { OFFLINE_MESSAGE, getErrorMessage } from "../../api/client";
 import { formatMonthLabel } from "../../utils/date";
 import { hapticLight } from "../../utils/haptics";
@@ -218,20 +219,23 @@ export function BudgetScreen() {
           </View>
           <View style={styles.capsuleRight}>
             {item.budget > 0 || item.actual > 0 ? (
-              <Text style={styles.capsuleAmount}>{formatCurrency(item.actual)}</Text>
+              <MoneyText amount={item.actual} style={styles.capsuleAmount} />
             ) : null}
-            <Text style={[styles.capsuleBudget, isOver && { color: colors.danger }, item.budget === 0 && styles.setLink]}>
-              {item.budget === 0
-                ? "Set budget ›"
-                : isOver
-                  ? `${formatCurrency(item.actual - item.budget)} over`
-                  : `of ${formatCurrency(item.budget)}`}
-            </Text>
+            {item.budget === 0 ? (
+              <Text style={[styles.capsuleBudget, styles.setLink]}>Set budget ›</Text>
+            ) : isOver ? (
+              <View style={styles.figurePair}>
+                <MoneyText amount={item.actual - item.budget} style={[styles.capsuleBudget, styles.over]} />
+                <Text style={[styles.capsuleBudget, styles.over]}> over</Text>
+              </View>
+            ) : (
+              <MoneyText amount={item.budget} prefix="of " style={styles.capsuleBudget} />
+            )}
           </View>
         </View>
 
         {item.hasBudget && item.budget > 0 && (
-          <AnimatedProgressBar progress={progress} height={6} style={{ marginTop: spacing.sm }} />
+          <AnimatedProgressBar progress={progress} height={6} autoColor style={{ marginTop: spacing.sm }} />
         )}
       </TouchableOpacity>
     );
@@ -245,7 +249,10 @@ export function BudgetScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={styles.title}>Budget</Text>
+      {/* The month picker leads and stays put, as on Home and Activity (W7, B2). */}
+      <View style={styles.topRow}>
+        <MonthPicker month={selectedMonth} onChange={setSelectedMonth} allowFuture />
+      </View>
 
       {(!summary && (error || isOffline)) || (!categories && categoriesError) ? (
         // A failed load used to render the list with "BUDGETED Rs 0", which is false (§5.4).
@@ -270,11 +277,6 @@ export function BudgetScreen() {
           contentContainerStyle={{ paddingBottom: bottomPadding }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         >
-          <View style={styles.topRow}>
-            <View style={{ flex: 1 }}>
-              <MonthPicker month={selectedMonth} onChange={setSelectedMonth} allowFuture />
-            </View>
-          </View>
           <EmptyState
             icon="chart-donut"
             title={`No budgets for ${monthLabel}`}
@@ -298,12 +300,6 @@ export function BudgetScreen() {
           contentContainerStyle={{ paddingBottom: bottomPadding }}
           ListHeaderComponent={
             <>
-              <View style={styles.topRow}>
-                <View style={{ flex: 1 }}>
-                  <MonthPicker month={selectedMonth} onChange={setSelectedMonth} allowFuture />
-                </View>
-              </View>
-
               {settingUp ? (
                 <View style={styles.setupHead}>
                   <View style={{ flex: 1 }}>
@@ -318,15 +314,17 @@ export function BudgetScreen() {
                   <View style={styles.summaryCard}>
                     <View style={styles.summaryRow}>
                       <View style={styles.summaryCol}>
-                        <Text style={styles.summaryLabel}>BUDGETED</Text>
-                        <Text style={styles.summaryValue}>{formatCurrency(totalBudgeted)}</Text>
+                        <Text style={styles.summaryLabel}>Budgeted</Text>
+                        <MoneyText amount={totalBudgeted} style={styles.summaryValue} />
                       </View>
                       <View style={styles.summaryDivider} />
                       <View style={styles.summaryCol}>
-                        <Text style={styles.summaryLabel}>LEFT TO BUDGET</Text>
-                        <Text style={[styles.summaryValue, leftToBudget < 0 && { color: colors.danger }]}>
-                          {monthlyIncome > 0 ? formatCurrency(leftToBudget) : "—"}
-                        </Text>
+                        <Text style={styles.summaryLabel}>Left to budget</Text>
+                        {monthlyIncome > 0 ? (
+                          <MoneyText amount={leftToBudget} style={[styles.summaryValue, leftToBudget < 0 && styles.over]} />
+                        ) : (
+                          <Text style={styles.summaryValue}>—</Text>
+                        )}
                       </View>
                     </View>
 
@@ -489,24 +487,18 @@ function BudgetEditSheet({
 }
 
 const styles = StyleSheet.create({
-  title: {
-    ...typography.title,
-    paddingTop: spacing.lg + 4,
-    marginBottom: spacing.md,
-    fontSize: 24,
-    letterSpacing: -0.3,
-  },
+  // Home's top padding, so the picker doesn't jump between tabs (W7).
   topRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    paddingTop: spacing.md,
     marginBottom: spacing.md,
   },
 
+  // A grouped card, as on Home (W5).
   summaryCard: {
-    backgroundColor: colors.surfaceRaised,
+    backgroundColor: colors.surface,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     padding: spacing.lg,
     marginBottom: spacing.md,
     gap: spacing.sm,
@@ -516,27 +508,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   summaryCol: { flex: 1 },
+  // Written in sentence case and drawn in capitals, so TalkBack reads words, not letters (P12).
   summaryLabel: {
-    fontSize: 12,
+    ...typography.small,
     fontWeight: "700",
     color: colors.textMuted,
     letterSpacing: 0.5,
-    marginBottom: 4,
+    textTransform: "uppercase",
+    marginBottom: spacing.xs,
   },
   summaryValue: {
-    fontSize: 22,
+    ...typography.subtitle,
     fontWeight: "800",
     color: colors.textPrimary,
   },
   summaryDivider: {
     width: 1,
     height: 36,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: colors.borderLight,
     marginHorizontal: spacing.md,
   },
   unallocatedText: {
-    fontSize: 14,
-    fontWeight: "600",
+    ...typography.small,
     color: colors.textSecondary,
   },
 
@@ -548,6 +541,9 @@ const styles = StyleSheet.create({
   },
   setupHead: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.sm },
   setLink: { color: colors.accent },
+  over: { color: colors.danger },
+  // Wraps at large text instead of running past the card's edge (NFR-4, G4 M2).
+  figurePair: { flexDirection: "row", flexWrap: "wrap", alignItems: "baseline" },
   emptySpentTitle: { marginTop: spacing.xl },
   groupLabel: { ...typography.body, fontWeight: "600", color: colors.textSecondary, flexShrink: 1 },
   errorBlock: { alignItems: "center", gap: spacing.sm, paddingTop: spacing.xl },
@@ -556,17 +552,17 @@ const styles = StyleSheet.create({
   sectionHint: { ...typography.small, color: colors.textSecondary, marginBottom: spacing.sm },
   sectionTitle: {
     ...typography.subtitle,
-    fontSize: 18,
     fontWeight: "700",
     color: colors.textPrimary,
     marginTop: spacing.sm,
     marginBottom: spacing.sm,
   },
 
+  // A list row (W5): one step up from the grouped cards.
   capsule: {
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: colors.borderLight,
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.md,
@@ -590,15 +586,13 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   capsuleAmount: {
-    fontSize: 16,
+    ...typography.body,
     fontWeight: "800",
     color: colors.textPrimary,
   },
   capsuleBudget: {
-    fontSize: 12,
-    fontWeight: "600",
+    ...typography.small,
     color: colors.textMuted,
-    marginTop: 2,
   },
 
   // Sheet
@@ -612,7 +606,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginBottom: spacing.lg,
   },
-  sheetTitle: { ...typography.subtitle, color: colors.textPrimary, fontSize: 20 },
+  sheetTitle: { ...typography.subtitle, color: colors.textPrimary },
   sheetActions: {
     flexDirection: "row",
     gap: spacing.sm,

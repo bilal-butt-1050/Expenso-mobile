@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { onlineManager } from "@tanstack/react-query";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTransactions, useTransactionMutations } from "../../hooks/useTransactions";
 import { useLoans, useLoansForMonth } from "../../hooks/useLoans";
@@ -20,6 +21,7 @@ import { MonthPicker } from "../../components/MonthPicker";
 import { AnimatedSegmentedControl, SegmentOption } from "../../components/AnimatedSegmentedControl";
 import { EmptyState } from "../../components/EmptyState";
 import { Button } from "../../components/Button";
+import { MoneyText } from "../../components/MoneyText";
 import { ListScreenSkeleton } from "../../components/Skeleton";
 import {
   SwipeableActivityRow,
@@ -33,7 +35,7 @@ import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { formatCurrency } from "../../utils/currency";
 import { currentMonthKey, formatDate, formatDayMonth, formatMonthLabel } from "../../utils/date";
-import { getErrorMessage } from "../../api/client";
+import { OFFLINE_MESSAGE, getErrorMessage } from "../../api/client";
 import { hapticLight, hapticDelete } from "../../utils/haptics";
 import { useSnackbar } from "../../components/snackbar/SnackbarContext";
 import { useReduceMotion } from "../../hooks/useReduceMotion";
@@ -98,6 +100,14 @@ function isOverdue(loan: Loan): boolean {
   const due = new Date(loan.dueDate).getTime();
   return !isNaN(due) && due < startOfToday.getTime();
 }
+
+/** What the empty state calls the segment's entries: "No expenses in Sep 2026" (P13, §5.4). */
+const EMPTY_NOUN: Record<ActivityTab, string> = {
+  ALL: "entries",
+  EXPENSES: "expenses",
+  INCOME: "income",
+  LOANS: "loans",
+};
 
 const TAB_OPTIONS: SegmentOption<ActivityTab>[] = [
   { label: "All", value: "ALL" },
@@ -189,6 +199,7 @@ export function ActivityScreen() {
   const isCurrentMonth = selectedMonth === currentMonthKey();
 
   const isLoading = (activeTab === "LOANS" ? loansLoading : txLoading) || false;
+  const listError = activeTab === "LOANS" ? loansError : txError;
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -485,12 +496,9 @@ export function ActivityScreen() {
 
   return (
     <ScreenContainer style={styles.noPad}>
-      {/* Header */}
+      {/* The month picker leads, as on Home; the tab bar already names the screen (W7, B2). */}
       <View style={styles.header}>
-        <View style={styles.monthWrap}>
-          <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
-        </View>
-        <Text style={styles.headerTitle}>Activity</Text>
+        <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
 
         {pendingWrites > 0 && (
           <View style={styles.offlineBanner}>
@@ -516,24 +524,21 @@ export function ActivityScreen() {
       {/* Transaction Feed */}
       {isLoading ? (
         <ListScreenSkeleton />
-      ) : sections.length === 0 && (activeTab === "LOANS" ? loansError : txError) ? (
+      ) : sections.length === 0 && listError ? (
         // A failed load used to say "No transactions", which is false (§5.4).
         <View style={styles.errorBlock}>
           <MaterialCommunityIcons name="cloud-alert-outline" size={48} color={colors.textSecondary} />
           <Text style={styles.errorTitle}>Couldn't load your activity</Text>
           <Text style={styles.errorSubtitle}>
-            {activeTab === "LOANS" ? "Something went wrong. Please try again." : getErrorMessage(txError)}
+            {onlineManager.isOnline() ? getErrorMessage(listError) : OFFLINE_MESSAGE}
           </Text>
           <Button label="Try again" variant="secondary" onPress={() => void handleRefresh()} />
         </View>
       ) : sections.length === 0 ? (
+        // It names the segment and the month it's scoped to, and points at the one way to add (§5.2).
         <EmptyState
-          title={activeTab === "LOANS" ? `No loans in ${formatMonthLabel(selectedMonth)}` : "No transactions"}
-          subtitle={
-            activeTab === "LOANS"
-              ? "Loans show from the day the money moved until they're paid back."
-              : "Transactions you log will appear here."
-          }
+          title={`No ${EMPTY_NOUN[activeTab]} in ${formatMonthLabel(selectedMonth)}`}
+          subtitle="Tap + to add one."
           icon="receipt-text-outline"
         />
       ) : (
@@ -561,24 +566,23 @@ export function ActivityScreen() {
               <View style={styles.loansOverviewCard}>
                 <View style={styles.loanCol}>
                   {/* The figure is what's still out, and the title says exactly that (§5.4). */}
-                  <Text style={styles.loanColLabel}>STILL TO COME BACK</Text>
-                  <Text style={[styles.loanColValue, { color: colors.success }]}>
-                    {formatCurrency(monthTotals.lent)}
-                  </Text>
+                  <Text style={styles.loanColLabel}>Still to come back</Text>
+                  {/* One colour per loan direction, never green/red (D-59, W4). */}
+                  <MoneyText amount={monthTotals.lent} style={[styles.loanColValue, styles.lentValue]} />
                 </View>
                 <View style={styles.loanDivider} />
                 <View style={styles.loanCol}>
-                  <Text style={styles.loanColLabel}>STILL TO PAY BACK</Text>
-                  <Text style={[styles.loanColValue, { color: colors.danger }]}>
-                    {formatCurrency(monthTotals.borrowed)}
-                  </Text>
+                  <Text style={styles.loanColLabel}>Still to pay back</Text>
+                  <MoneyText amount={monthTotals.borrowed} style={[styles.loanColValue, styles.borrowedValue]} />
                 </View>
               </View>
             ) : null
           }
           renderSectionHeader={({ section: { title } }) => (
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionHeaderText}>{title}</Text>
+              <Text style={styles.sectionHeaderText} accessibilityRole="header">
+                {title}
+              </Text>
             </View>
           )}
           renderItem={({ item }) => (
@@ -617,35 +621,25 @@ const styles = StyleSheet.create({
   errorTitle: { ...typography.body, fontWeight: "600", color: colors.textSecondary, textAlign: "center" },
   errorSubtitle: { ...typography.caption, textAlign: "center", marginBottom: spacing.sm },
   noPad: { paddingHorizontal: 0 },
+  // Home's top row: the same top padding, so the picker doesn't jump between tabs (W7).
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    paddingBottom: spacing.xs,
     backgroundColor: colors.background,
-  },
-  monthWrap: {
-    marginBottom: spacing.xs,
-  },
-  headerTitle: {
-    ...typography.title,
-    fontSize: 28,
-    fontWeight: "800",
-    letterSpacing: -0.5,
-    color: colors.textPrimary,
   },
   offlineBanner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(245, 158, 11, 0.1)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    gap: spacing.xs,
+    backgroundColor: colors.warningMuted,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     borderRadius: radius.pill,
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
     alignSelf: "flex-start",
   },
   offlineBannerText: {
-    fontSize: 12,
+    ...typography.small,
     fontWeight: "600",
     color: colors.warning,
   },
@@ -655,11 +649,12 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     backgroundColor: colors.background,
   },
+  // A grouped card: `surface`, 1pt `borderLight`, `radius.lg`; the rows below are the raised level (W5).
   loansOverviewCard: {
     flexDirection: "row",
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: 22,
-    paddingVertical: spacing.md + 2,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
@@ -674,16 +669,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.borderLight,
   },
   loanColLabel: {
-    fontSize: 11,
+    ...typography.small,
     fontWeight: "700",
     color: colors.textMuted,
-    letterSpacing: 0.6,
-    marginBottom: 4,
+    textTransform: "uppercase",
+    textAlign: "center",
+    marginBottom: spacing.xs,
   },
   loanColValue: {
-    fontSize: 17,
+    ...typography.body,
     fontWeight: "700",
   },
+  lentValue: { color: colors.lent },
+  borrowedValue: { color: colors.borrowed },
   listContent: {
     paddingHorizontal: spacing.lg,
   },
@@ -693,7 +691,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   sectionHeaderText: {
-    fontSize: 13,
+    ...typography.small,
     fontWeight: "700",
     color: colors.textMuted,
     letterSpacing: 0.5,
