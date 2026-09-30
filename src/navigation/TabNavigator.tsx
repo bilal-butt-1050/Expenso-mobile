@@ -15,6 +15,7 @@ import { BudgetScreen } from "../screens/budget/BudgetScreen";
 import { QuickActionSheet } from "../components/QuickActionSheet";
 import { hapticLight, hapticMedium } from "../utils/haptics";
 import { dockHeight, dockPaddingBottom } from "./dock";
+import { NotchedTabBackground } from "./NotchedTabBackground";
 import { SnackbarHost } from "../components/snackbar/SnackbarHost";
 import { UpdatePrompt } from "../components/UpdatePrompt";
 import { DiscardedWritesNotice } from "../components/DiscardedWritesNotice";
@@ -68,7 +69,8 @@ const HOME_RISE = size.fab / 2;
  * The raised Home button is drawn as an overlay sibling of the navigator, like the quick-add
  * button. Lifted out of the bar itself it would be dead where it overflows, because Android doesn't
  * deliver touches outside a parent's bounds (ui-review §1.2). With three equal slots the centre slot
- * sits at exactly 50% (§1.1); the button covers that slot's icon, and the slot's label stays below.
+ * sits at exactly 50% (§1.1). The bar is drawn with a round cutout the button sits in (D-61), so
+ * that slot has no label.
  *
  * The quick-add button used to be a fourth, centre slot in the bar — but with four equal slots the third one
  * sits at 62.5%, not 50%, so it read as visibly off-centre. It now floats bottom-right above the
@@ -93,10 +95,10 @@ export function TabNavigator() {
           headerShown: false,
           tabBarActiveTintColor: colors.accent,
           tabBarInactiveTintColor: colors.textMuted,
+          // Transparent, so the cutout drawn by the background shows the app behind it (D-61).
           tabBarStyle: {
-            backgroundColor: colors.surface,
-            borderTopWidth: 1,
-            borderTopColor: colors.borderLight,
+            backgroundColor: "transparent",
+            borderTopWidth: 0,
             height: dock,
             paddingBottom: dockPaddingBottom(insets.bottom),
             paddingTop: 6,
@@ -104,6 +106,7 @@ export function TabNavigator() {
           },
           tabBarLabelStyle: { fontSize: 11, fontWeight: "600", marginTop: 2 },
           tabBarButton: (props) => <PlainTabButton {...props} />,
+          tabBarBackground: () => <NotchedTabBackground height={dock} />,
           tabBarIcon: ({ color, focused }) => {
             // The raised button carries Home's icon; the slot keeps only its label.
             if (route.name === "Home") return <View style={styles.iconPlaceholder} />;
@@ -119,7 +122,12 @@ export function TabNavigator() {
         })}
       >
         <Tab.Screen name="Activity" component={ActivityScreen} options={{ tabBarLabel: "Activity" }} />
-        <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: "Home" }} />
+        {/* No label: the raised button sits in the bar's cutout, where a label would be clipped. */}
+        <Tab.Screen
+          name="Home"
+          component={HomeScreen}
+          options={{ tabBarLabel: () => null, tabBarAccessibilityLabel: "Home" }}
+        />
         <Tab.Screen name="Budget" component={BudgetScreen} options={{ tabBarLabel: "Budget" }} />
       </Tab.Navigator>
 
@@ -179,7 +187,8 @@ export function TabNavigator() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  // Shows through the tab bar's cutout, matching the screens above it.
+  root: { flex: 1, backgroundColor: colors.background },
   fab: {
     position: "absolute",
     width: size.fab,
