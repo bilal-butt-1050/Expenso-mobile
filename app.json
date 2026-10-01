@@ -11,10 +11,6 @@
       "backgroundColor": "#0B0F19",
       "barStyle": "light-content"
     },
-    "androidNavigationBar": {
-      "backgroundColor": "#0B0F19",
-      "barStyle": "light-content"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
