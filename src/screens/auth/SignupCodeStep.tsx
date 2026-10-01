@@ -224,7 +224,7 @@ export function SignupCodeStep({
       ) : null}
 
       <Button
-        label="Verify and create account"
+        label="Continue"
         onPress={() => void submit(code)}
         loading={submitting}
         disabled={code.length !== 6 || codeLocked}

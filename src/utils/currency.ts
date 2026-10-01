@@ -66,3 +66,17 @@ export function formatCurrencySpoken(amount: number, currency?: string): string 
   const full = formatCurrency(amount, currency);
   return full.startsWith("-") ? `minus ${full.slice(1)}` : full;
 }
+
+/** The currencies the server accepts (auth.routes `SUPPORTED_CURRENCIES`), for the sign-up choice. */
+export const CURRENCY_OPTIONS: { code: string; name: string }[] = [
+  { code: "PKR", name: "Pakistani rupee" },
+  { code: "USD", name: "US dollar" },
+  { code: "EUR", name: "Euro" },
+  { code: "GBP", name: "British pound" },
+  { code: "AED", name: "UAE dirham" },
+  { code: "SAR", name: "Saudi riyal" },
+  { code: "INR", name: "Indian rupee" },
+  { code: "CAD", name: "Canadian dollar" },
+  { code: "AUD", name: "Australian dollar" },
+];
+

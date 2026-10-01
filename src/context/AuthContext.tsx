@@ -20,9 +20,10 @@ import { feedbackSignedIn } from "../utils/haptics";
 interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  sendOtp: (email: string) => Promise<void>;
-  register: (email: string, password: string, name: string, otp?: string) => Promise<void>;
+  /** Passwordless email (D-66): send a code, check it, and name a new account. */
+  startEmailSignIn: (email: string) => Promise<void>;
+  verifyEmailCode: (email: string, code: string) => Promise<authApi.EmailCodeResult>;
+  completeEmailSignUp: (signupTicket: string, name: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   /** Deletes the account on the server, then ends the session here. */
@@ -31,7 +32,6 @@ interface AuthContextValue {
   /** Records a just-saved opening cash, so onboarding moves on even if a refetch fails (D-64). */
   applyOpeningBalance: (openingBalance: number) => Promise<void>;
   updateProfile: (data: { name?: string; currency?: string; avatarUrl?: string | null }) => Promise<void>;
-  changePassword: (body: { currentPassword?: string; newPassword: string; googleIdToken?: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -142,14 +142,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       user,
       isLoading,
-      login: async (email, password) => {
-        const u = await authApi.login(email, password);
-        await saveUserAndCache(u);
-        feedbackSignedIn();
+      startEmailSignIn: async (email) => await authApi.startEmailSignIn(email),
+      verifyEmailCode: async (email, code) => {
+        const result = await authApi.verifyEmailCode(email, code);
+        if (result.status === "signedIn") {
+          await saveUserAndCache(result.user);
+          feedbackSignedIn();
+        }
+        return result;
       },
-      sendOtp: async (email) => await authApi.sendOtp(email),
-      register: async (email, password, name, otp) => {
-        const u = await authApi.register(email, password, name, otp);
+      completeEmailSignUp: async (signupTicket, name) => {
+        const u = await authApi.completeEmailSignUp(signupTicket, name);
         await saveUserAndCache(u);
         feedbackSignedIn();
       },
@@ -178,10 +181,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       updateProfile: async (data) => {
         const u = await authApi.updateProfile(data);
         await saveUserAndCache(u);
-      },
-      changePassword: async (body) => {
-        await authApi.changePassword(body);
-        if (user) await saveUserAndCache({ ...user, hasPassword: true });
       },
     }),
     [user, isLoading, purgeSession],

@@ -3,9 +3,7 @@ import { iconName } from "../../utils/icons";
 import { Image, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { check, nameSchema } from "../../utils/validation";
 import md5 from "md5";
-import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext";
 import { useDialog } from "../../context/DialogContext";
@@ -14,29 +12,16 @@ import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { BottomSheet } from "../../components/BottomSheet";
 import { TextField } from "../../components/TextField";
-import { PasswordSheet } from "../../components/PasswordSheet";
 import { getErrorMessage } from "../../api/client";
 import { colors } from "../../theme/colors";
 import { spacing, radius, size } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
-import { RootStackParamList } from "../../types/navigation";
 import { describeLastUpdated } from "../../services/updateService";
-import { AppearancePref, getAppearancePref, setAppearancePref } from "../../theme/appearance";
+import { activeScheme, setAppearancePref } from "../../theme/appearance";
 import { getHapticsEnabled, getSoundsEnabled, hapticLight, setHapticsEnabled, setSoundsEnabled } from "../../utils/haptics";
 import { canUseAppLock, isAppLockEnabled, setAppLockEnabled, unlock } from "../../lib/appLock";
 
-const APPEARANCES: { value: AppearancePref; label: string }[] = [
-  { value: "system", label: "Same as phone" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-];
-/** The currencies the server accepts (auth.routes `SUPPORTED_CURRENCIES`). */
-const CURRENCIES = ["PKR", "USD", "EUR", "GBP", "AED", "SAR", "INR", "CAD", "AUD"];
-
-type Nav = NativeStackNavigationProp<RootStackParamList>;
-
 export function SettingsScreen() {
-  const navigation = useNavigation<Nav>();
   // A root stack screen, so there is no tab bar underneath — safe-area inset is the right clearance.
   const insets = useSafeAreaInsets();
   const { user, logout, updateProfile, deleteAccount } = useAuth();
@@ -47,9 +32,6 @@ export function SettingsScreen() {
   const [isSavingName, setIsSavingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
 
-  const [isPasswordOpen, setIsPasswordOpen] = useState(false);
-  // A fresh sheet per opening, so a half-typed password never survives a close (§8.2).
-  const [passwordSheetKey, setPasswordSheetKey] = useState(0);
 
   // The avatar used to fall back to the phone's Google session and then *save* it to this account,
   // so whoever last used Google sign-in on the phone had their photo copied onto every other
@@ -86,14 +68,8 @@ export function SettingsScreen() {
   };
 
   // Preferences. Read once; each switch saves as it changes.
-  const [appearance, setAppearance] = useState(getAppearancePref);
-  // Which list the sheet shows stays put while it slides away (G4 m9); `sheetOpen` drives it.
-  const [sheet, setSheetKind] = useState<"appearance" | "currency">("appearance");
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const setSheet = (kind: "appearance" | "currency" | null) => {
-    if (kind) setSheetKind(kind);
-    setSheetOpen(kind !== null);
-  };
+  // The colours this run started with; switching restarts the app in the other theme.
+  const [darkMode, setDarkMode] = useState(activeScheme === "dark");
   const [deleting, setDeleting] = useState(false);
   const [sounds, setSounds] = useState(getSoundsEnabled);
   const [haptics, setHaptics] = useState(getHapticsEnabled);
@@ -117,15 +93,6 @@ export function SettingsScreen() {
     setAppLock(isAppLockEnabled());
   };
 
-  const chooseCurrency = async (currency: string) => {
-    setSheet(null);
-    if (currency === user?.currency) return;
-    try {
-      await updateProfile({ currency });
-    } catch (error) {
-      alert({ title: "Couldn't change currency", message: getErrorMessage(error), icon: "alert-circle-outline" });
-    }
-  };
 
   const confirmDelete = () => {
     confirm({
@@ -194,31 +161,17 @@ export function SettingsScreen() {
             setIsEditNameOpen(true);
           }}
         />
-        {/* Hidden until the server says which kind of account this is (older servers don't). */}
-        {user?.hasPassword !== undefined ? (
-          <SettingsRow
-            icon="lock-reset"
-            label={user.hasPassword ? "Change password" : "Set a password"}
-            subtitle={user.hasPassword ? "Update your account password" : "Also sign in with your email"}
-            onPress={() => {
-              setPasswordSheetKey((k) => k + 1);
-              setIsPasswordOpen(true);
-            }}
-          />
-        ) : null}
 
         <Text style={styles.sectionTitle}>Preferences</Text>
-        <SettingsRow
+        <SwitchRow
           icon="theme-light-dark"
-          label="Appearance"
-          subtitle={APPEARANCES.find((a) => a.value === appearance)?.label ?? "Same as phone"}
-          onPress={() => setSheet("appearance")}
-        />
-        <SettingsRow
-          icon="cash-multiple"
-          label="Currency"
-          subtitle={user?.currency ?? "PKR"}
-          onPress={() => setSheet("currency")}
+          label="Dark mode"
+          subtitle="The app restarts in the new colours"
+          value={darkMode}
+          onChange={(v) => {
+            setDarkMode(v);
+            void setAppearancePref(v ? "dark" : "light");
+          }}
         />
         <SwitchRow
           icon="volume-high"
@@ -254,14 +207,6 @@ export function SettingsScreen() {
           value={appLock}
           disabled={lockAvailable !== true}
           onChange={(v) => void toggleAppLock(v)}
-        />
-
-        <Text style={styles.sectionTitle}>App</Text>
-        <SettingsRow
-          icon="compass-outline"
-          label="App tour"
-          subtitle="Replay the welcome feature tour"
-          onPress={() => navigation.navigate("OnboardingTour", { fromSettings: true })}
         />
 
         <Button label="Sign out" variant="danger" onPress={confirmLogout} style={styles.logout} />
@@ -303,55 +248,7 @@ export function SettingsScreen() {
         </View>
       </BottomSheet>
 
-      <BottomSheet visible={sheetOpen} onClose={() => setSheet(null)}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>{sheet === "currency" ? "Currency" : "Appearance"}</Text>
-          {(sheet === "currency"
-            ? CURRENCIES.map((c) => ({ value: c, label: c }))
-            : APPEARANCES
-          ).map((option) => {
-            const selected = sheet === "currency" ? option.value === user?.currency : option.value === appearance;
-            return (
-              <TouchableOpacity
-                key={option.value}
-                style={[styles.option, selected && styles.optionSelected]}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: selected }}
-                onPress={() => {
-                  if (sheet === "currency") void chooseCurrency(option.value);
-                  else {
-                    setSheet(null);
-                    setAppearance(option.value as AppearancePref);
-                    // Restarts the app when the colours change (theme/appearance.ts).
-                    void setAppearancePref(option.value as AppearancePref);
-                  }
-                }}
-              >
-                <Text style={[styles.optionLabel, selected && styles.optionLabelSelected]}>{option.label}</Text>
-                {selected ? <MaterialCommunityIcons name="check" size={20} color={colors.accent} /> : null}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </BottomSheet>
 
-      <PasswordSheet
-        key={passwordSheetKey}
-        visible={isPasswordOpen}
-        hasPassword={user?.hasPassword ?? true}
-        onClose={() => setIsPasswordOpen(false)}
-        onDone={() => {
-          const wasSet = !user?.hasPassword;
-          setIsPasswordOpen(false);
-          alert({
-            title: wasSet ? "Password set" : "Password updated",
-            message: wasSet
-              ? "You can now also sign in with your email and this password. Other devices were signed out."
-              : "Other devices were signed out. This one stays signed in.",
-            icon: "check-circle-outline",
-          });
-        }}
-      />
     </ScreenContainer>
   );
 }
@@ -464,19 +361,6 @@ const styles = StyleSheet.create({
   rowDisabled: { opacity: 0.6 },
   deleteAccount: { alignSelf: "center", minHeight: size.minTouch, justifyContent: "center", marginTop: spacing.sm },
   deleteAccountText: { ...typography.small, color: colors.danger },
-  option: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    minHeight: size.minTouch,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  optionSelected: { backgroundColor: colors.accentMuted, borderColor: colors.accent },
-  optionLabel: { ...typography.body, color: colors.textPrimary },
-  optionLabelSelected: { fontWeight: "700" },
   buildFooter: {
     ...typography.small,
     color: colors.textSecondary,
