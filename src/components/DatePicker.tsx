@@ -27,6 +27,8 @@ interface Props {
   onChange: (date: Date) => void;
   label?: string;
   maxDate?: Date;
+  /** The earliest day that can be picked: history starts at the join date (D-67). */
+  minDate?: Date;
 }
 
 const CELL_SIZE = 42;
@@ -36,7 +38,7 @@ const CELL_SIZE = 42;
  * Uses Modal with pre-mounted content and pure translateY animation (no scale)
  * to avoid layout-recalc jitter when opening.
  */
-export function DatePicker({ value, onChange, label, maxDate }: Props) {
+export function DatePicker({ value, onChange, label, maxDate, minDate }: Props) {
   const [open, setOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   useRegisterOverlay(modalVisible);
@@ -110,11 +112,17 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
   }, [viewMonth, viewYear]);
 
   const isDisabled = useCallback((day: number) => {
-    if (!maxDate) return false;
     const current = new Date(viewYear, viewMonth, day).getTime();
-    const max = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate()).getTime();
-    return current > max;
-  }, [viewYear, viewMonth, maxDate]);
+    if (maxDate && current > new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate()).getTime()) return true;
+    if (minDate && current < new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate()).getTime()) return true;
+    return false;
+  }, [viewYear, viewMonth, maxDate, minDate]);
+
+  const isPrevMonthDisabled = useMemo(() => {
+    if (!minDate) return false;
+    // The last day of the previous month is before the earliest day: nothing to pick there.
+    return new Date(viewYear, viewMonth, 0).getTime() < new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate()).getTime();
+  }, [viewMonth, viewYear, minDate]);
 
   const isNextMonthDisabled = useMemo(() => {
     if (!maxDate) return false;
@@ -192,13 +200,19 @@ export function DatePicker({ value, onChange, label, maxDate }: Props) {
             {/* Header with month/year nav */}
             <View style={styles.calHeader}>
               <TouchableOpacity
-                onPress={prevMonth}
+                onPress={() => { if (!isPrevMonthDisabled) prevMonth(); }}
                 hitSlop={12}
                 style={styles.navBtn}
+                activeOpacity={isPrevMonthDisabled ? 1 : 0.2}
                 accessibilityRole="button"
                 accessibilityLabel="Previous month"
+                accessibilityState={{ disabled: isPrevMonthDisabled }}
               >
-                <MaterialCommunityIcons name="chevron-left" size={24} color={colors.textPrimary} />
+                <MaterialCommunityIcons
+                  name="chevron-left"
+                  size={24}
+                  color={isPrevMonthDisabled ? colors.textMuted : colors.textPrimary}
+                />
               </TouchableOpacity>
               <Text style={styles.calTitle} accessibilityRole="header">
                 {MONTHS[viewMonth]} {viewYear}

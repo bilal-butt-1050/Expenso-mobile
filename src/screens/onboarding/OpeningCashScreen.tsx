@@ -121,7 +121,7 @@ export function OpeningCashScreen() {
               keyboardType="decimal-pad"
               placeholder="0"
               autoFocus
-              error={error}
+              error={error ?? (value.trim() !== "" && !valid ? check(cashSchema, amount) : null)}
             />
             {!online ? (
               <Text style={styles.offline}>You're offline. Connect to continue.</Text>

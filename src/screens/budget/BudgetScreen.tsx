@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useJoined } from "../../hooks/useJoined";
 import Reanimated, { FadeIn } from "react-native-reanimated";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { onlineManager } from "@tanstack/react-query";
@@ -50,6 +51,8 @@ const MAX_CATEGORIES = 20;
 const FALLBACK_CATEGORY = "Other";
 
 export function BudgetScreen() {
+  // History starts at the join date: the pickers stop there (D-67).
+  const joined = useJoined();
   const route = useRoute<RouteProp<TabParamList, "Budget">>();
   const navigation = useNavigation<NavigationProp<TabParamList, "Budget">>();
   const rootNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -254,7 +257,7 @@ export function BudgetScreen() {
     <ScreenContainer>
       {/* The month picker leads and stays put, as on Home and Activity (W7, B2). */}
       <View style={styles.topRow}>
-        <MonthPicker month={selectedMonth} onChange={setSelectedMonth} allowFuture />
+        <MonthPicker month={selectedMonth} onChange={setSelectedMonth} allowFuture minMonth={joined.month} />
       </View>
 
       {(!summary && (error || isOffline)) || (!categories && categoriesError) ? (

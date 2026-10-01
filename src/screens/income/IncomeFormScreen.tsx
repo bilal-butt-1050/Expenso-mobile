@@ -10,6 +10,7 @@ import {
   View,
   Keyboard,
 } from "react-native";
+import { useJoined } from "../../hooks/useJoined";
 import { amountSchema, check, parseAmount } from "../../utils/validation";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -53,6 +54,8 @@ const PRESET_SOURCES: SourcePreset[] = [
 const PAYMENT_METHODS: PaymentMethod[] = ["Cash", "Bank Transfer", "Card", "Cheque"];
 
 export function IncomeFormScreen({ route, navigation }: Props) {
+  // History starts at the join date: the pickers stop there (D-67).
+  const joined = useJoined();
   const editing = route.params?.transaction;
   const { createTransaction, updateTransaction, deleteTransaction } = useTransactionMutations();
   const { setSelectedMonth } = useAppData();
@@ -257,7 +260,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
               />
             </View>
           ) : (
-            <DatePicker value={date} onChange={setDate} label="Date" maxDate={new Date()} />
+            <DatePicker value={date} onChange={setDate} label="Date" maxDate={new Date()} minDate={joined.date} />
           )}
 
           <ChipGroup

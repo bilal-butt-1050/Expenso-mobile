@@ -11,6 +11,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { useJoined } from "../../hooks/useJoined";
 import Reanimated, { FadeIn } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
 import { onlineManager } from "@tanstack/react-query";
@@ -57,6 +58,8 @@ const STACK_AT_FONT_SCALE = 1.3;
  * the one month picker at the top.
  */
 export function HomeScreen() {
+  // History starts at the join date: the pickers stop there (D-67).
+  const joined = useJoined();
   const navigation = useNavigation<Nav>();
   const bottomPadding = useTabBarPadding();
   const { user } = useAuth();
@@ -109,7 +112,7 @@ export function HomeScreen() {
     <ScreenContainer style={styles.noPad}>
       <View style={styles.topRow}>
         <View style={styles.pickerWrap}>
-          <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
+          <MonthPicker month={selectedMonth} onChange={setSelectedMonth} minMonth={joined.month} />
         </View>
         <TouchableOpacity
           style={styles.headerAvatar}
@@ -406,6 +409,14 @@ function HomeSections({
               <MoneyText amount={owed.totalLent} style={styles.spendAmount} />
             </View>
           ) : null}
+          {/* A past month's figure is as of its end; say what has come back since (Bilal). */}
+          {owed.totalLent > 0 && (owed.lentRepaidSince ?? 0) > 0 ? (
+            <Text style={styles.owedSince}>
+              {(owed.lentRepaidSince ?? 0) >= owed.totalLent
+                ? "All of this has come back since"
+                : `${formatCurrency(owed.lentRepaidSince ?? 0)} of this has come back since`}
+            </Text>
+          ) : null}
           {owed.totalBorrowed > 0 ? (
             <View
               style={[styles.spendHead, stacked && styles.twoColStacked]}
@@ -416,6 +427,13 @@ function HomeSections({
               <MoneyText amount={owed.totalBorrowed} style={styles.spendAmount} />
             </View>
           ) : null}
+          {owed.totalBorrowed > 0 && (owed.borrowedRepaidSince ?? 0) > 0 ? (
+            <Text style={styles.owedSince}>
+              {(owed.borrowedRepaidSince ?? 0) >= owed.totalBorrowed
+                ? "All of this has been paid back since"
+                : `${formatCurrency(owed.borrowedRepaidSince ?? 0)} of this has been paid back since`}
+            </Text>
+          ) : null}
         </View>
       ) : null}
     </>
@@ -423,6 +441,7 @@ function HomeSections({
 }
 
 const styles = StyleSheet.create({
+  owedSince: { ...typography.small, fontWeight: "400", color: colors.success, marginTop: -spacing.xs },
   noPad: { paddingHorizontal: 0 },
   topRow: {
     flexDirection: "row",

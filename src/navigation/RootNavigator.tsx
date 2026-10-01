@@ -30,6 +30,9 @@ const NEW_ACCOUNT_MS = 24 * 60 * 60 * 1000;
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+/** The splash has played in this JS run (module state survives a remount, not a reload). */
+let splashPlayedThisLaunch = false;
+
 const baseTheme = activeScheme === "light" ? DefaultTheme : DarkTheme;
 const navigationTheme = {
   ...baseTheme,
@@ -45,8 +48,9 @@ const navigationTheme = {
 
 export function RootNavigator() {
   const { user, isLoading, logout } = useAuth();
-  // A restart for a theme change skips the splash: the person is mid-settings, not opening the app.
-  const [showSplash, setShowSplash] = useState(() => !consumeQuickReload());
+  // Once per launch. Signing in or out remounts this navigator (QueryProvider switches provider), and
+  // the splash isn't for that. A restart for a theme change skips it too: the person is mid-settings.
+  const [showSplash, setShowSplash] = useState(() => !splashPlayedThisLaunch && !consumeQuickReload());
   const [needsTour, setNeedsTour] = useState<boolean | null>(null);
 
   // The tour is for a fresh install: it shows before sign-in, once per phone. Stay undecided
@@ -86,6 +90,7 @@ export function RootNavigator() {
   // show a gap.
 
   const handleSplashComplete = useCallback(() => {
+    splashPlayedThisLaunch = true;
     setShowSplash(false);
   }, []);
 

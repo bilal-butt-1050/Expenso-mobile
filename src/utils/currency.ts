@@ -10,12 +10,22 @@ export function getActiveCurrency(): string {
   return activeCurrency;
 }
 
-// Centralized currency formatting across all screens. Formats values as whole units.
+/** "1234567" -> "1,234,567". Explicit, because Hermes's Intl grouping isn't reliable (rn-review 6.3). */
+function groupThousands(digits: string): string {
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+/**
+ * Centralized currency formatting across all screens. Whole amounts show no decimals
+ * ("Rs 25,000"); anything else shows its cents ("USD 12.50"), so figures always add up.
+ */
 export function formatCurrency(amount: number, currency?: string): string {
   const curr = currency || activeCurrency || "PKR";
-  const rounded = Math.round(amount);
-  const formatted = Math.abs(rounded).toLocaleString("en-PK");
-  const sign = rounded < 0 ? "-" : "";
+  const cents = Math.round(Math.abs(amount) * 100);
+  const whole = Math.floor(cents / 100);
+  const fraction = cents % 100;
+  const formatted = groupThousands(String(whole)) + (fraction ? `.${String(fraction).padStart(2, "0")}` : "");
+  const sign = amount < 0 && cents > 0 ? "-" : "";
   const symbol = curr === "PKR" ? "Rs" : curr;
   return `${sign}${symbol} ${formatted}`;
 }
@@ -43,11 +53,19 @@ const COMPACT_TIERS: [number, string][] = [
   [1_00_000, "L"],
   [1_000, "K"],
 ];
+/** Lakh and crore are South Asian; every other currency compacts in thousands, millions, billions. */
+const COMPACT_TIERS_WESTERN: [number, string][] = [
+  [1_000_000_000, "B"],
+  [1_000_000, "M"],
+  [1_000, "K"],
+];
 
 export function formatCurrencyCompact(amount: number, currency?: string): string {
   const rounded = Math.round(amount);
   const abs = Math.abs(rounded);
-  const tier = COMPACT_TIERS.find(([divisor]) => abs >= divisor);
+  const tierCurrency = currency || activeCurrency || "PKR";
+  const tiers = tierCurrency === "PKR" || tierCurrency === "INR" ? COMPACT_TIERS : COMPACT_TIERS_WESTERN;
+  const tier = tiers.find(([divisor]) => abs >= divisor);
   if (!tier) return formatCurrency(amount, currency);
 
   const [divisor, unit] = tier;

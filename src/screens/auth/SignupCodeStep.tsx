@@ -156,7 +156,7 @@ export function SignupCodeStep({
         onPress={onEditEmail}
         style={styles.back}
         accessibilityRole="button"
-        accessibilityLabel="Back to your details"
+        accessibilityLabel="Back to email"
       >
         <MaterialCommunityIcons
           name="chevron-left"
