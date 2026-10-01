@@ -3,7 +3,6 @@ import { Category, Loan, LoanType, Transaction } from "./models";
 
 export type AuthStackParamList = {
   Login: undefined;
-  Register: undefined;
 };
 
 export type ActivityFilter = "ALL" | "EXPENSES" | "INCOME" | "LOANS";

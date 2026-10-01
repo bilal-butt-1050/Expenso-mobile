@@ -1,44 +1,110 @@
-import React, { useState } from "react";
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
-import { check, emailSchema, loginPasswordSchema } from "../../utils/validation";
+import React, { useEffect, useState } from "react";
+import {
+  BackHandler,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { check, emailSchema, nameSchema } from "../../utils/validation";
 import { getFreshGoogleIdToken } from "../../services/googleSignIn";
-import { useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../../context/AuthContext";
 import { getErrorMessage } from "../../api/client";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { TextField } from "../../components/TextField";
 import { Button } from "../../components/Button";
+import { SignupCodeStep } from "./SignupCodeStep";
 import { colors } from "../../theme/colors";
-import { radius, size, spacing } from "../../theme/spacing";
+import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
-import { AuthStackParamList } from "../../types/navigation";
 
-type Nav = NativeStackNavigationProp<AuthStackParamList, "Login">;
+/** A code sent to the same address within its 10-minute life is reused rather than resent. */
+const CODE_REUSE_MS = 10 * 60 * 1000;
 
+/**
+ * Sign in or create an account without a password (D-66): an email, the 6-digit code sent to it,
+ * and, for a new account only, a name. Google is the other way in. One screen, three steps; going
+ * back keeps what was typed.
+ */
 export function LoginScreen() {
-  const navigation = useNavigation<Nav>();
-  const { login, loginWithGoogle } = useAuth();
+  const { startEmailSignIn, verifyEmailCode, completeEmailSignUp, loginWithGoogle } = useAuth();
+  const [step, setStep] = useState<"email" | "code" | "name">("email");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [name, setName] = useState("");
+  const [lastSent, setLastSent] = useState<{ email: string; at: number } | null>(null);
+  // The per-email daily cap locks "Resend" until the email changes.
+  const [dailyLock, setDailyLock] = useState<{ email: string; message: string } | null>(null);
+  // Proof of the address, from the code, for a new account: it's created once there's a name.
+  const [signupTicket, setSignupTicket] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleEmailLogin = async () => {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  // Hardware back steps back through the flow instead of leaving it.
+  useEffect(() => {
+    if (step === "email") return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      setStep(step === "name" ? "code" : "email");
+      return true;
+    });
+    return () => sub.remove();
+  }, [step]);
+
+  const sendCode = async () => {
     setError(null);
-    const problem = check(emailSchema, email) ?? check(loginPasswordSchema, password);
-    if (problem) {
-      setError(problem);
+    const problem = check(emailSchema, email);
+    setFieldError(problem);
+    if (problem) return;
+
+    if (lastSent && lastSent.email === normalizedEmail && Date.now() - lastSent.at < CODE_REUSE_MS) {
+      Keyboard.dismiss();
+      setStep("code");
       return;
     }
     setIsLoading(true);
     try {
-      await login(email.trim().toLowerCase(), password);
+      await startEmailSignIn(normalizedEmail);
+      setLastSent({ email: normalizedEmail, at: Date.now() });
+      Keyboard.dismiss();
+      setStep("code");
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resend = async () => {
+    await startEmailSignIn(normalizedEmail);
+    setLastSent({ email: normalizedEmail, at: Date.now() });
+  };
+
+  /** An existing account is signed in here and this screen goes away; a new one needs a name. */
+  const verify = async (code: string) => {
+    const result = await verifyEmailCode(normalizedEmail, code);
+    if (result.status === "new") {
+      setSignupTicket(result.signupTicket);
+      setStep("name");
+    }
+  };
+
+  const createAccount = async () => {
+    setError(null);
+    const problem = check(nameSchema, name);
+    setFieldError(problem);
+    if (problem || !signupTicket) return;
+    setIsLoading(true);
+    try {
+      await completeEmailSignUp(signupTicket, name.trim());
+    } catch (err) {
+      setError(getErrorMessage(err));
       setIsLoading(false);
     }
   };
@@ -49,9 +115,7 @@ export function LoginScreen() {
     try {
       // null: the user closed the account picker.
       const idToken = await getFreshGoogleIdToken();
-      if (idToken) {
-        await loginWithGoogle(idToken);
-      }
+      if (idToken) await loginWithGoogle(idToken);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -59,96 +123,109 @@ export function LoginScreen() {
     }
   };
 
+  const errorBlock = error ? (
+    <View style={styles.errorContainer} accessibilityLiveRegion="polite">
+      <MaterialCommunityIcons
+        name="alert-circle-outline"
+        size={18}
+        color={colors.danger}
+        accessibilityElementsHidden
+        importantForAccessibility="no"
+      />
+      <Text style={styles.errorText}>{error}</Text>
+    </View>
+  ) : null;
+
   return (
     <ScreenContainer>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView
           overScrollMode="never"
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.hero}>
-            <Text style={styles.wordmark}>expenso</Text>
-            <Text style={styles.tagline}>Know where every rupee goes.</Text>
-          </View>
-
-          <View style={styles.form}>
-            {error ? (
-              <View style={styles.errorContainer} accessibilityLiveRegion="polite">
-                <MaterialCommunityIcons
-                  name="alert-circle-outline"
-                  size={18}
-                  color={colors.danger}
-                  accessibilityElementsHidden
-                  importantForAccessibility="no"
-                />
-                <Text style={styles.errorText}>{error}</Text>
+          {step === "code" && lastSent ? (
+            <SignupCodeStep
+              email={lastSent.email}
+              sentAt={lastSent.at}
+              dailyLock={dailyLock?.email === lastSent.email ? dailyLock.message : null}
+              onVerify={verify}
+              onResend={resend}
+              onDailyLock={(message) => setDailyLock({ email: lastSent.email, message })}
+              onEditEmail={() => setStep("email")}
+            />
+          ) : step === "name" ? (
+            <View style={styles.form}>
+              <View style={styles.stepHeader}>
+                <Text style={styles.title}>What should we call you?</Text>
+                <Text style={styles.subtitle}>Your email is confirmed. Add your name to create your account.</Text>
               </View>
-            ) : null}
-
-            <TextField
-              label="Email"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-              placeholder="you@example.com"
-            />
-
-            <TextField
-              label="Password"
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Your password"
-              rightElement={
-                <TouchableOpacity
-                  onPress={() => setShowPassword(!showPassword)}
-                  hitSlop={12}
-                  accessibilityRole="button"
-                  accessibilityLabel={showPassword ? "Hide password" : "Show password"}
-                >
-                  <MaterialCommunityIcons
-                    name={showPassword ? "eye-off-outline" : "eye-outline"}
-                    size={20}
-                    color={colors.textMuted}
-                  />
-                </TouchableOpacity>
-              }
-            />
-
-            <Button label="Sign in" onPress={handleEmailLogin} loading={isLoading} style={{ marginTop: spacing.sm }} />
-
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
+              {errorBlock}
+              <TextField
+                label="Your name"
+                value={name}
+                onChangeText={(text) => {
+                  setName(text);
+                  if (fieldError) setFieldError(null);
+                }}
+                placeholder="Your full name"
+                autoCapitalize="words"
+                autoFocus
+                maxLength={80}
+                error={fieldError}
+                returnKeyType="done"
+                onSubmitEditing={createAccount}
+              />
+              <Button label="Create account" onPress={createAccount} loading={isLoading} />
             </View>
+          ) : (
+            <>
+              <View style={styles.hero}>
+                <Text style={styles.wordmark}>expenso</Text>
+                <Text style={styles.tagline}>Know where every rupee goes.</Text>
+              </View>
 
-            <TouchableOpacity
-              style={styles.googleBtn}
-              onPress={handleGoogleSignIn}
-              disabled={isLoading}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: isLoading }}
-            >
-              <MaterialCommunityIcons name="google" size={20} color={colors.textPrimary} />
-              <Text style={styles.googleBtnText}>Continue with Google</Text>
-            </TouchableOpacity>
+              <View style={styles.form}>
+                {errorBlock}
+                <TextField
+                  label="Email"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  keyboardType="email-address"
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    if (fieldError) setFieldError(null);
+                  }}
+                  placeholder="you@example.com"
+                  error={fieldError}
+                  returnKeyType="send"
+                  onSubmitEditing={sendCode}
+                />
+                <Text style={styles.hint}>We'll email you a 6-digit code. No password needed.</Text>
+                <Button label="Continue with email" onPress={sendCode} loading={isLoading} style={styles.cta} />
 
-            <TouchableOpacity
-              style={styles.signupLink}
-              onPress={() => navigation.navigate("Register")}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-            >
-              <Text style={styles.signupText}>
-                Don't have an account? <Text style={styles.signupHighlight}>Sign up</Text>
-              </Text>
-            </TouchableOpacity>
-          </View>
+                <View style={styles.dividerRow}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>or</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                <TouchableOpacity
+                  style={styles.googleBtn}
+                  onPress={handleGoogleSignIn}
+                  disabled={isLoading}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: isLoading }}
+                >
+                  <MaterialCommunityIcons name="google" size={20} color={colors.textPrimary} />
+                  <Text style={styles.googleBtnText}>Continue with Google</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>
@@ -156,6 +233,7 @@ export function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
     paddingBottom: spacing.xl,
@@ -178,6 +256,11 @@ const styles = StyleSheet.create({
   form: {
     width: "100%",
   },
+  stepHeader: { marginTop: spacing.xl, marginBottom: spacing.lg, gap: spacing.xs },
+  title: { ...typography.title },
+  subtitle: { ...typography.body, color: colors.textSecondary },
+  hint: { ...typography.small, fontWeight: "400", color: colors.textSecondary, marginTop: -spacing.xs },
+  cta: { marginTop: spacing.md },
   errorContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -229,20 +312,5 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: "700",
     color: colors.textPrimary,
-  },
-  signupLink: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: size.minTouch,
-    marginTop: spacing.xl,
-  },
-  signupText: {
-    ...typography.caption,
-    fontWeight: "400",
-    color: colors.textSecondary,
-  },
-  signupHighlight: {
-    color: colors.accent,
-    fontWeight: "700",
   },
 });

@@ -14,7 +14,6 @@ import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { BottomSheet } from "../../components/BottomSheet";
 import { TextField } from "../../components/TextField";
-import { PasswordSheet } from "../../components/PasswordSheet";
 import { getErrorMessage } from "../../api/client";
 import { colors } from "../../theme/colors";
 import { spacing, radius, size } from "../../theme/spacing";
@@ -47,9 +46,6 @@ export function SettingsScreen() {
   const [isSavingName, setIsSavingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
 
-  const [isPasswordOpen, setIsPasswordOpen] = useState(false);
-  // A fresh sheet per opening, so a half-typed password never survives a close (§8.2).
-  const [passwordSheetKey, setPasswordSheetKey] = useState(0);
 
   // The avatar used to fall back to the phone's Google session and then *save* it to this account,
   // so whoever last used Google sign-in on the phone had their photo copied onto every other
@@ -194,18 +190,6 @@ export function SettingsScreen() {
             setIsEditNameOpen(true);
           }}
         />
-        {/* Hidden until the server says which kind of account this is (older servers don't). */}
-        {user?.hasPassword !== undefined ? (
-          <SettingsRow
-            icon="lock-reset"
-            label={user.hasPassword ? "Change password" : "Set a password"}
-            subtitle={user.hasPassword ? "Update your account password" : "Also sign in with your email"}
-            onPress={() => {
-              setPasswordSheetKey((k) => k + 1);
-              setIsPasswordOpen(true);
-            }}
-          />
-        ) : null}
 
         <Text style={styles.sectionTitle}>Preferences</Text>
         <SettingsRow
@@ -335,23 +319,6 @@ export function SettingsScreen() {
         </View>
       </BottomSheet>
 
-      <PasswordSheet
-        key={passwordSheetKey}
-        visible={isPasswordOpen}
-        hasPassword={user?.hasPassword ?? true}
-        onClose={() => setIsPasswordOpen(false)}
-        onDone={() => {
-          const wasSet = !user?.hasPassword;
-          setIsPasswordOpen(false);
-          alert({
-            title: wasSet ? "Password set" : "Password updated",
-            message: wasSet
-              ? "You can now also sign in with your email and this password. Other devices were signed out."
-              : "Other devices were signed out. This one stays signed in.",
-            icon: "check-circle-outline",
-          });
-        }}
-      />
     </ScreenContainer>
   );
 }

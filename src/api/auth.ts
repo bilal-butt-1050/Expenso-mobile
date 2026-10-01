@@ -7,14 +7,30 @@ interface AuthResponse {
   user: User;
 }
 
-export async function login(email: string, password: string): Promise<User> {
-  const { data } = await apiClient.post<AuthResponse>("/auth/login", { email, password });
-  await setToken(data.token);
-  return data.user;
+
+
+/** Passwordless email (D-66), step 1: a 6-digit code to the address, account or not. */
+export async function startEmailSignIn(email: string): Promise<void> {
+  await apiClient.post("/auth/email/start", { email });
 }
 
-export async function sendOtp(email: string): Promise<void> {
-  await apiClient.post("/auth/send-otp", { email });
+export type EmailCodeResult = { status: "signedIn"; user: User } | { status: "new"; signupTicket: string };
+
+/** Step 2: an existing account is signed in (and its token stored); a new address gets a ticket. */
+export async function verifyEmailCode(email: string, code: string): Promise<EmailCodeResult> {
+  const { data } = await apiClient.post<
+    { status: "signedIn"; token: string; user: User } | { status: "new"; signupTicket: string }
+  >("/auth/email/verify", { email, code });
+  if (data.status === "new") return data;
+  await setToken(data.token);
+  return { status: "signedIn", user: data.user };
+}
+
+/** Step 3, new accounts only: the ticket from step 2 and a name. */
+export async function completeEmailSignUp(signupTicket: string, name: string): Promise<User> {
+  const { data } = await apiClient.post<AuthResponse>("/auth/email/complete", { signupTicket, name });
+  await setToken(data.token);
+  return data.user;
 }
 
 export async function loginWithGoogle(idToken: string): Promise<User> {
@@ -23,11 +39,6 @@ export async function loginWithGoogle(idToken: string): Promise<User> {
   return data.user;
 }
 
-export async function register(email: string, password: string, name: string, otp?: string): Promise<User> {
-  const { data } = await apiClient.post<AuthResponse>("/auth/register", { email, password, name, otp });
-  await setToken(data.token);
-  return data.user;
-}
 
 
 export async function fetchCurrentUser(): Promise<User> {
@@ -64,11 +75,3 @@ export async function updateProfile(data: {
  * Changes the password, or sets the first one with a fresh Google ID token. The server ends every
  * session, this one included, and returns a new token for this device.
  */
-export async function changePassword(body: {
-  currentPassword?: string;
-  newPassword: string;
-  googleIdToken?: string;
-}): Promise<void> {
-  const { data } = await apiClient.patch<{ token: string }>("/auth/password", body);
-  await setToken(data.token);
-}
