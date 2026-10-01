@@ -1,7 +1,22 @@
 // Expenso — Premium Indigo FinTech Theme
-// A vibrant, modern, high-end theme with deep navy/slate backgrounds and electric indigo accents.
+// Deep navy/slate (dark) or soft slate on white (light), with electric indigo accents.
+import { activeScheme } from "./appearance";
 
-export const colors = {
+/** Category and chart colours: the same in both themes. */
+const categoryPalette = [
+  "#6366F1", // Indigo
+  "#8B5CF6", // Violet
+  "#EC4899", // Pink
+  "#F43F5E", // Rose
+  "#F59E0B", // Amber
+  "#10B981", // Emerald
+  "#0EA5E9", // Sky
+  "#3B82F6", // Blue
+  "#14B8A6", // Teal
+  "#84CC16", // Lime
+];
+
+export const darkColors = {
   background: "#0B0F19",
   surface: "#111827",
   surfaceRaised: "#1F2937",
@@ -51,19 +66,55 @@ export const colors = {
   borrowed: "#F59E0B",
   borrowedMuted: "rgba(245, 158, 11, 0.15)",
 
-  // Vibrant Monochromatic Palette for Categories & Charts
-  categoryPalette: [
-    "#6366F1", // Indigo
-    "#8B5CF6", // Violet
-    "#EC4899", // Pink
-    "#F43F5E", // Rose
-    "#F59E0B", // Amber
-    "#10B981", // Emerald
-    "#0EA5E9", // Sky
-    "#3B82F6", // Blue
-    "#14B8A6", // Teal
-    "#84CC16", // Lime
-  ],
-} as const;
+  categoryPalette,
+};
 
-export type ThemeColors = typeof colors;
+export type ThemeColors = typeof darkColors;
+
+/**
+ * The same roles on a light surface. Semantic colours are one step deeper than in the dark theme,
+ * so they hold their contrast on white.
+ */
+export const lightColors: ThemeColors = {
+  background: "#F5F6FA",
+  surface: "#FFFFFF",
+  surfaceRaised: "#EEF1F6",
+  border: "#D5DBE5",
+  borderLight: "rgba(15, 23, 42, 0.08)",
+
+  textPrimary: "#0F172A",
+  textSecondary: "#4B5563",
+  textMuted: "#8A94A6",
+
+  accent: "#6366F1",
+  accentMuted: "rgba(99, 102, 241, 0.12)",
+  accentForeground: "#FFFFFF",
+  accentText: "#4F46E5",
+  accentFill: "#4F46E5",
+  highlight: "rgba(99, 102, 241, 0.16)",
+  scrim: "rgba(15, 23, 42, 0.45)",
+
+  shadow: "#000000",
+
+  iconNeutral: "#334155",
+  iconBg: "rgba(15, 23, 42, 0.04)",
+  iconBorder: "rgba(15, 23, 42, 0.08)",
+
+  danger: "#DC2626",
+  dangerMuted: "rgba(220, 38, 38, 0.10)",
+  dangerStrong: "#DC2626",
+  warning: "#D97706",
+  warningMuted: "rgba(217, 119, 6, 0.12)",
+  success: "#059669",
+  successMuted: "rgba(5, 150, 105, 0.12)",
+
+  lent: "#2563EB",
+  lentMuted: "rgba(37, 99, 235, 0.10)",
+  borrowed: "#D97706",
+  borrowedMuted: "rgba(217, 119, 6, 0.12)",
+
+  categoryPalette,
+};
+
+/** The palette for this run, chosen at startup (theme/appearance.ts). */
+export const colors: ThemeColors = activeScheme === "light" ? lightColors : darkColors;

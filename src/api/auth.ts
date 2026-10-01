@@ -34,6 +34,11 @@ export async function fetchCurrentUser(): Promise<User> {
   return data;
 }
 
+/** Deletes the account and all its data on the server. Irreversible. */
+export async function deleteAccount(): Promise<void> {
+  await apiClient.delete("/auth/account", { data: { confirm: "DELETE" } });
+}
+
 export async function logout(): Promise<void> {
   await clearToken();
 }

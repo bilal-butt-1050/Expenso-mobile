@@ -11,7 +11,7 @@ import Animated, {
   withDelay,
   withTiming,
 } from "react-native-reanimated";
-import { colors } from "../theme/colors";
+import { colors, darkColors } from "../theme/colors";
 
 interface Props {
   /** True once auth restore and the initial navigation state have settled. */
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   container: {
     ...(StyleSheet.absoluteFill as object),
     // Same colour as the native splash (app.json `expo-splash-screen` backgroundColor).
-    backgroundColor: colors.background,
+    backgroundColor: darkColors.background,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 9999,

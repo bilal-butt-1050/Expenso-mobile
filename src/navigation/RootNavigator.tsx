@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { NavigationContainer, DarkTheme } from "@react-navigation/native";
+import { NavigationContainer, DarkTheme, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import * as SplashScreen from "expo-splash-screen";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -18,6 +18,8 @@ import { OnboardingTourScreen, TOUR_SEEN_KEY } from "../screens/onboarding/Onboa
 import { OpeningCashScreen } from "../screens/onboarding/OpeningCashScreen";
 import { SettingsScreen } from "../screens/settings/SettingsScreen";
 import { AnimatedSplash } from "../components/AnimatedSplash";
+import { AppLockOverlay } from "../components/AppLockOverlay";
+import { activeScheme, consumeQuickReload } from "../theme/appearance";
 import { useKeyboardOffset } from "../hooks/useKeyboardHeight";
 import { useAnyOverlayOpen } from "../lib/overlays";
 
@@ -28,10 +30,11 @@ const NEW_ACCOUNT_MS = 24 * 60 * 60 * 1000;
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+const baseTheme = activeScheme === "light" ? DefaultTheme : DarkTheme;
 const navigationTheme = {
-  ...DarkTheme,
+  ...baseTheme,
   colors: {
-    ...DarkTheme.colors,
+    ...baseTheme.colors,
     background: colors.background,
     card: colors.surface,
     border: colors.border,
@@ -42,7 +45,8 @@ const navigationTheme = {
 
 export function RootNavigator() {
   const { user, isLoading } = useAuth();
-  const [showSplash, setShowSplash] = useState(true);
+  // A restart for a theme change skips the splash: the person is mid-settings, not opening the app.
+  const [showSplash, setShowSplash] = useState(() => !consumeQuickReload());
   const [needsTour, setNeedsTour] = useState<boolean | null>(null);
 
   // The tour is for a fresh install: it shows before sign-in, once per phone. Stay undecided
@@ -86,6 +90,12 @@ export function RootNavigator() {
   }, []);
 
   const isNavigatorReady = !isLoading && needsTour !== null;
+
+  // Without the splash, nothing else hides the native one.
+  useEffect(() => {
+    if (!showSplash && isNavigatorReady) SplashScreen.hideAsync().catch(() => {});
+  }, [showSplash, isNavigatorReady]);
+
   // Opening cash is asked for once, right after an account is created (D-64), never of an existing
   // account. Strictly null: a user cached by an older build lacks the field (undefined).
   const isNewAccount = !!user?.createdAt && Date.now() - new Date(user.createdAt).getTime() < NEW_ACCOUNT_MS;
@@ -166,6 +176,7 @@ export function RootNavigator() {
         )}
       </NavigationContainer>
 
+      {user ? <AppLockOverlay ready={isNavigatorReady && !showSplash} /> : null}
       {showSplash && <AnimatedSplash ready={isNavigatorReady} onComplete={handleSplashComplete} />}
     </View>
   );

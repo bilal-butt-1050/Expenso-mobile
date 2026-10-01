@@ -24,6 +24,8 @@ interface AuthContextValue {
   register: (email: string, password: string, name: string, otp?: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Deletes the account on the server, then ends the session here. */
+  deleteAccount: () => Promise<void>;
   refreshUser: () => Promise<void>;
   /** Records a just-saved opening cash, so onboarding moves on even if a refetch fails (D-64). */
   applyOpeningBalance: (openingBalance: number) => Promise<void>;
@@ -157,6 +159,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           await authApi.logout();
         } catch {}
+        await purgeSession();
+      },
+      deleteAccount: async () => {
+        await authApi.deleteAccount();
         await purgeSession();
       },
       refreshUser: async () => {

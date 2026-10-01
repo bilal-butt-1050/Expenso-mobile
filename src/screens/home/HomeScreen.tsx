@@ -180,6 +180,12 @@ function HomeSections({
   const attention = budgetsNeedingAttention(data.budgetVsActual);
   const unbudgeted = unbudgetedSpending(data.categoryBreakdown, data.budgetVsActual);
   const shown = cashShown(cash.amount);
+  const spentTodayText =
+    typeof data.spentToday === "number"
+      ? data.spentToday > 0
+        ? `${formatCurrency(data.spentToday)} spent today`
+        : "Nothing spent today yet"
+      : null;
   const hasBudgets = data.budgetVsActual.some((b) => b.budget > 0);
   const insight = insightFor(data.comparison, cash.period, data.month, categoryName);
   const owed = data.netDebtSnapshot;
@@ -191,11 +197,13 @@ function HomeSections({
       <View
         style={styles.hero}
         accessible
-        accessibilityLabel={`${label}, ${formatCurrencySpoken(shown.amount)}${shown.incomplete ? ". Some income or a loan may be missing" : ""}`}
+        accessibilityLabel={`${label}, ${formatCurrencySpoken(shown.amount)}${shown.incomplete ? ". Some income or a loan may be missing" : ""}${spentTodayText ? `. ${spentTodayText}` : ""}`}
       >
         <Text style={styles.heroLabel}>{label}</Text>
         <MoneyText amount={shown.amount} style={styles.heroAmount} />
         {shown.incomplete ? <Text style={styles.heroNote}>Some income or a loan may be missing</Text> : null}
+        {/* Today at a glance, for the current month only (the server sends null otherwise). */}
+        {spentTodayText ? <Text style={styles.heroToday}>{spentTodayText}</Text> : null}
       </View>
 
       {/* 2. What happened this month (R-36) */}
@@ -451,6 +459,7 @@ const styles = StyleSheet.create({
   heroLabel: { ...typography.caption, color: colors.textSecondary, textAlign: "center" },
   heroAmount: { ...typography.metricValue, textAlign: "center" },
   heroNote: { ...typography.small, color: colors.warning, textAlign: "center" },
+  heroToday: { ...typography.caption, color: colors.textSecondary, textAlign: "center" },
   negative: { color: colors.danger },
 
   card: {
