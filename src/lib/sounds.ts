@@ -23,9 +23,15 @@ const REPEAT_GUARD_MS = 250;
 const players: Partial<Record<SoundName, AudioPlayer>> = {};
 const lastPlayed: Partial<Record<SoundName, number>> = {};
 
-// Load every player once, when this module is first imported (at app start, via haptics.ts), so
-// playback is instant.
-if (Platform.OS !== "web") {
+let loaded = false;
+
+/**
+ * Creates the players. Called shortly after startup (App.tsx), off the launch path: each one is
+ * built on the main thread. A sound played before that loads them on the spot.
+ */
+export function preloadSounds(): void {
+  if (loaded || Platform.OS === "web") return;
+  loaded = true;
   try {
     // Mix with the user's music (never pause or duck it), and stay quiet in silent mode. On Android
     // `playsInSilentMode: false` also suppresses playback in vibrate/silent ringer mode. Volume
@@ -50,6 +56,7 @@ if (Platform.OS !== "web") {
 
 export function playSound(name: SoundName): void {
   try {
+    preloadSounds();
     const player = players[name];
     if (!player) return;
     const now = Date.now();

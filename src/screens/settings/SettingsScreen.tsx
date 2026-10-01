@@ -86,8 +86,15 @@ export function SettingsScreen() {
   };
 
   // Preferences. Read once; each switch saves as it changes.
-  const [appearance] = useState(getAppearancePref);
-  const [sheet, setSheet] = useState<"appearance" | "currency" | null>(null);
+  const [appearance, setAppearance] = useState(getAppearancePref);
+  // Which list the sheet shows stays put while it slides away (G4 m9); `sheetOpen` drives it.
+  const [sheet, setSheetKind] = useState<"appearance" | "currency">("appearance");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const setSheet = (kind: "appearance" | "currency" | null) => {
+    if (kind) setSheetKind(kind);
+    setSheetOpen(kind !== null);
+  };
+  const [deleting, setDeleting] = useState(false);
   const [sounds, setSounds] = useState(getSoundsEnabled);
   const [haptics, setHaptics] = useState(getHapticsEnabled);
   const [appLock, setAppLock] = useState(isAppLockEnabled);
@@ -129,9 +136,13 @@ export function SettingsScreen() {
       destructive: true,
       icon: "trash-can-outline",
       onConfirm: async () => {
+        // With App lock on, deleting needs the same check as opening the app (G4 m13).
+        if (isAppLockEnabled() && !(await unlock("Delete your account"))) return;
+        setDeleting(true);
         try {
           await deleteAccount();
         } catch (error) {
+          setDeleting(false);
           alert({ title: "Couldn't delete your account", message: getErrorMessage(error), icon: "alert-circle-outline" });
         }
       },
@@ -256,11 +267,13 @@ export function SettingsScreen() {
         <Button label="Sign out" variant="danger" onPress={confirmLogout} style={styles.logout} />
         <TouchableOpacity
           onPress={confirmDelete}
+          disabled={deleting}
           style={styles.deleteAccount}
           accessibilityRole="button"
           accessibilityLabel="Delete account"
+          accessibilityState={{ disabled: deleting, busy: deleting }}
         >
-          <Text style={styles.deleteAccountText}>Delete account</Text>
+          <Text style={styles.deleteAccountText}>{deleting ? "Deleting your account…" : "Delete account"}</Text>
         </TouchableOpacity>
 
         {lastUpdated ? <Text style={styles.buildFooter}>{lastUpdated}</Text> : null}
@@ -290,7 +303,7 @@ export function SettingsScreen() {
         </View>
       </BottomSheet>
 
-      <BottomSheet visible={sheet !== null} onClose={() => setSheet(null)}>
+      <BottomSheet visible={sheetOpen} onClose={() => setSheet(null)}>
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>{sheet === "currency" ? "Currency" : "Appearance"}</Text>
           {(sheet === "currency"
@@ -308,6 +321,7 @@ export function SettingsScreen() {
                   if (sheet === "currency") void chooseCurrency(option.value);
                   else {
                     setSheet(null);
+                    setAppearance(option.value as AppearancePref);
                     // Restarts the app when the colours change (theme/appearance.ts).
                     void setAppearancePref(option.value as AppearancePref);
                   }

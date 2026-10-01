@@ -39,6 +39,7 @@
     },
     "plugins": [
       "expo-font",
+      "expo-system-ui",
       [
         "expo-build-properties",
         {

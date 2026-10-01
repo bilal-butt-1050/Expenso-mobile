@@ -44,7 +44,7 @@ const navigationTheme = {
 };
 
 export function RootNavigator() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, logout } = useAuth();
   // A restart for a theme change skips the splash: the person is mid-settings, not opening the app.
   const [showSplash, setShowSplash] = useState(() => !consumeQuickReload());
   const [needsTour, setNeedsTour] = useState<boolean | null>(null);
@@ -176,7 +176,7 @@ export function RootNavigator() {
         )}
       </NavigationContainer>
 
-      {user ? <AppLockOverlay ready={isNavigatorReady && !showSplash} /> : null}
+      {user ? <AppLockOverlay ready={isNavigatorReady && !showSplash} onSignOut={logout} /> : null}
       {showSplash && <AnimatedSplash ready={isNavigatorReady} onComplete={handleSplashComplete} />}
     </View>
   );

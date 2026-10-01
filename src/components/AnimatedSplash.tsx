@@ -44,6 +44,8 @@ const ZOOM_MS = 1400;
 /** The pause on the settled wordmark before the splash fades. */
 const HOLD_MS = 300;
 const EXIT_MS = 300;
+/** If the app is never ready or the animation never reports back, leave anyway (G4 m7). */
+const SAFETY_MS = 8000;
 
 export function AnimatedSplash({ ready, onComplete }: Props) {
   // Read synchronously at app start, which is exactly when this mounts.
@@ -81,6 +83,15 @@ export function AnimatedSplash({ ready, onComplete }: Props) {
       scale.value = withTiming(1 / ZOOM_FROM, { duration: ZOOM_MS, easing: Easing.out(Easing.cubic) }, onIntroEnd);
     }
   }, [finishIntro, reduceMotion, scale, wordOpacity]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (exiting.current) return;
+      exiting.current = true;
+      onComplete();
+    }, SAFETY_MS);
+    return () => clearTimeout(timer);
+  }, [onComplete]);
 
   useEffect(() => {
     if (!ready || introDoneAt === null || exiting.current) return;

@@ -29,7 +29,7 @@ import { ChipGroup } from "../../components/ChipGroup";
 import { FormFooter } from "../../components/FormFooter";
 import { useFocusAfterTransition } from "../../hooks/useFocusAfterTransition";
 import { newTransactionId } from "../../lib/newId";
-import { colors } from "../../theme/colors";
+import { colors, darkColors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { PaymentMethod } from "../../types/models";
@@ -119,7 +119,8 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         date: date.toISOString(),
         source: selectedPreset.source,
         sourceIcon: selectedPreset.icon,
-        sourceColor: colors.iconNeutral,
+        // A fixed value: the theme's colour would make what's saved depend on the phone's theme.
+        sourceColor: darkColors.iconNeutral,
         description: description.trim() || undefined,
         amount: parsedAmount,
         paymentMethod,

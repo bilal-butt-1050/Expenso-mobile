@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, StyleSheet, Text, View } from "react-native";
+import { AppState, Modal, StyleSheet, Text, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Button } from "./Button";
-import { canUseAppLock, isAppLockEnabled, setAppLockEnabled, unlock } from "../lib/appLock";
+import { isAppLockEnabled, lockAvailability, setAppLockEnabled, unlock } from "../lib/appLock";
 import { colors } from "../theme/colors";
 import { spacing } from "../theme/spacing";
 import { typography } from "../theme/typography";
@@ -14,7 +14,7 @@ const RELOCK_AFTER_MS = 30_000;
  * Covers the app until the phone's screen lock is passed, when App lock is on: at start, and on
  * coming back after RELOCK_AFTER_MS. `ready` holds the first prompt until the splash is gone.
  */
-export function AppLockOverlay({ ready }: { ready: boolean }) {
+export function AppLockOverlay({ ready, onSignOut }: { ready: boolean; onSignOut: () => Promise<void> }) {
   const [locked, setLocked] = useState(isAppLockEnabled);
   // The PIN screen is its own activity: the app goes to the background and back while it's up,
   // which must not count as leaving.
@@ -23,13 +23,17 @@ export function AppLockOverlay({ ready }: { ready: boolean }) {
 
   const tryUnlock = useCallback(async () => {
     if (authenticating.current) return;
-    // The phone's screen lock was removed since: there's nothing to ask for, so lock is off.
-    if (!(await canUseAppLock())) {
+    // Set before any await, so a tap and the automatic prompt can't both get through (G4 m5).
+    authenticating.current = true;
+    const lockState = await lockAvailability();
+    // The phone's screen lock was removed since: there's nothing to ask for, so lock is off. An
+    // error is not "removed": the lock stays (fail closed).
+    if (lockState === "none") {
+      authenticating.current = false;
       setAppLockEnabled(false);
       setLocked(false);
       return;
     }
-    authenticating.current = true;
     const ok = await unlock();
     authenticating.current = false;
     leftAt.current = null;
@@ -54,13 +58,23 @@ export function AppLockOverlay({ ready }: { ready: boolean }) {
   }, []);
 
   if (!locked) return null;
-  return (
+  const content = (
     <View style={styles.cover} accessibilityViewIsModal>
       <MaterialCommunityIcons name="lock-outline" size={48} color={colors.accent} />
       <Text style={styles.title}>Expenso is locked</Text>
       <Text style={styles.body}>Unlock with your fingerprint, face or screen lock.</Text>
       <Button label="Unlock" onPress={() => void tryUnlock()} style={styles.button} />
+      {/* The way out if the phone's prompt ever fails: signing in again needs the account. */}
+      <Button label="Sign out" variant="ghost" onPress={() => void onSignOut()} style={styles.signOut} />
     </View>
+  );
+  // Until the splash is gone, a plain cover under it. After that, its own window: above any sheet or
+  // dialog left open, with TalkBack and the Back button kept inside it (G4 M1).
+  if (!ready) return content;
+  return (
+    <Modal visible transparent={false} animationType="none" onRequestClose={() => {}} statusBarTranslucent>
+      {content}
+    </Modal>
   );
 }
 
@@ -76,4 +90,5 @@ const styles = StyleSheet.create({
   title: { ...typography.title, textAlign: "center" },
   body: { ...typography.body, color: colors.textSecondary, textAlign: "center" },
   button: { alignSelf: "stretch", marginTop: spacing.md },
+  signOut: { alignSelf: "stretch" },
 });

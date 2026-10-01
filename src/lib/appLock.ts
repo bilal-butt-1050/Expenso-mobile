@@ -24,14 +24,19 @@ export function setAppLockEnabled(enabled: boolean): void {
   }
 }
 
-/** Whether this phone has a screen lock the app can ask for. */
-export async function canUseAppLock(): Promise<boolean> {
+/** Whether this phone has a screen lock to ask for: "unknown" when the check itself fails. */
+export async function lockAvailability(): Promise<"available" | "none" | "unknown"> {
   try {
     const level = await LocalAuthentication.getEnrolledLevelAsync();
-    return level !== LocalAuthentication.SecurityLevel.NONE;
+    return level === LocalAuthentication.SecurityLevel.NONE ? "none" : "available";
   } catch {
-    return false;
+    return "unknown";
   }
+}
+
+/** For the Settings switch: only a confirmed screen lock can be offered. */
+export async function canUseAppLock(): Promise<boolean> {
+  return (await lockAvailability()) === "available";
 }
 
 /** Asks for the phone's screen lock. True when the person passes it. */

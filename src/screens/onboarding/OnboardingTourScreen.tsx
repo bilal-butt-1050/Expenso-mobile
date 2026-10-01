@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
   },
   dotInactive: {
     width: 6,
-    backgroundColor: colors.surfaceRaised,
+    backgroundColor: colors.border,
   },
   actionBtn: {
     width: "100%",

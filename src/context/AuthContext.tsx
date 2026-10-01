@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { setAppLockEnabled } from "../lib/appLock";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
@@ -52,6 +53,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * writes behind for whoever signed in next (threat S3). Discarded writes are reported (S-9).
    */
   const purgeSession = useCallback(async () => {
+    // App lock is this person's choice; the next account on the phone starts without it.
+    setAppLockEnabled(false);
     // Synchronously, before anything awaits: from here no failure is reported for this account
     // (N3). Discard any pending undo rather than let it commit tokenless, and count it with the
     // unconfirmed writes about to be dropped.

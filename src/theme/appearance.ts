@@ -37,15 +37,30 @@ function resolve(pref: AppearancePref): ColorScheme {
 /** The scheme this run of the app was built with. Fixed until the next start. */
 export const activeScheme: ColorScheme = resolve(getAppearancePref());
 
+/** The background the app restarts into, so the reload screen matches it (no white flash). */
+const RELOAD_BACKGROUND: Record<ColorScheme, string> = { light: "#F5F6FA", dark: "#0B0F19" };
+
 /** Restarts the JS app in place; the splash is skipped for it. */
-async function quickReload() {
+async function quickReload(target: ColorScheme) {
   try {
     SecureStore.setItem(QUICK_RELOAD_KEY, "1");
   } catch {
     // Without the flag the restart just shows the splash.
   }
-  if (__DEV__) DevSettings.reload();
-  else await Updates.reloadAsync();
+  try {
+    if (__DEV__) DevSettings.reload();
+    else
+      await Updates.reloadAsync({
+        reloadScreenOptions: { backgroundColor: RELOAD_BACKGROUND[target], spinner: { enabled: false }, fade: true },
+      });
+  } catch {
+    // Not restarted: the choice is saved and applies at the next start. Don't skip that start's splash.
+    try {
+      SecureStore.deleteItemAsync(QUICK_RELOAD_KEY).catch(() => {});
+    } catch {
+      // Harmless.
+    }
+  }
 }
 
 /** Saves the choice, and restarts if it changes what's on screen. */
@@ -55,12 +70,12 @@ export async function setAppearancePref(pref: AppearancePref): Promise<void> {
   } catch {
     return;
   }
-  if (resolve(pref) !== activeScheme) await quickReload();
+  if (resolve(pref) !== activeScheme) await quickReload(resolve(pref));
 }
 
 /** On "System", follow a change of the phone's setting (checked when the app comes back). */
 export async function followSystemAppearance(): Promise<void> {
-  if (getAppearancePref() === "system" && resolve("system") !== activeScheme) await quickReload();
+  if (getAppearancePref() === "system" && resolve("system") !== activeScheme) await quickReload(resolve("system"));
 }
 
 /** True once, for the start right after a theme restart. */
