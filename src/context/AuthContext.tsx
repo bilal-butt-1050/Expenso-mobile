@@ -14,6 +14,7 @@ import {
 } from "../lib/mutations";
 import { resetSnackbarForPurge } from "../components/snackbar/snackbarBridge";
 import * as authApi from "../api/auth";
+import { feedbackSignedIn } from "../utils/haptics";
 
 interface AuthContextValue {
   user: User | null;
@@ -139,15 +140,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login: async (email, password) => {
         const u = await authApi.login(email, password);
         await saveUserAndCache(u);
+        feedbackSignedIn();
       },
       sendOtp: async (email) => await authApi.sendOtp(email),
       register: async (email, password, name, otp) => {
         const u = await authApi.register(email, password, name, otp);
         await saveUserAndCache(u);
+        feedbackSignedIn();
       },
       loginWithGoogle: async (idToken) => {
         const u = await authApi.loginWithGoogle(idToken);
         await saveUserAndCache(u);
+        feedbackSignedIn();
       },
       logout: async () => {
         try {
@@ -171,9 +175,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (user) await saveUserAndCache({ ...user, hasPassword: true });
       },
     }),
-    [user, isLoading, purgeSession]
+    [user, isLoading, purgeSession],
   );
-
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

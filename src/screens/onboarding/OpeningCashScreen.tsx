@@ -49,7 +49,12 @@ export function OpeningCashScreen() {
   return (
     <ScreenContainer>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          overScrollMode="never"
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
           <Text style={styles.title}>How much money do you have right now?</Text>
           <Text style={styles.body}>
             {user?.name ? `${user.name.split(" ")[0]}, add` : "Add"} up all your cash and bank money. This is your

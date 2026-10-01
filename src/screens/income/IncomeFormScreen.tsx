@@ -8,7 +8,7 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Keyboard
+  Keyboard,
 } from "react-native";
 import { amountSchema, check, parseAmount } from "../../utils/validation";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -34,7 +34,7 @@ import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { PaymentMethod } from "../../types/models";
 import { RootStackParamList } from "../../types/navigation";
-import { hapticRecordCreated, hapticDelete, hapticError } from "../../utils/haptics";
+import { hapticRecordCreated, hapticDelete, hapticError, feedbackUpdated } from "../../utils/haptics";
 
 type Props = NativeStackScreenProps<RootStackParamList, "IncomeForm">;
 
@@ -59,13 +59,13 @@ export function IncomeFormScreen({ route, navigation }: Props) {
   const { confirm } = useDialog();
 
   const [selectedPreset, setSelectedPreset] = useState<SourcePreset>(
-    PRESET_SOURCES.find((p) => p.source === editing?.source) ?? PRESET_SOURCES[0]
+    PRESET_SOURCES.find((p) => p.source === editing?.source) ?? PRESET_SOURCES[0],
   );
   const [amount, setAmount] = useState(editing ? formatAmountInput(String(editing.amount)) : "");
   const [description, setDescription] = useState(editing?.description ?? "");
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
-    (editing?.paymentMethod as PaymentMethod) ?? "Bank Transfer"
+    (editing?.paymentMethod as PaymentMethod) ?? "Bank Transfer",
   );
   const [date, setDate] = useState<Date>(editing ? new Date(editing.date) : new Date());
 
@@ -136,7 +136,8 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         savedId = created?.id ?? savedId;
       }
 
-      hapticRecordCreated();
+      if (editing) feedbackUpdated();
+      else hapticRecordCreated();
 
       // Switch to the month of the new income so the user can see it
       const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`;
@@ -196,6 +197,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
+          overScrollMode="never"
           style={styles.scroll}
           contentContainerStyle={styles.content}
           // "handled": a tap on empty space dismisses the keyboard; taps on fields and chips still land.
@@ -257,8 +259,12 @@ export function IncomeFormScreen({ route, navigation }: Props) {
             <DatePicker value={date} onChange={setDate} label="Date" maxDate={new Date()} />
           )}
 
-
-          <ChipGroup label="Payment method" options={PAYMENT_METHODS} value={paymentMethod} onChange={setPaymentMethod} />
+          <ChipGroup
+            label="Payment method"
+            options={PAYMENT_METHODS}
+            value={paymentMethod}
+            onChange={setPaymentMethod}
+          />
         </ScrollView>
 
         {/* Save stays reachable with the keyboard up (B1); a save error shows right above it. */}
@@ -286,7 +292,12 @@ export function IncomeFormScreen({ route, navigation }: Props) {
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.optionList} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          overScrollMode="never"
+          style={styles.optionList}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           {PRESET_SOURCES.map((p) => {
             const isSelected = p.source === selectedPreset.source;
             return (
@@ -302,9 +313,7 @@ export function IncomeFormScreen({ route, navigation }: Props) {
                 accessibilityState={{ checked: isSelected }}
               >
                 <CategoryPill icon={p.icon} size={32} />
-                <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
-                  {p.source}
-                </Text>
+                <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>{p.source}</Text>
                 {isSelected && <MaterialCommunityIcons name="check" size={20} color={colors.textPrimary} />}
               </TouchableOpacity>
             );

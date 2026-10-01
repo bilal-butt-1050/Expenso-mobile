@@ -8,7 +8,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Keyboard
+  Keyboard,
 } from "react-native";
 import { amountSchema, check, parseAmount } from "../../utils/validation";
 import { StackActions } from "@react-navigation/native";
@@ -40,7 +40,7 @@ import { NeedWant, PaymentMethod } from "../../types/models";
 import { formatAmountInput } from "../../utils/currency";
 import { typography } from "../../theme/typography";
 import { RootStackParamList } from "../../types/navigation";
-import { hapticRecordCreated, hapticDelete, hapticError, hapticWarning } from "../../utils/haptics";
+import { hapticRecordCreated, hapticDelete, hapticError, hapticWarning, feedbackUpdated } from "../../utils/haptics";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ExpenseForm">;
 
@@ -70,7 +70,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const [description, setDescription] = useState(editing?.description ?? "");
   const [amount, setAmount] = useState(editing ? formatAmountInput(String(editing.amount)) : "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
-    (editing?.paymentMethod as PaymentMethod) ?? "Cash"
+    (editing?.paymentMethod as PaymentMethod) ?? "Cash",
   );
   const [needWant, setNeedWant] = useState<NeedWant>(editing?.needWant ?? "Need");
   const [error, setError] = useState<string | null>(null);
@@ -167,7 +167,8 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         const created = await createTransaction({ ...input, id: clientId }, title);
         savedId = created?.id ?? savedId;
       }
-      hapticRecordCreated();
+      if (editing) feedbackUpdated();
+      else hapticRecordCreated();
 
       // Then, if this save crossed a line in that month's budget, say so without blocking. No
       // cached budget for that month (e.g. offline) simply means no notice.
@@ -195,7 +196,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
                 // popTo, not navigate: React Navigation 7's navigate stacks a second Tabs over whatever
                 // is open, and Back then walks through it.
                 navigationRef.dispatch(
-                  StackActions.popTo("Tabs", { screen: "Budget", params: { openCategoryId: categoryId } })
+                  StackActions.popTo("Tabs", { screen: "Budget", params: { openCategoryId: categoryId } }),
                 );
               }
             },
@@ -261,6 +262,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
+          overScrollMode="never"
           style={styles.scroll}
           contentContainerStyle={styles.content}
           // "handled": a tap on empty space dismisses the keyboard; taps on fields and chips still land.
@@ -316,7 +318,12 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
           {/* Date */}
           <DatePicker value={date} onChange={setDate} label="Date" maxDate={new Date()} />
 
-          <ChipGroup label="Payment method" options={PAYMENT_METHODS} value={paymentMethod} onChange={setPaymentMethod} />
+          <ChipGroup
+            label="Payment method"
+            options={PAYMENT_METHODS}
+            value={paymentMethod}
+            onChange={setPaymentMethod}
+          />
           <ChipGroup label="Need or want" options={NEED_WANT} value={needWant} onChange={setNeedWant} />
         </ScrollView>
 
@@ -327,7 +334,12 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
               {error}
             </Text>
           ) : null}
-          <Button label={editing ? "Save changes" : "Add expense"} onPress={handleSave} loading={isSaving} disabled={!hasChanges} />
+          <Button
+            label={editing ? "Save changes" : "Add expense"}
+            onPress={handleSave}
+            loading={isSaving}
+            disabled={!hasChanges}
+          />
         </FormFooter>
       </KeyboardAvoidingView>
 
@@ -364,7 +376,12 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
           </View>
         )}
 
-        <ScrollView style={styles.optionList} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          overScrollMode="never"
+          style={styles.optionList}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           {filteredCategories.map((c) => {
             const isSelected = c.id === categoryId;
             return (
@@ -381,9 +398,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
                 accessibilityState={{ checked: isSelected }}
               >
                 <CategoryPill icon={c.icon} color={c.color} size={32} />
-                <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
-                  {c.name}
-                </Text>
+                <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>{c.name}</Text>
                 {isSelected && <MaterialCommunityIcons name="check" size={20} color={colors.textPrimary} />}
               </TouchableOpacity>
             );
@@ -395,7 +410,6 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
           )}
         </ScrollView>
       </BottomSheet>
-
     </>
   );
 }

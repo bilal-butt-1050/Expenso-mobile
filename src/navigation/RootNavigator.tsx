@@ -26,7 +26,6 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 /** How long after signup an account still counts as new, for the opening-cash step. */
 const NEW_ACCOUNT_MS = 24 * 60 * 60 * 1000;
 
-
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const navigationTheme = {
@@ -79,11 +78,8 @@ export function RootNavigator() {
   const overlayOpen = useAnyOverlayOpen();
   const keyboardOffset = useKeyboardOffset(!overlayOpen);
 
-  // Dismiss native splash immediately on mount —
-  // our custom AnimatedSplash is already mounted and covering the screen with zero flicker.
-  useEffect(() => {
-    SplashScreen.hideAsync().catch(() => {});
-  }, []);
+  // The native splash is hidden by AnimatedSplash on its first layout, so the hand-over can't
+  // show a gap.
 
   const handleSplashComplete = useCallback(() => {
     setShowSplash(false);
@@ -100,13 +96,17 @@ export function RootNavigator() {
       <NavigationContainer ref={navigationRef} theme={navigationTheme}>
         {isNavigatorReady && (
           <Stack.Navigator
-            key={user ? (needsOpeningCash ? "opening-stack" : "tabs-stack") : needsTour ? "welcome-stack" : "auth-stack"}
+            key={
+              user ? (needsOpeningCash ? "opening-stack" : "tabs-stack") : needsTour ? "welcome-stack" : "auth-stack"
+            }
             screenOptions={{ headerShown: false }}
             // Must name a screen that exists in the branch rendered below. Signed out, only
             // `Auth` is registered — pointing at `Tabs` there threw
             // "Couldn't find a screen named 'Tabs' to use as 'initialRouteName'" and took the
             // whole app down on launch. React Navigation 6 only warned about this; 7 throws.
-            initialRouteName={user ? (needsOpeningCash ? "OpeningCash" : "Tabs") : needsTour ? "OnboardingTour" : "Auth"}
+            initialRouteName={
+              user ? (needsOpeningCash ? "OpeningCash" : "Tabs") : needsTour ? "OnboardingTour" : "Auth"
+            }
           >
             {user && needsOpeningCash ? (
               // Alone in its branch. With it also registered beside Tabs, the remount after saving
@@ -125,7 +125,9 @@ export function RootNavigator() {
                 <Stack.Screen name="OnboardingTour" component={OnboardingTourScreen} />
                 {/* Header titles follow the mode (P11): an edit says so, and a new loan names its
                     direction like the + sheet does. LoanFormScreen updates it if the toggle flips. */}
-                <Stack.Group screenOptions={{ presentation: "modal", headerShown: true, animation: "slide_from_bottom" }}>
+                <Stack.Group
+                  screenOptions={{ presentation: "modal", headerShown: true, animation: "slide_from_bottom" }}
+                >
                   <Stack.Screen
                     name="ExpenseForm"
                     component={ExpenseFormScreen}
@@ -164,12 +166,7 @@ export function RootNavigator() {
         )}
       </NavigationContainer>
 
-      {showSplash && (
-        <AnimatedSplash
-          ready={isNavigatorReady}
-          onComplete={handleSplashComplete}
-        />
-      )}
+      {showSplash && <AnimatedSplash ready={isNavigatorReady} onComplete={handleSplashComplete} />}
     </View>
   );
 }

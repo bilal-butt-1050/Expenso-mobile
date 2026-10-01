@@ -1,14 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import { iconName } from "../utils/icons";
 import { useLatest } from "../hooks/useLatest";
-import {
-  Animated,
-  View,
-  Text,
-  StyleSheet,
-  Easing,
-  Dimensions,
-} from "react-native";
+import { Animated, View, Text, StyleSheet, Easing, Dimensions } from "react-native";
 import { PressableScale } from "./PressableScale";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Swipeable, { type SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
@@ -19,7 +12,7 @@ import { formatCurrency } from "../utils/currency";
 import { colors } from "../theme/colors";
 import { radius, spacing } from "../theme/spacing";
 import { typography } from "../theme/typography";
-import { hapticDelete, hapticLight } from "../utils/haptics";
+import { hapticLight } from "../utils/haptics";
 import { useReduceMotion } from "../hooks/useReduceMotion";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -140,7 +133,7 @@ export function SwipeableActivityRow({
   // would have opened and deleted nothing.
   const onSwipeableOpen = (direction: "left" | "right") => {
     if (direction === "left") {
-      hapticDelete();
+      // No feedback here: the screen gives it for a real delete (a loan's row isn't deleted).
       swipeableRef.current?.close();
       onDelete();
     }
@@ -229,47 +222,43 @@ export function SwipeableActivityRow({
               }}
             >
               <View style={styles.rowMain}>
-              {/* Bubbly soft icon circle */}
-              <View style={[styles.iconCircle, { backgroundColor: getIconBg() }]}>
-                <MaterialCommunityIcons
-                  name={iconName(item.icon)}
-                  size={20}
-                  color={getIconColor()}
-                />
-              </View>
+                {/* Bubbly soft icon circle */}
+                <View style={[styles.iconCircle, { backgroundColor: getIconBg() }]}>
+                  <MaterialCommunityIcons name={iconName(item.icon)} size={20} color={getIconColor()} />
+                </View>
 
-              {/*
+                {/*
                 Title plus the one line that says *which* entry this is. Rows were title-only,
                 so every restaurant meal read "Food · Rs 500" and five loans rendered as five
                 identical "Lent · Rs 5,000". Uncluttered means fewer elements each carrying
                 weight, not dropping the field you opened the screen to read.
               */}
-              <View style={styles.rowMiddle}>
-                <Text style={styles.rowTitle} numberOfLines={1}>
-                  {item.title}
-                </Text>
-                {item.subtitle ? (
-                  <Text style={styles.rowSubtitle} numberOfLines={1}>
-                    {item.subtitle}
+                <View style={styles.rowMiddle}>
+                  <Text style={styles.rowTitle} numberOfLines={1}>
+                    {item.title}
                   </Text>
-                ) : null}
-              </View>
+                  {item.subtitle ? (
+                    <Text style={styles.rowSubtitle} numberOfLines={1}>
+                      {item.subtitle}
+                    </Text>
+                  ) : null}
+                </View>
 
-              {/* Amount: signed for income and spending, unsigned for loans (R-28) */}
-              <View style={styles.rowEnd}>
-                <MoneyText
-                  amount={item.amount}
-                  prefix={SIGN[item.tone]}
-                  style={[
-                    styles.rowAmount,
-                    item.tone === "in"
-                      ? styles.amountIncome
-                      : item.tone === "out"
-                        ? styles.amountExpense
-                        : styles.amountDefault,
-                  ]}
-                />
-              </View>
+                {/* Amount: signed for income and spending, unsigned for loans (R-28) */}
+                <View style={styles.rowEnd}>
+                  <MoneyText
+                    amount={item.amount}
+                    prefix={SIGN[item.tone]}
+                    style={[
+                      styles.rowAmount,
+                      item.tone === "in"
+                        ? styles.amountIncome
+                        : item.tone === "out"
+                          ? styles.amountExpense
+                          : styles.amountDefault,
+                    ]}
+                  />
+                </View>
               </View>
 
               {item.repayment ? (

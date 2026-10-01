@@ -12,7 +12,7 @@ import { typography } from "../theme/typography";
 import { formatCurrency, formatAmountInput } from "../utils/currency";
 import { Loan } from "../types/models";
 import { getErrorMessage } from "../api/client";
-import { hapticSuccess } from "../utils/haptics";
+import { feedbackSettled, hapticError } from "../utils/haptics";
 
 /** A 20pt icon plus 14 on every side: the 48pt minimum target (W13, B6). */
 const ICON_HIT_SLOP = 14;
@@ -26,13 +26,7 @@ interface LoanSettleSheetProps {
   onEdit: (loan: Loan) => void;
 }
 
-export function LoanSettleSheet({
-  loan,
-  onClose,
-  onSettle,
-  onDelete,
-  onEdit,
-}: LoanSettleSheetProps) {
+export function LoanSettleSheet({ loan, onClose, onSettle, onDelete, onEdit }: LoanSettleSheetProps) {
   const [partialAmount, setPartialAmount] = useState("");
   // Which button is working, so only that one spins (W13). Both are disabled meanwhile.
   const [submitting, setSubmitting] = useState<"full" | "partial" | null>(null);
@@ -65,9 +59,10 @@ export function LoanSettleSheet({
     setError(null);
     try {
       await onSettle(shown.id);
-      hapticSuccess();
+      feedbackSettled();
       onClose();
     } catch (err) {
+      hapticError();
       setError(getErrorMessage(err));
     } finally {
       setSubmitting(null);
@@ -91,9 +86,10 @@ export function LoanSettleSheet({
     setError(null);
     try {
       await onSettle(shown.id, num);
-      hapticSuccess();
+      feedbackSettled();
       onClose();
     } catch (err) {
+      hapticError();
       setError(getErrorMessage(err));
     } finally {
       setSubmitting(null);
@@ -217,11 +213,7 @@ export function LoanSettleSheet({
           </View>
         ) : (
           <View style={styles.settledBadge}>
-            <MaterialCommunityIcons
-              name="check-circle"
-              size={20}
-              color={colors.success}
-            />
+            <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
             <Text style={styles.settledBadgeText}>This loan is fully settled</Text>
           </View>
         )}

@@ -56,7 +56,13 @@ export function CategoryFormScreen({ route, navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        overScrollMode="never"
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.preview}>
           <CategoryPill icon={icon} color={color} size={56} />
           <Text style={styles.previewName}>{name || "New category"}</Text>

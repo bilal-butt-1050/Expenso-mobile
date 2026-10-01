@@ -537,6 +537,7 @@ export function ActivityScreen() {
         // Keyed by segment, so switching All / Expenses / Income / Loans cross-fades.
         <Reanimated.View key={activeTab} style={styles.flex} entering={FadeIn.duration(200)}>
           <SectionList
+            overScrollMode="never"
             sections={sections}
             keyExtractor={(item) => item.id}
             contentContainerStyle={[styles.listContent, { paddingBottom: bottomPadding }]}

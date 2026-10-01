@@ -78,7 +78,10 @@ export function SettingsScreen() {
   const [lastUpdated] = useState(describeLastUpdated);
 
   const email = user?.email || "";
-  const nameFromEmail = email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+  const nameFromEmail = email
+    .split("@")[0]
+    .replace(/[._]/g, " ")
+    .replace(/\b\w/g, (l) => l.toUpperCase());
   const displayName = user?.name || nameFromEmail || "Expenso User";
   const emailHash = md5(email.trim().toLowerCase());
   const fallbackAvatarUrl = `https://www.gravatar.com/avatar/${emailHash}?d=identicon&s=150`;
@@ -87,21 +90,16 @@ export function SettingsScreen() {
   return (
     <ScreenContainer>
       <ScrollView
+        overScrollMode="never"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, spacing.lg) + spacing.xl }}
       >
         <Card style={styles.profileCard}>
           <View style={styles.avatar}>
             {avatarUrl && !imageError ? (
-              <Image
-                source={{ uri: avatarUrl }}
-                style={styles.avatarImage}
-                onError={() => setImageError(true)}
-              />
+              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} onError={() => setImageError(true)} />
             ) : (
-              <Text style={styles.avatarFallbackText}>
-                {(displayName || "E")[0].toUpperCase()}
-              </Text>
+              <Text style={styles.avatarFallbackText}>{(displayName || "E")[0].toUpperCase()}</Text>
             )}
           </View>
           <View style={{ flex: 1 }}>
@@ -160,12 +158,12 @@ export function SettingsScreen() {
           />
           <View style={styles.modalActions}>
             <Button label="Cancel" variant="secondary" onPress={() => setIsEditNameOpen(false)} style={{ flex: 1 }} />
-            <Button 
-              label="Save" 
-              onPress={handleSaveName} 
-              loading={isSavingName} 
+            <Button
+              label="Save"
+              onPress={handleSaveName}
+              loading={isSavingName}
               disabled={nameInput.trim() === displayName.trim() || !nameInput.trim()}
-              style={{ flex: 1 }} 
+              style={{ flex: 1 }}
             />
           </View>
         </View>
@@ -239,7 +237,15 @@ const styles = StyleSheet.create({
   avatarFallbackText: { ...typography.subtitle, fontWeight: "700", color: colors.accent },
   name: { ...typography.body, fontWeight: "700" },
   email: { ...typography.caption },
-  sectionTitle: { ...typography.small, color: colors.textMuted, marginTop: spacing.xl, marginBottom: spacing.xs, marginLeft: spacing.sm, textTransform: "uppercase", letterSpacing: 0.5 },
+  sectionTitle: {
+    ...typography.small,
+    color: colors.textMuted,
+    marginTop: spacing.xl,
+    marginBottom: spacing.xs,
+    marginLeft: spacing.sm,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.sm },
   rowIcon: {
     width: 36,
