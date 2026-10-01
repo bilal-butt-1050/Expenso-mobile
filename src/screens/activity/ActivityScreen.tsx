@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, SectionList, RefreshControl, LayoutAnimation, ActivityIndicator } from "react-native";
+import { ChipGroup } from "../../components/ChipGroup";
 import { useJoined } from "../../hooks/useJoined";
 import Reanimated, { FadeIn } from "react-native-reanimated";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -93,6 +94,14 @@ function isOverdue(loan: Loan): boolean {
 }
 
 /** What the empty state calls the segment's entries: "No expenses in Sep 2026" (P13, §5.4). */
+type LoanView = "Open" | "Settled";
+const LOAN_VIEWS: readonly LoanView[] = ["Open", "Settled"];
+
+/** Settled by the month's end, or later: the row reads "Settled" either way (asOf.settledOn). */
+function loanIsSettled(loan: Loan): boolean {
+  return (loan.asOf?.status ?? loan.status) === "SETTLED" || Boolean(loan.asOf?.settledOn);
+}
+
 const EMPTY_NOUN: Record<ActivityTab, string> = {
   ALL: "entries",
   EXPENSES: "expenses",
@@ -138,6 +147,8 @@ export function ActivityScreen() {
   // The record a form just saved, highlighted once. Held here and cleared from the route, or it
   // would re-highlight every time the rows remount (switching segments).
   const [highlightId, setHighlightId] = useState<string | undefined>(undefined);
+  // The Loans tab shows one group at a time, so settled loans don't bury open ones (Bilal).
+  const [loanView, setLoanView] = useState<LoanView>("Open");
   // A ref, not the effect's cleanup: clearing the param re-runs the effect, and a cleanup there
   // would cancel the timer, leaving the highlight on for good.
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -221,13 +232,14 @@ export function ActivityScreen() {
       );
       return byNewest
         .filter((loan) => !hiddenIds.has(`loan-${loan.id}`))
+        .filter((loan) => loanIsSettled(loan) === (loanView === "Settled"))
         .map((loan) => {
           const isLent = loan.type === "LENT";
           // The row is the loan as it stood at the end of the selected month (R-41).
           const asOfPaid = loan.asOf?.settledAmount ?? loan.settledAmount;
           const settledThen = (loan.asOf?.status ?? loan.status) === "SETTLED";
           // Cleared in a later month: say so, so a past month doesn't look stale (Bilal).
-          const settledOn = !settledThen ? loan.asOf?.settledOn ?? null : null;
+          const settledOn = !settledThen ? (loan.asOf?.settledOn ?? null) : null;
           const repaidSince = loan.asOf?.repaidSince ?? 0;
           const settled = settledThen || Boolean(settledOn);
           const paid = settledOn ? loan.amount : asOfPaid;
@@ -310,7 +322,21 @@ export function ActivityScreen() {
         raw: tx,
       };
     });
-  }, [transactions, monthLoans, loansById, activeTab, hiddenIds, isCurrentMonth]);
+  }, [transactions, monthLoans, loansById, activeTab, hiddenIds, isCurrentMonth, loanView]);
+
+  // How many loans each group holds this month, for the switch's labels.
+  const loanCounts = useMemo(() => {
+    const visible = monthLoans.filter((l) => !hiddenIds.has(`loan-${l.id}`));
+    const settled = visible.filter(loanIsSettled).length;
+    return { Open: visible.length - settled, Settled: settled, total: visible.length };
+  }, [monthLoans, hiddenIds]);
+
+  // A loan just saved is highlighted: show the group it's in, so the highlight is on screen.
+  useEffect(() => {
+    if (activeTab !== "LOANS" || !highlightId) return;
+    const loan = monthLoans.find((l) => l.id === highlightId);
+    if (loan) setLoanView(loanIsSettled(loan) ? "Settled" : "Open");
+  }, [activeTab, highlightId, monthLoans]);
 
   // The tab's totals: what was still out at the end of the selected month (R-41). The same sums
   // the dashboard's debt position makes, by construction.
@@ -551,7 +577,7 @@ export function ActivityScreen() {
           </Text>
           <Button label="Try again" variant="secondary" onPress={() => void handleRefresh()} />
         </View>
-      ) : sections.length === 0 ? (
+      ) : sections.length === 0 && !(activeTab === "LOANS" && loanCounts.total > 0) ? (
         // It names the segment and the month it's scoped to, and points at the one way to add (§5.2).
         <EmptyState
           title={`No ${EMPTY_NOUN[activeTab]} in ${formatMonthLabel(selectedMonth)}`}
@@ -579,26 +605,47 @@ export function ActivityScreen() {
             }
             ListHeaderComponent={
               activeTab === "LOANS" ? (
-                <View style={styles.loansOverviewCard}>
-                  <View style={styles.loanCol}>
-                    {/* The figure is what's still out, and the title says exactly that (§5.4). */}
-                    <Text style={styles.loanColLabel}>Still to come back</Text>
-                    {/* One colour per loan direction, never green/red (D-59, W4). */}
-                    <MoneyText amount={monthTotals.lent} style={[styles.loanColValue, styles.lentValue]} />
+                <>
+                  <View style={styles.loansOverviewCard}>
+                    <View style={styles.loanCol}>
+                      {/* The figure is what's still out, and the title says exactly that (§5.4). */}
+                      <Text style={styles.loanColLabel}>Still to come back</Text>
+                      {/* One colour per loan direction, never green/red (D-59, W4). */}
+                      <MoneyText amount={monthTotals.lent} style={[styles.loanColValue, styles.lentValue]} />
+                    </View>
+                    <View style={styles.loanDivider} />
+                    <View style={styles.loanCol}>
+                      <Text style={styles.loanColLabel}>Still to pay back</Text>
+                      <MoneyText amount={monthTotals.borrowed} style={[styles.loanColValue, styles.borrowedValue]} />
+                    </View>
+                    {monthTotals.since > 0 ? (
+                      <Text style={styles.loansSince}>
+                        {monthTotals.since >= monthTotals.lent + monthTotals.borrowed
+                          ? "All of this has been settled since"
+                          : `${formatCurrency(monthTotals.since)} of this has been settled since`}
+                      </Text>
+                    ) : null}
                   </View>
-                  <View style={styles.loanDivider} />
-                  <View style={styles.loanCol}>
-                    <Text style={styles.loanColLabel}>Still to pay back</Text>
-                    <MoneyText amount={monthTotals.borrowed} style={[styles.loanColValue, styles.borrowedValue]} />
+                  {/* One group at a time: open loans by default (Bilal). */}
+                  <View style={styles.loanSwitch}>
+                    <ChipGroup
+                      label="Show loans"
+                      hideLabel
+                      options={LOAN_VIEWS}
+                      value={loanView}
+                      onChange={setLoanView}
+                      optionLabel={(v) => `${v} (${loanCounts[v]})`}
+                    />
                   </View>
-                  {monthTotals.since > 0 ? (
-                    <Text style={styles.loansSince}>
-                      {monthTotals.since >= monthTotals.lent + monthTotals.borrowed
-                        ? "All of this has been settled since"
-                        : `${formatCurrency(monthTotals.since)} of this has been settled since`}
-                    </Text>
-                  ) : null}
-                </View>
+                </>
+              ) : null
+            }
+            // The chosen group is empty while the other isn't: say so under the switch.
+            ListEmptyComponent={
+              activeTab === "LOANS" ? (
+                <Text style={styles.loanGroupEmpty}>
+                  No {loanView === "Open" ? "open" : "settled"} loans in {formatMonthLabel(selectedMonth)}
+                </Text>
               ) : null
             }
             renderSectionHeader={({ section: { title } }) => (
@@ -691,7 +738,16 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
   },
-  loansSince: { ...typography.small, fontWeight: "400", color: colors.success, textAlign: "center", width: "100%", marginTop: spacing.sm },
+  loanSwitch: { marginTop: spacing.md, marginBottom: -spacing.sm },
+  loanGroupEmpty: { ...typography.caption, color: colors.textSecondary, textAlign: "center", marginTop: spacing.xl },
+  loansSince: {
+    ...typography.small,
+    fontWeight: "400",
+    color: colors.success,
+    textAlign: "center",
+    width: "100%",
+    marginTop: spacing.sm,
+  },
   loanDivider: {
     width: 1,
     backgroundColor: colors.borderLight,
