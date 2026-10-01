@@ -1,12 +1,5 @@
 import React, { useState, useRef } from "react";
-import {
-  Dimensions,
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -109,6 +102,7 @@ export function OnboardingTourScreen({ route, navigation }: Props) {
 
       {/* Swipeable Slides */}
       <FlatList
+        overScrollMode="never"
         ref={flatListRef}
         data={SLIDES}
         keyExtractor={(item) => item.id}
@@ -150,15 +144,7 @@ export function OnboardingTourScreen({ route, navigation }: Props) {
         <View style={styles.dotsRow} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
           {SLIDES.map((_, idx) => {
             const isActive = idx === activeIndex;
-            return (
-              <View
-                key={idx}
-                style={[
-                  styles.dot,
-                  isActive ? styles.dotActive : styles.dotInactive,
-                ]}
-              />
-            );
+            return <View key={idx} style={[styles.dot, isActive ? styles.dotActive : styles.dotInactive]} />;
           })}
         </View>
 
@@ -247,7 +233,7 @@ const styles = StyleSheet.create({
   },
   dotInactive: {
     width: 6,
-    backgroundColor: colors.surfaceRaised,
+    backgroundColor: colors.border,
   },
   actionBtn: {
     width: "100%",

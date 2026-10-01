@@ -74,6 +74,7 @@ export function PasswordSheet({
     <BottomSheet visible={visible} onClose={onClose}>
       {/* Scrolls when the keyboard leaves too little room for the whole form. */}
       <ScrollView
+        overScrollMode="never"
         style={styles.scroll}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -82,8 +83,7 @@ export function PasswordSheet({
         <Text style={styles.title}>{hasPassword ? "Change password" : "Set a password"}</Text>
         {!hasPassword ? (
           <Text style={styles.note}>
-            Then you can also sign in with your email and this password. Google will ask you to confirm
-            it's you.
+            Then you can also sign in with your email and this password. Google will ask you to confirm it's you.
           </Text>
         ) : null}
         {hasPassword ? (
@@ -141,7 +141,11 @@ function PasswordField(props: TextInputProps & { label: string; error?: string |
           accessibilityRole="button"
           accessibilityLabel={visible ? `Hide ${props.label.toLowerCase()}` : `Show ${props.label.toLowerCase()}`}
         >
-          <MaterialCommunityIcons name={visible ? "eye-off-outline" : "eye-outline"} size={20} color={colors.textMuted} />
+          <MaterialCommunityIcons
+            name={visible ? "eye-off-outline" : "eye-outline"}
+            size={20}
+            color={colors.textMuted}
+          />
         </TouchableOpacity>
       }
     />

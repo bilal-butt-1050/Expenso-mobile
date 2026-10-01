@@ -204,6 +204,8 @@ export interface DashboardSummary {
   cashAvailable: CashAvailable;
   /** This month's spending against the previous month's, same-day for the current month (R-39). */
   comparison: SpendingComparison | null;
+  /** Spending dated today (user's timezone); null for other months, absent from older servers. */
+  spentToday?: number | null;
 }
 
 export type LoanType = "LENT" | "BORROWED";

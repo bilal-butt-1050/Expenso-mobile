@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { NavigationContainer, DarkTheme } from "@react-navigation/native";
+import { NavigationContainer, DarkTheme, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import * as SplashScreen from "expo-splash-screen";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -18,6 +18,8 @@ import { OnboardingTourScreen, TOUR_SEEN_KEY } from "../screens/onboarding/Onboa
 import { OpeningCashScreen } from "../screens/onboarding/OpeningCashScreen";
 import { SettingsScreen } from "../screens/settings/SettingsScreen";
 import { AnimatedSplash } from "../components/AnimatedSplash";
+import { AppLockOverlay } from "../components/AppLockOverlay";
+import { activeScheme, consumeQuickReload } from "../theme/appearance";
 import { useKeyboardOffset } from "../hooks/useKeyboardHeight";
 import { useAnyOverlayOpen } from "../lib/overlays";
 
@@ -26,13 +28,13 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 /** How long after signup an account still counts as new, for the opening-cash step. */
 const NEW_ACCOUNT_MS = 24 * 60 * 60 * 1000;
 
-
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+const baseTheme = activeScheme === "light" ? DefaultTheme : DarkTheme;
 const navigationTheme = {
-  ...DarkTheme,
+  ...baseTheme,
   colors: {
-    ...DarkTheme.colors,
+    ...baseTheme.colors,
     background: colors.background,
     card: colors.surface,
     border: colors.border,
@@ -42,8 +44,9 @@ const navigationTheme = {
 };
 
 export function RootNavigator() {
-  const { user, isLoading } = useAuth();
-  const [showSplash, setShowSplash] = useState(true);
+  const { user, isLoading, logout } = useAuth();
+  // A restart for a theme change skips the splash: the person is mid-settings, not opening the app.
+  const [showSplash, setShowSplash] = useState(() => !consumeQuickReload());
   const [needsTour, setNeedsTour] = useState<boolean | null>(null);
 
   // The tour is for a fresh install: it shows before sign-in, once per phone. Stay undecided
@@ -79,17 +82,20 @@ export function RootNavigator() {
   const overlayOpen = useAnyOverlayOpen();
   const keyboardOffset = useKeyboardOffset(!overlayOpen);
 
-  // Dismiss native splash immediately on mount —
-  // our custom AnimatedSplash is already mounted and covering the screen with zero flicker.
-  useEffect(() => {
-    SplashScreen.hideAsync().catch(() => {});
-  }, []);
+  // The native splash is hidden by AnimatedSplash on its first layout, so the hand-over can't
+  // show a gap.
 
   const handleSplashComplete = useCallback(() => {
     setShowSplash(false);
   }, []);
 
   const isNavigatorReady = !isLoading && needsTour !== null;
+
+  // Without the splash, nothing else hides the native one.
+  useEffect(() => {
+    if (!showSplash && isNavigatorReady) SplashScreen.hideAsync().catch(() => {});
+  }, [showSplash, isNavigatorReady]);
+
   // Opening cash is asked for once, right after an account is created (D-64), never of an existing
   // account. Strictly null: a user cached by an older build lacks the field (undefined).
   const isNewAccount = !!user?.createdAt && Date.now() - new Date(user.createdAt).getTime() < NEW_ACCOUNT_MS;
@@ -100,13 +106,17 @@ export function RootNavigator() {
       <NavigationContainer ref={navigationRef} theme={navigationTheme}>
         {isNavigatorReady && (
           <Stack.Navigator
-            key={user ? (needsOpeningCash ? "opening-stack" : "tabs-stack") : needsTour ? "welcome-stack" : "auth-stack"}
+            key={
+              user ? (needsOpeningCash ? "opening-stack" : "tabs-stack") : needsTour ? "welcome-stack" : "auth-stack"
+            }
             screenOptions={{ headerShown: false }}
             // Must name a screen that exists in the branch rendered below. Signed out, only
             // `Auth` is registered — pointing at `Tabs` there threw
             // "Couldn't find a screen named 'Tabs' to use as 'initialRouteName'" and took the
             // whole app down on launch. React Navigation 6 only warned about this; 7 throws.
-            initialRouteName={user ? (needsOpeningCash ? "OpeningCash" : "Tabs") : needsTour ? "OnboardingTour" : "Auth"}
+            initialRouteName={
+              user ? (needsOpeningCash ? "OpeningCash" : "Tabs") : needsTour ? "OnboardingTour" : "Auth"
+            }
           >
             {user && needsOpeningCash ? (
               // Alone in its branch. With it also registered beside Tabs, the remount after saving
@@ -125,7 +135,9 @@ export function RootNavigator() {
                 <Stack.Screen name="OnboardingTour" component={OnboardingTourScreen} />
                 {/* Header titles follow the mode (P11): an edit says so, and a new loan names its
                     direction like the + sheet does. LoanFormScreen updates it if the toggle flips. */}
-                <Stack.Group screenOptions={{ presentation: "modal", headerShown: true, animation: "slide_from_bottom" }}>
+                <Stack.Group
+                  screenOptions={{ presentation: "modal", headerShown: true, animation: "slide_from_bottom" }}
+                >
                   <Stack.Screen
                     name="ExpenseForm"
                     component={ExpenseFormScreen}
@@ -164,12 +176,8 @@ export function RootNavigator() {
         )}
       </NavigationContainer>
 
-      {showSplash && (
-        <AnimatedSplash
-          ready={isNavigatorReady}
-          onComplete={handleSplashComplete}
-        />
-      )}
+      {user ? <AppLockOverlay ready={isNavigatorReady && !showSplash} onSignOut={logout} /> : null}
+      {showSplash && <AnimatedSplash ready={isNavigatorReady} onComplete={handleSplashComplete} />}
     </View>
   );
 }

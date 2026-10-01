@@ -39,7 +39,7 @@ export function BudgetVector() {
         </LinearGradient>
       </Defs>
       <Circle cx="55" cy="55" r="48" fill="rgba(99, 102, 241, 0.12)" />
-      <Circle cx="55" cy="55" r="36" stroke="rgba(255, 255, 255, 0.1)" strokeWidth="8" strokeDasharray="170 60" />
+      <Circle cx="55" cy="55" r="36" stroke="rgba(99, 102, 241, 0.18)" strokeWidth="8" strokeDasharray="170 60" />
       <Circle
         cx="55"
         cy="55"

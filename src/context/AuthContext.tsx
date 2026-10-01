@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { setAppLockEnabled } from "../lib/appLock";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
@@ -14,6 +15,7 @@ import {
 } from "../lib/mutations";
 import { resetSnackbarForPurge } from "../components/snackbar/snackbarBridge";
 import * as authApi from "../api/auth";
+import { feedbackSignedIn } from "../utils/haptics";
 
 interface AuthContextValue {
   user: User | null;
@@ -23,6 +25,8 @@ interface AuthContextValue {
   register: (email: string, password: string, name: string, otp?: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Deletes the account on the server, then ends the session here. */
+  deleteAccount: () => Promise<void>;
   refreshUser: () => Promise<void>;
   /** Records a just-saved opening cash, so onboarding moves on even if a refetch fails (D-64). */
   applyOpeningBalance: (openingBalance: number) => Promise<void>;
@@ -49,6 +53,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * writes behind for whoever signed in next (threat S3). Discarded writes are reported (S-9).
    */
   const purgeSession = useCallback(async () => {
+    // App lock is this person's choice; the next account on the phone starts without it.
+    setAppLockEnabled(false);
     // Synchronously, before anything awaits: from here no failure is reported for this account
     // (N3). Discard any pending undo rather than let it commit tokenless, and count it with the
     // unconfirmed writes about to be dropped.
@@ -139,20 +145,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login: async (email, password) => {
         const u = await authApi.login(email, password);
         await saveUserAndCache(u);
+        feedbackSignedIn();
       },
       sendOtp: async (email) => await authApi.sendOtp(email),
       register: async (email, password, name, otp) => {
         const u = await authApi.register(email, password, name, otp);
         await saveUserAndCache(u);
+        feedbackSignedIn();
       },
       loginWithGoogle: async (idToken) => {
         const u = await authApi.loginWithGoogle(idToken);
         await saveUserAndCache(u);
+        feedbackSignedIn();
       },
       logout: async () => {
         try {
           await authApi.logout();
         } catch {}
+        await purgeSession();
+      },
+      deleteAccount: async () => {
+        await authApi.deleteAccount();
         await purgeSession();
       },
       refreshUser: async () => {
@@ -171,9 +184,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (user) await saveUserAndCache({ ...user, hasPassword: true });
       },
     }),
-    [user, isLoading, purgeSession]
+    [user, isLoading, purgeSession],
   );
-
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { iconName } from "../../utils/icons";
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { check, nameSchema } from "../../utils/validation";
 import md5 from "md5";
 import { useNavigation } from "@react-navigation/native";
@@ -17,10 +17,21 @@ import { TextField } from "../../components/TextField";
 import { PasswordSheet } from "../../components/PasswordSheet";
 import { getErrorMessage } from "../../api/client";
 import { colors } from "../../theme/colors";
-import { spacing, radius } from "../../theme/spacing";
+import { spacing, radius, size } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { RootStackParamList } from "../../types/navigation";
 import { describeLastUpdated } from "../../services/updateService";
+import { AppearancePref, getAppearancePref, setAppearancePref } from "../../theme/appearance";
+import { getHapticsEnabled, getSoundsEnabled, hapticLight, setHapticsEnabled, setSoundsEnabled } from "../../utils/haptics";
+import { canUseAppLock, isAppLockEnabled, setAppLockEnabled, unlock } from "../../lib/appLock";
+
+const APPEARANCES: { value: AppearancePref; label: string }[] = [
+  { value: "system", label: "Same as phone" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+];
+/** The currencies the server accepts (auth.routes `SUPPORTED_CURRENCIES`). */
+const CURRENCIES = ["PKR", "USD", "EUR", "GBP", "AED", "SAR", "INR", "CAD", "AUD"];
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -28,7 +39,7 @@ export function SettingsScreen() {
   const navigation = useNavigation<Nav>();
   // A root stack screen, so there is no tab bar underneath — safe-area inset is the right clearance.
   const insets = useSafeAreaInsets();
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, deleteAccount } = useAuth();
   const { confirm, alert } = useDialog();
 
   const [isEditNameOpen, setIsEditNameOpen] = useState(false);
@@ -74,11 +85,78 @@ export function SettingsScreen() {
     });
   };
 
+  // Preferences. Read once; each switch saves as it changes.
+  const [appearance, setAppearance] = useState(getAppearancePref);
+  // Which list the sheet shows stays put while it slides away (G4 m9); `sheetOpen` drives it.
+  const [sheet, setSheetKind] = useState<"appearance" | "currency">("appearance");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const setSheet = (kind: "appearance" | "currency" | null) => {
+    if (kind) setSheetKind(kind);
+    setSheetOpen(kind !== null);
+  };
+  const [deleting, setDeleting] = useState(false);
+  const [sounds, setSounds] = useState(getSoundsEnabled);
+  const [haptics, setHaptics] = useState(getHapticsEnabled);
+  const [appLock, setAppLock] = useState(isAppLockEnabled);
+  // null while unknown; false on a phone with no screen lock to ask for.
+  const [lockAvailable, setLockAvailable] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    canUseAppLock().then((ok) => {
+      if (!cancelled) setLockAvailable(ok);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const toggleAppLock = async (on: boolean) => {
+    // Turning it on proves the person can unlock first, so they can't lock themselves out.
+    if (on && !(await unlock("Turn on App lock"))) return;
+    setAppLockEnabled(on);
+    setAppLock(isAppLockEnabled());
+  };
+
+  const chooseCurrency = async (currency: string) => {
+    setSheet(null);
+    if (currency === user?.currency) return;
+    try {
+      await updateProfile({ currency });
+    } catch (error) {
+      alert({ title: "Couldn't change currency", message: getErrorMessage(error), icon: "alert-circle-outline" });
+    }
+  };
+
+  const confirmDelete = () => {
+    confirm({
+      title: "Delete your account?",
+      message:
+        "This permanently deletes your account and everything in it: expenses, income, loans, budgets and categories. It can't be undone.",
+      confirmText: "Delete account",
+      destructive: true,
+      icon: "trash-can-outline",
+      onConfirm: async () => {
+        // With App lock on, deleting needs the same check as opening the app (G4 m13).
+        if (isAppLockEnabled() && !(await unlock("Delete your account"))) return;
+        setDeleting(true);
+        try {
+          await deleteAccount();
+        } catch (error) {
+          setDeleting(false);
+          alert({ title: "Couldn't delete your account", message: getErrorMessage(error), icon: "alert-circle-outline" });
+        }
+      },
+    });
+  };
+
   // Fixed for the life of the process: a reload is what changes the running bundle.
   const [lastUpdated] = useState(describeLastUpdated);
 
   const email = user?.email || "";
-  const nameFromEmail = email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+  const nameFromEmail = email
+    .split("@")[0]
+    .replace(/[._]/g, " ")
+    .replace(/\b\w/g, (l) => l.toUpperCase());
   const displayName = user?.name || nameFromEmail || "Expenso User";
   const emailHash = md5(email.trim().toLowerCase());
   const fallbackAvatarUrl = `https://www.gravatar.com/avatar/${emailHash}?d=identicon&s=150`;
@@ -87,21 +165,16 @@ export function SettingsScreen() {
   return (
     <ScreenContainer>
       <ScrollView
+        overScrollMode="never"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, spacing.lg) + spacing.xl }}
       >
         <Card style={styles.profileCard}>
           <View style={styles.avatar}>
             {avatarUrl && !imageError ? (
-              <Image
-                source={{ uri: avatarUrl }}
-                style={styles.avatarImage}
-                onError={() => setImageError(true)}
-              />
+              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} onError={() => setImageError(true)} />
             ) : (
-              <Text style={styles.avatarFallbackText}>
-                {(displayName || "E")[0].toUpperCase()}
-              </Text>
+              <Text style={styles.avatarFallbackText}>{(displayName || "E")[0].toUpperCase()}</Text>
             )}
           </View>
           <View style={{ flex: 1 }}>
@@ -134,7 +207,56 @@ export function SettingsScreen() {
           />
         ) : null}
 
-        <Text style={styles.sectionTitle}>App & system</Text>
+        <Text style={styles.sectionTitle}>Preferences</Text>
+        <SettingsRow
+          icon="theme-light-dark"
+          label="Appearance"
+          subtitle={APPEARANCES.find((a) => a.value === appearance)?.label ?? "Same as phone"}
+          onPress={() => setSheet("appearance")}
+        />
+        <SettingsRow
+          icon="cash-multiple"
+          label="Currency"
+          subtitle={user?.currency ?? "PKR"}
+          onPress={() => setSheet("currency")}
+        />
+        <SwitchRow
+          icon="volume-high"
+          label="Sounds"
+          subtitle="When you add, change or delete entries"
+          value={sounds}
+          onChange={(v) => {
+            setSoundsEnabled(v);
+            setSounds(v);
+          }}
+        />
+        <SwitchRow
+          icon="vibrate"
+          label="Vibration"
+          subtitle="A light tap on taps and saves"
+          value={haptics}
+          onChange={(v) => {
+            setHapticsEnabled(v);
+            setHaptics(v);
+            if (v) hapticLight();
+          }}
+        />
+
+        <Text style={styles.sectionTitle}>Security</Text>
+        <SwitchRow
+          icon="fingerprint"
+          label="App lock"
+          subtitle={
+            lockAvailable === false
+              ? "Set a screen lock in your phone's settings first"
+              : "Ask for your fingerprint, face or screen lock"
+          }
+          value={appLock}
+          disabled={lockAvailable !== true}
+          onChange={(v) => void toggleAppLock(v)}
+        />
+
+        <Text style={styles.sectionTitle}>App</Text>
         <SettingsRow
           icon="compass-outline"
           label="App tour"
@@ -143,6 +265,16 @@ export function SettingsScreen() {
         />
 
         <Button label="Sign out" variant="danger" onPress={confirmLogout} style={styles.logout} />
+        <TouchableOpacity
+          onPress={confirmDelete}
+          disabled={deleting}
+          style={styles.deleteAccount}
+          accessibilityRole="button"
+          accessibilityLabel="Delete account"
+          accessibilityState={{ disabled: deleting, busy: deleting }}
+        >
+          <Text style={styles.deleteAccountText}>{deleting ? "Deleting your account…" : "Delete account"}</Text>
+        </TouchableOpacity>
 
         {lastUpdated ? <Text style={styles.buildFooter}>{lastUpdated}</Text> : null}
       </ScrollView>
@@ -160,14 +292,46 @@ export function SettingsScreen() {
           />
           <View style={styles.modalActions}>
             <Button label="Cancel" variant="secondary" onPress={() => setIsEditNameOpen(false)} style={{ flex: 1 }} />
-            <Button 
-              label="Save" 
-              onPress={handleSaveName} 
-              loading={isSavingName} 
+            <Button
+              label="Save"
+              onPress={handleSaveName}
+              loading={isSavingName}
               disabled={nameInput.trim() === displayName.trim() || !nameInput.trim()}
-              style={{ flex: 1 }} 
+              style={{ flex: 1 }}
             />
           </View>
+        </View>
+      </BottomSheet>
+
+      <BottomSheet visible={sheetOpen} onClose={() => setSheet(null)}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>{sheet === "currency" ? "Currency" : "Appearance"}</Text>
+          {(sheet === "currency"
+            ? CURRENCIES.map((c) => ({ value: c, label: c }))
+            : APPEARANCES
+          ).map((option) => {
+            const selected = sheet === "currency" ? option.value === user?.currency : option.value === appearance;
+            return (
+              <TouchableOpacity
+                key={option.value}
+                style={[styles.option, selected && styles.optionSelected]}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected }}
+                onPress={() => {
+                  if (sheet === "currency") void chooseCurrency(option.value);
+                  else {
+                    setSheet(null);
+                    setAppearance(option.value as AppearancePref);
+                    // Restarts the app when the colours change (theme/appearance.ts).
+                    void setAppearancePref(option.value as AppearancePref);
+                  }
+                }}
+              >
+                <Text style={[styles.optionLabel, selected && styles.optionLabelSelected]}>{option.label}</Text>
+                {selected ? <MaterialCommunityIcons name="check" size={20} color={colors.accent} /> : null}
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </BottomSheet>
 
@@ -189,6 +353,43 @@ export function SettingsScreen() {
         }}
       />
     </ScreenContainer>
+  );
+}
+
+function SwitchRow({
+  icon,
+  label,
+  subtitle,
+  value,
+  disabled,
+  onChange,
+}: {
+  icon: string;
+  label: string;
+  subtitle: string;
+  value: boolean;
+  disabled?: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <Card style={[styles.row, disabled && styles.rowDisabled]}>
+      <View style={styles.rowIcon}>
+        <MaterialCommunityIcons name={iconName(icon)} size={20} color={colors.accent} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        <Text style={styles.rowSubtitle}>{subtitle}</Text>
+      </View>
+      <Switch
+        value={value}
+        disabled={disabled}
+        onValueChange={onChange}
+        trackColor={{ false: colors.border, true: colors.accentFill }}
+        thumbColor={colors.accentForeground}
+        accessibilityLabel={label}
+        accessibilityHint={subtitle}
+      />
+    </Card>
   );
 }
 
@@ -239,7 +440,15 @@ const styles = StyleSheet.create({
   avatarFallbackText: { ...typography.subtitle, fontWeight: "700", color: colors.accent },
   name: { ...typography.body, fontWeight: "700" },
   email: { ...typography.caption },
-  sectionTitle: { ...typography.small, color: colors.textMuted, marginTop: spacing.xl, marginBottom: spacing.xs, marginLeft: spacing.sm, textTransform: "uppercase", letterSpacing: 0.5 },
+  sectionTitle: {
+    ...typography.small,
+    color: colors.textMuted,
+    marginTop: spacing.xl,
+    marginBottom: spacing.xs,
+    marginLeft: spacing.sm,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.sm },
   rowIcon: {
     width: 36,
@@ -252,6 +461,22 @@ const styles = StyleSheet.create({
   rowLabel: { ...typography.body, fontWeight: "600" },
   rowSubtitle: { ...typography.caption, color: colors.textSecondary },
   logout: { marginTop: spacing.xl },
+  rowDisabled: { opacity: 0.6 },
+  deleteAccount: { alignSelf: "center", minHeight: size.minTouch, justifyContent: "center", marginTop: spacing.sm },
+  deleteAccountText: { ...typography.small, color: colors.danger },
+  option: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: size.minTouch,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  optionSelected: { backgroundColor: colors.accentMuted, borderColor: colors.accent },
+  optionLabel: { ...typography.body, color: colors.textPrimary },
+  optionLabelSelected: { fontWeight: "700" },
   buildFooter: {
     ...typography.small,
     color: colors.textSecondary,

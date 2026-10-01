@@ -1,3 +1,4 @@
+import axios from "axios";
 import { apiClient, setToken, clearToken } from "./client";
 import { User } from "../types/models";
 
@@ -32,6 +33,19 @@ export async function register(email: string, password: string, name: string, ot
 export async function fetchCurrentUser(): Promise<User> {
   const { data } = await apiClient.get<User>("/auth/me");
   return data;
+}
+
+/** Deletes the account and all its data on the server. Irreversible. */
+export async function deleteAccount(): Promise<void> {
+  try {
+    await apiClient.delete("/auth/account", { data: { confirm: "DELETE" } });
+  } catch (error) {
+    // A server from before the endpoint existed answers 404 with a route message, not a sentence.
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      throw new Error("Deleting accounts isn't available yet. Please try again later.");
+    }
+    throw error;
+  }
 }
 
 export async function logout(): Promise<void> {

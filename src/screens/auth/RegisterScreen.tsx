@@ -29,7 +29,6 @@ import { SignupCodeStep } from "./SignupCodeStep";
 /** A code this recent for the same email is reused instead of sending another (DESIGN §S8). */
 const CODE_REUSE_MS = 10 * 60 * 1000;
 
-
 type FieldErrors = Partial<Record<"name" | "email" | "password" | "confirm", string>>;
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Register">;
@@ -87,11 +86,7 @@ export function RegisterScreen({ navigation }: Props) {
 
     // A code sent to this same address in the last 10 minutes is still valid: don't send another
     // (which would also hit the 60 s cooldown).
-    if (
-      lastSent &&
-      lastSent.email === normalizedEmail &&
-      Date.now() - lastSent.at < CODE_REUSE_MS
-    ) {
+    if (lastSent && lastSent.email === normalizedEmail && Date.now() - lastSent.at < CODE_REUSE_MS) {
       Keyboard.dismiss();
       setStep("code");
       return;
@@ -104,10 +99,7 @@ export function RegisterScreen({ navigation }: Props) {
       Keyboard.dismiss();
       setStep("code");
     } catch (err) {
-      setError(
-        getErrorMessage(err) ||
-          "We couldn't send the code right now. Try again in a few minutes.",
-      );
+      setError(getErrorMessage(err) || "We couldn't send the code right now. Try again in a few minutes.");
     } finally {
       setIsLoading(false);
     }
@@ -142,25 +134,20 @@ export function RegisterScreen({ navigation }: Props) {
   if (step === "code" && lastSent) {
     return (
       <ScreenContainer>
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <ScrollView
+            showsVerticalScrollIndicator={false}
+            overScrollMode="never"
             contentContainerStyle={styles.scroll}
             keyboardShouldPersistTaps="handled"
           >
             <SignupCodeStep
               email={lastSent.email}
               sentAt={lastSent.at}
-              dailyLock={
-                dailyLock?.email === lastSent.email ? dailyLock.message : null
-              }
+              dailyLock={dailyLock?.email === lastSent.email ? dailyLock.message : null}
               onVerify={handleVerify}
               onResend={handleResend}
-              onDailyLock={(message) =>
-                setDailyLock({ email: lastSent.email, message })
-              }
+              onDailyLock={(message) => setDailyLock({ email: lastSent.email, message })}
               onEditEmail={() => setStep("details")}
             />
           </ScrollView>
@@ -171,19 +158,16 @@ export function RegisterScreen({ navigation }: Props) {
 
   return (
     <ScreenContainer>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView
+          showsVerticalScrollIndicator={false}
+          overScrollMode="never"
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
             <Text style={styles.title}>Create your account</Text>
-            <Text style={styles.subtitle}>
-              Start tracking your expenses with ease
-            </Text>
+            <Text style={styles.subtitle}>Start tracking your expenses with ease</Text>
           </View>
 
           <TextField
@@ -282,11 +266,7 @@ export function RegisterScreen({ navigation }: Props) {
             {isLoading ? (
               <ActivityIndicator size="small" color={colors.textPrimary} />
             ) : (
-              <MaterialCommunityIcons
-                name="google"
-                size={20}
-                color={colors.textPrimary}
-              />
+              <MaterialCommunityIcons name="google" size={20} color={colors.textPrimary} />
             )}
             <Text style={styles.googleBtnText}>Continue with Google</Text>
           </TouchableOpacity>

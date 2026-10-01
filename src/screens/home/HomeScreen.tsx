@@ -93,7 +93,10 @@ export function HomeScreen() {
 
   const [imageError, setImageError] = useState(false);
   const email = user?.email || "";
-  const nameFromEmail = email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+  const nameFromEmail = email
+    .split("@")[0]
+    .replace(/[._]/g, " ")
+    .replace(/\b\w/g, (l) => l.toUpperCase());
   const displayName = user?.name || nameFromEmail || "E";
   const firstName = displayName.split(" ")[0];
   const emailHash = md5(email.trim().toLowerCase());
@@ -124,6 +127,7 @@ export function HomeScreen() {
       </View>
 
       <ScrollView
+        overScrollMode="never"
         contentContainerStyle={{ paddingBottom: bottomPadding }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.accent} />}
         showsVerticalScrollIndicator={false}
@@ -147,7 +151,6 @@ export function HomeScreen() {
           <HomeSkeleton />
         )}
       </ScrollView>
-
     </ScreenContainer>
   );
 }
@@ -177,6 +180,12 @@ function HomeSections({
   const attention = budgetsNeedingAttention(data.budgetVsActual);
   const unbudgeted = unbudgetedSpending(data.categoryBreakdown, data.budgetVsActual);
   const shown = cashShown(cash.amount);
+  const spentTodayText =
+    typeof data.spentToday === "number"
+      ? data.spentToday > 0
+        ? `${formatCurrency(data.spentToday)} spent today`
+        : "Nothing spent today yet"
+      : null;
   const hasBudgets = data.budgetVsActual.some((b) => b.budget > 0);
   const insight = insightFor(data.comparison, cash.period, data.month, categoryName);
   const owed = data.netDebtSnapshot;
@@ -188,27 +197,41 @@ function HomeSections({
       <View
         style={styles.hero}
         accessible
-        accessibilityLabel={`${label}, ${formatCurrencySpoken(shown.amount)}${shown.incomplete ? ". Some income or a loan may be missing" : ""}`}
+        accessibilityLabel={`${label}, ${formatCurrencySpoken(shown.amount)}${shown.incomplete ? ". Some income or a loan may be missing" : ""}${spentTodayText ? `. ${spentTodayText}` : ""}`}
       >
         <Text style={styles.heroLabel}>{label}</Text>
         <MoneyText amount={shown.amount} style={styles.heroAmount} />
         {shown.incomplete ? <Text style={styles.heroNote}>Some income or a loan may be missing</Text> : null}
+        {/* Today at a glance, for the current month only (the server sends null otherwise). */}
+        {spentTodayText ? <Text style={styles.heroToday}>{spentTodayText}</Text> : null}
       </View>
 
       {/* 2. What happened this month (R-36) */}
       <View style={styles.card}>
         <View style={[styles.twoCol, stacked && styles.twoColStacked]}>
-          <View style={styles.col} accessible accessibilityLabel={`Income, ${formatCurrencySpoken(data.monthlyIncome)}`}>
+          <View
+            style={styles.col}
+            accessible
+            accessibilityLabel={`Income, ${formatCurrencySpoken(data.monthlyIncome)}`}
+          >
             <Text style={styles.figureLabel}>Income</Text>
             <MoneyText amount={data.monthlyIncome} style={styles.figure} />
           </View>
-          <View style={styles.col} accessible accessibilityLabel={`Expenses, ${formatCurrencySpoken(data.totalExpenses)}`}>
+          <View
+            style={styles.col}
+            accessible
+            accessibilityLabel={`Expenses, ${formatCurrencySpoken(data.totalExpenses)}`}
+          >
             <Text style={styles.figureLabel}>Expenses</Text>
             <MoneyText amount={data.totalExpenses} style={styles.figure} />
           </View>
         </View>
         {saved ? (
-          <View style={styles.savedRow} accessible accessibilityLabel={`${saved.label}, ${formatCurrencySpoken(saved.amount)}`}>
+          <View
+            style={styles.savedRow}
+            accessible
+            accessibilityLabel={`${saved.label}, ${formatCurrencySpoken(saved.amount)}`}
+          >
             <Text style={[styles.savedLabel, saved.overspent && styles.negative]}>{saved.label}</Text>
             <MoneyText amount={saved.amount} style={[styles.savedValue, saved.overspent && styles.negative]} />
           </View>
@@ -221,7 +244,12 @@ function HomeSections({
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle}>Spending</Text>
-          <Pressable onPress={onOpenBudget} style={styles.link} accessibilityRole="button" accessibilityLabel="View all spending">
+          <Pressable
+            onPress={onOpenBudget}
+            style={styles.link}
+            accessibilityRole="button"
+            accessibilityLabel="View all spending"
+          >
             <Text style={styles.linkText}>View all ›</Text>
           </Pressable>
         </View>
@@ -230,18 +258,33 @@ function HomeSections({
         ) : (
           <>
             {spending.top.map((c) => (
-              <View key={c.categoryId} style={styles.spendRow} accessible accessibilityLabel={`${c.name}, ${formatCurrencySpoken(c.amount)}`}>
+              <View
+                key={c.categoryId}
+                style={styles.spendRow}
+                accessible
+                accessibilityLabel={`${c.name}, ${formatCurrencySpoken(c.amount)}`}
+              >
                 <View style={[styles.spendHead, stacked && styles.twoColStacked]}>
-                  <Text style={styles.spendName} numberOfLines={1}>{c.name}</Text>
+                  <Text style={styles.spendName} numberOfLines={1}>
+                    {c.name}
+                  </Text>
                   <MoneyText amount={c.amount} style={styles.spendAmount} />
                 </View>
                 <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-                  <AnimatedProgressBar progress={spending.max > 0 ? c.amount / spending.max : 0} height={4} color={colors.accent} />
+                  <AnimatedProgressBar
+                    progress={spending.max > 0 ? c.amount / spending.max : 0}
+                    height={4}
+                    color={colors.accent}
+                  />
                 </View>
               </View>
             ))}
             {spending.restCount > 0 ? (
-              <View style={styles.spendHead} accessible accessibilityLabel={`${spending.restCount} more, ${formatCurrencySpoken(spending.restTotal)}`}>
+              <View
+                style={styles.spendHead}
+                accessible
+                accessibilityLabel={`${spending.restCount} more, ${formatCurrencySpoken(spending.restTotal)}`}
+              >
                 <Text style={styles.muted}>+ {spending.restCount} more</Text>
                 <MoneyText amount={spending.restTotal} style={styles.spendAmount} />
               </View>
@@ -255,21 +298,38 @@ function HomeSections({
         <Text style={styles.cardTitle}>Budgets</Text>
         {!hasBudgets && unbudgeted.length === 0 ? (
           <Pressable onPress={onOpenBudget} style={styles.link} accessibilityRole="button">
-            <Text style={styles.muted}>No budgets for {monthLabel} · <Text style={styles.linkText}>Set one ›</Text></Text>
+            <Text style={styles.muted}>
+              No budgets for {monthLabel} · <Text style={styles.linkText}>Set one ›</Text>
+            </Text>
           </Pressable>
         ) : attention.length === 0 && unbudgeted.length === 0 ? (
           <View style={styles.onTrack}>
-            <MaterialCommunityIcons name="check-circle-outline" size={18} color={colors.success} accessibilityElementsHidden importantForAccessibility="no" />
+            <MaterialCommunityIcons
+              name="check-circle-outline"
+              size={18}
+              color={colors.success}
+              accessibilityElementsHidden
+              importantForAccessibility="no"
+            />
             <Text style={styles.onTrackText}>All budgets are on track</Text>
           </View>
         ) : (
           attention.map((b) => {
             const over = b.actual > b.budget;
-            const status = over ? `Over by ${formatCurrency(b.actual - b.budget)}` : `${Math.round(budgetUsage(b) * 100)}%`;
+            const status = over
+              ? `Over by ${formatCurrency(b.actual - b.budget)}`
+              : `${Math.round(budgetUsage(b) * 100)}%`;
             return (
-              <View key={b.categoryId} style={styles.budgetRow} accessible accessibilityLabel={`${b.name}, ${formatCurrencySpoken(b.actual)} of ${formatCurrencySpoken(b.budget)}, ${status}`}>
+              <View
+                key={b.categoryId}
+                style={styles.budgetRow}
+                accessible
+                accessibilityLabel={`${b.name}, ${formatCurrencySpoken(b.actual)} of ${formatCurrencySpoken(b.budget)}, ${status}`}
+              >
                 <View style={[styles.spendHead, stacked && styles.twoColStacked]}>
-                  <Text style={styles.spendName} numberOfLines={1}>{b.name}</Text>
+                  <Text style={styles.spendName} numberOfLines={1}>
+                    {b.name}
+                  </Text>
                   <View style={styles.figurePair}>
                     <MoneyText amount={b.actual} style={styles.budgetFigures} />
                     <Text style={styles.budgetFigures}> / </Text>
@@ -294,20 +354,30 @@ function HomeSections({
             accessibilityLabel={`${c.name}, ${formatCurrencySpoken(c.amount)} spent with no budget`}
             accessibilityHint="Opens Budget to set one"
           >
-            <Text style={styles.spendName} numberOfLines={1}>{c.name}</Text>
+            <Text style={styles.spendName} numberOfLines={1}>
+              {c.name}
+            </Text>
             <View style={styles.figurePair}>
               <MoneyText amount={c.amount} style={styles.budgetFigures} />
               <Text style={styles.budgetFigures}> · no budget</Text>
             </View>
           </Pressable>
         ))}
-        {unbudgeted.length > 3 ? <Text style={styles.muted}>+ {unbudgeted.length - 3} more without a budget</Text> : null}
+        {unbudgeted.length > 3 ? (
+          <Text style={styles.muted}>+ {unbudgeted.length - 3} more without a budget</Text>
+        ) : null}
       </View>
 
       {/* 5. One observation, only when it's meaningful (R-39) */}
       {insight ? (
         <View style={[styles.card, styles.insight]}>
-          <MaterialCommunityIcons name="lightbulb-on-outline" size={20} color={colors.warning} accessibilityElementsHidden importantForAccessibility="no" />
+          <MaterialCommunityIcons
+            name="lightbulb-on-outline"
+            size={20}
+            color={colors.warning}
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+          />
           <Text style={styles.insightText}>{insight}</Text>
         </View>
       ) : null}
@@ -317,18 +387,31 @@ function HomeSections({
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Money owed</Text>
-            <Pressable onPress={onOpenLoans} style={styles.link} accessibilityRole="button" accessibilityLabel="View loan details">
+            <Pressable
+              onPress={onOpenLoans}
+              style={styles.link}
+              accessibilityRole="button"
+              accessibilityLabel="View loan details"
+            >
               <Text style={styles.linkText}>View details ›</Text>
             </Pressable>
           </View>
           {owed.totalLent > 0 ? (
-            <View style={[styles.spendHead, stacked && styles.twoColStacked]} accessible accessibilityLabel={`Still to come back, ${formatCurrencySpoken(owed.totalLent)}`}>
+            <View
+              style={[styles.spendHead, stacked && styles.twoColStacked]}
+              accessible
+              accessibilityLabel={`Still to come back, ${formatCurrencySpoken(owed.totalLent)}`}
+            >
               <Text style={styles.spendName}>Still to come back</Text>
               <MoneyText amount={owed.totalLent} style={styles.spendAmount} />
             </View>
           ) : null}
           {owed.totalBorrowed > 0 ? (
-            <View style={[styles.spendHead, stacked && styles.twoColStacked]} accessible accessibilityLabel={`Still to pay back, ${formatCurrencySpoken(owed.totalBorrowed)}`}>
+            <View
+              style={[styles.spendHead, stacked && styles.twoColStacked]}
+              accessible
+              accessibilityLabel={`Still to pay back, ${formatCurrencySpoken(owed.totalBorrowed)}`}
+            >
               <Text style={styles.spendName}>Still to pay back</Text>
               <MoneyText amount={owed.totalBorrowed} style={styles.spendAmount} />
             </View>
@@ -366,10 +449,17 @@ const styles = StyleSheet.create({
   headerAvatarImage: { width: "100%", height: "100%" },
   headerAvatarText: { ...typography.body, fontWeight: "700", color: colors.accent },
 
-  hero: { alignItems: "center", paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.md, gap: spacing.xs },
+  hero: {
+    alignItems: "center",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
+    gap: spacing.xs,
+  },
   heroLabel: { ...typography.caption, color: colors.textSecondary, textAlign: "center" },
   heroAmount: { ...typography.metricValue, textAlign: "center" },
   heroNote: { ...typography.small, color: colors.warning, textAlign: "center" },
+  heroToday: { ...typography.caption, color: colors.textSecondary, textAlign: "center" },
   negative: { color: colors.danger },
 
   card: {

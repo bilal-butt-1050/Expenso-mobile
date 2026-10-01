@@ -28,7 +28,7 @@ import { radius, size, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { formatAmountInput } from "../../utils/currency";
 import { getErrorMessage } from "../../api/client";
-import { hapticRecordCreated, hapticError, hapticLight } from "../../utils/haptics";
+import { hapticRecordCreated, hapticError, hapticLight, feedbackUpdated } from "../../utils/haptics";
 
 /** The checkbox icons' size; the hint under one lines up with its label. */
 const CHECKBOX_SIZE = 22;
@@ -42,12 +42,10 @@ export function LoanFormScreen({ route, navigation }: Props) {
 
   const [type, setType] = useState<LoanType>(editing?.type || route.params?.initialType || "LENT");
   const [personName, setPersonName] = useState(editing?.personName ?? "");
-  const [rawAmount, setRawAmount] = useState(
-    editing ? formatAmountInput(String(editing.amount)) : ""
-  );
+  const [rawAmount, setRawAmount] = useState(editing ? formatAmountInput(String(editing.amount)) : "");
   const [hasDueDate, setHasDueDate] = useState(Boolean(editing?.dueDate));
   const [dueDate, setDueDate] = useState<Date>(
-    editing?.dueDate ? new Date(editing.dueDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    editing?.dueDate ? new Date(editing.dueDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   );
   // When the money moved (R-41): today by default; never in the future (D-63).
   const originalDate = editing ? new Date(loanDate(editing)) : null;
@@ -129,7 +127,8 @@ export function LoanFormScreen({ route, navigation }: Props) {
         });
       }
 
-      hapticRecordCreated();
+      if (editing) feedbackUpdated();
+      else hapticRecordCreated();
       // A loan shows from its own month onward, so only a later month than the one showing needs a
       // switch; otherwise the whole app would jump months after a small edit.
       if (toMonthKey(date) > selectedMonth) setSelectedMonth(toMonthKey(date));
@@ -155,6 +154,7 @@ export function LoanFormScreen({ route, navigation }: Props) {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
+        overScrollMode="never"
         style={styles.scroll}
         contentContainerStyle={styles.content}
         // "handled": a tap on empty space dismisses the keyboard; taps on fields still land.
@@ -163,53 +163,51 @@ export function LoanFormScreen({ route, navigation }: Props) {
       >
         {/* The native header carries the title (P11); this line explains the direction. */}
         <Text style={styles.subtitle}>
-          {type === "LENT"
-            ? "You gave money to someone and expect it back"
-            : "You borrowed money and need to repay it"}
+          {type === "LENT" ? "You gave money to someone and expect it back" : "You borrowed money and need to repay it"}
         </Text>
 
         {/* Type Selector (Lent vs Borrowed) — create only. Flipping direction after the
             opening movement is recorded would leave the ledger describing something that
             never happened. */}
         {!editing && (
-        <View style={styles.typeSelector} accessibilityRole="radiogroup" accessibilityLabel="Loan type">
-          {/* One selection style app-wide (W6); the direction's colour stays in the icon (W4). */}
-          <TouchableOpacity
-            style={[styles.typeTab, type === "LENT" && styles.typeTabActive]}
-            onPress={() => {
-              hapticLight();
-              setType("LENT");
-            }}
-            activeOpacity={0.8}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: type === "LENT" }}
-          >
-            <MaterialCommunityIcons
-              name="arrow-top-right"
-              size={18}
-              color={type === "LENT" ? colors.lent : colors.textMuted}
-            />
-            <Text style={[styles.typeTabText, type === "LENT" && styles.typeTabTextActive]}>I lent</Text>
-          </TouchableOpacity>
+          <View style={styles.typeSelector} accessibilityRole="radiogroup" accessibilityLabel="Loan type">
+            {/* One selection style app-wide (W6); the direction's colour stays in the icon (W4). */}
+            <TouchableOpacity
+              style={[styles.typeTab, type === "LENT" && styles.typeTabActive]}
+              onPress={() => {
+                hapticLight();
+                setType("LENT");
+              }}
+              activeOpacity={0.8}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: type === "LENT" }}
+            >
+              <MaterialCommunityIcons
+                name="arrow-top-right"
+                size={18}
+                color={type === "LENT" ? colors.lent : colors.textMuted}
+              />
+              <Text style={[styles.typeTabText, type === "LENT" && styles.typeTabTextActive]}>I lent</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.typeTab, type === "BORROWED" && styles.typeTabActive]}
-            onPress={() => {
-              hapticLight();
-              setType("BORROWED");
-            }}
-            activeOpacity={0.8}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: type === "BORROWED" }}
-          >
-            <MaterialCommunityIcons
-              name="arrow-bottom-left"
-              size={18}
-              color={type === "BORROWED" ? colors.borrowed : colors.textMuted}
-            />
-            <Text style={[styles.typeTabText, type === "BORROWED" && styles.typeTabTextActive]}>I borrowed</Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={[styles.typeTab, type === "BORROWED" && styles.typeTabActive]}
+              onPress={() => {
+                hapticLight();
+                setType("BORROWED");
+              }}
+              activeOpacity={0.8}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: type === "BORROWED" }}
+            >
+              <MaterialCommunityIcons
+                name="arrow-bottom-left"
+                size={18}
+                color={type === "BORROWED" ? colors.borrowed : colors.textMuted}
+              />
+              <Text style={[styles.typeTabText, type === "BORROWED" && styles.typeTabTextActive]}>I borrowed</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Amount first, like the other forms (D-33). */}
@@ -282,11 +280,7 @@ export function LoanFormScreen({ route, navigation }: Props) {
 
           {hasDueDate && (
             <View style={styles.datePickerWrap}>
-              <DatePicker
-                label="Due date"
-                value={dueDate}
-                onChange={setDueDate}
-              />
+              <DatePicker label="Due date" value={dueDate} onChange={setDueDate} />
             </View>
           )}
         </View>

@@ -91,12 +91,15 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
   };
 
   const closeDialog = () => {
+    // The dialog being closed. A confirm whose action fails fast opens an alert during this
+    // animation; clearing unconditionally wiped that alert (G4 M2).
+    const closing = dialogState;
     Animated.timing(modalAnim, {
       toValue: 0,
       duration: 150,
       useNativeDriver: true,
-    }).start(() => {
-      setDialogState({ type: "none" });
+    }).start(({ finished }) => {
+      if (finished) setDialogState((current) => (current === closing ? { type: "none" } : current));
     });
   };
 

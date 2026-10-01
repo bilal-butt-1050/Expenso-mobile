@@ -1,6 +1,17 @@
-import React, { useCallback, useEffect, useRef } from "react";
-import { Animated, Easing, StyleSheet } from "react-native";
-import { colors } from "../theme/colors";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import * as SplashScreen from "expo-splash-screen";
+import Animated, {
+  Easing,
+  ReduceMotion,
+  runOnJS,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from "react-native-reanimated";
+import { colors, darkColors } from "../theme/colors";
 
 interface Props {
   /** True once auth restore and the initial navigation state have settled. */
@@ -12,91 +23,119 @@ interface Props {
 /**
  * Brand splash shown over the navigator while auth is restored.
  *
- * The background matches the native splash exactly, so the native-to-JS handoff is invisible.
+ * The native splash is the bare brand background (a transparent image in app.json), and this
+ * starts on that same background with the wordmark invisible, so the handoff shows nothing. The
+ * wordmark then fades in large and zooms out to its resting size, holds, and the splash fades away.
+ * It leaves only once the navigator is `ready` and the zoom has finished; a late `ready` holds the
+ * final frame (Bilal asked for an unhurried splash, over ui-review 7.2's "no floor").
  *
- * Timing is driven by `ready`, not by a fixed duration: the wordmark settles quickly and the
- * splash leaves as soon as the app is actually usable, with a short floor so a fast cold start
- * doesn't flash. Transforms are deliberately small — an oversized scale forces the compositor to
- * rasterize a huge layer during the exact window when the JS thread is busy parsing the bundle
- * and restoring the session, which is what made this stutter.
+ * Everything runs on the UI thread (Reanimated), so a busy JS thread at startup can't stutter it.
+ * Ui-review 7.1: the zoom starts at a moderate 3x, not the old 40x. The text is laid out at the
+ * large size and scaled *down*, so the hardware layer is rasterized once, crisp, and the GPU only
+ * shrinks it. Scaling a small layer up would blur it.
  */
 
-/** Wordmark settle. */
-const INTRO_MS = 420;
-/** Fade-out. */
-const EXIT_MS = 280;
-/** Floor before we're allowed to leave, so a warm start doesn't flash. */
-const MIN_VISIBLE_MS = 620;
-/** Hard ceiling — the app must never hang on the splash. */
-const SAFETY_MS = 4000;
+/** The resting wordmark size: a logo, not text on the type ramp. */
+const WORDMARK_SIZE = 48;
+/** How far zoomed in the wordmark starts: about the screen width. */
+const ZOOM_FROM = 3;
+const FADE_IN_MS = 400;
+const ZOOM_MS = 1400;
+/** The pause on the settled wordmark before the splash fades. */
+const HOLD_MS = 300;
+const EXIT_MS = 300;
+/** If the app is never ready or the animation never reports back, leave anyway (G4 m7). */
+const SAFETY_MS = 8000;
 
 export function AnimatedSplash({ ready, onComplete }: Props) {
-  const intro = useRef(new Animated.Value(0)).current;
-  const exitOpacity = useRef(new Animated.Value(1)).current;
+  // Read synchronously at app start, which is exactly when this mounts.
+  const reduceMotion = useReducedMotion();
 
-  const hasExited = useRef(false);
-  const mountedAt = useRef(Date.now());
-  const readyRef = useRef(ready);
-  readyRef.current = ready;
+  const scale = useSharedValue(reduceMotion ? 1 / ZOOM_FROM : 1);
+  const wordOpacity = useSharedValue(0);
+  const splashOpacity = useSharedValue(1);
 
-  const triggerExit = useCallback(() => {
-    if (hasExited.current) return;
-    hasExited.current = true;
+  const started = useRef(false);
+  const exiting = useRef(false);
+  const [introDoneAt, setIntroDoneAt] = useState<number | null>(null);
 
-    Animated.timing(exitOpacity, {
-      toValue: 0,
-      duration: EXIT_MS,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) onComplete();
-    });
-  }, [exitOpacity, onComplete]);
+  const finishIntro = useCallback(() => setIntroDoneAt(Date.now()), []);
 
-  /** Leave now if ready, otherwise wait out the remaining floor and re-check. */
-  const exitWhenAllowed = useCallback(() => {
-    if (hasExited.current || !readyRef.current) return;
-    const elapsed = Date.now() - mountedAt.current;
-    if (elapsed >= MIN_VISIBLE_MS) {
-      triggerExit();
-    } else {
-      setTimeout(triggerExit, MIN_VISIBLE_MS - elapsed);
+  // On first layout, not on mount: the native splash hides only once this view exists natively, so
+  // there's no frame without it, and the animation starts where the user can see it.
+  const start = useCallback(() => {
+    if (started.current) return;
+    started.current = true;
+    SplashScreen.hideAsync().catch(() => {});
+
+    const onIntroEnd = (finished?: boolean) => {
+      "worklet";
+      if (finished) runOnJS(finishIntro)();
+    };
+    // `Never`: with reduce motion on, Reanimated would otherwise jump straight to the end. The fade
+    // is the reduced-motion version, so it always plays.
+    wordOpacity.value = withTiming(
+      1,
+      { duration: FADE_IN_MS, easing: Easing.out(Easing.quad), reduceMotion: ReduceMotion.Never },
+      reduceMotion ? onIntroEnd : undefined,
+    );
+    if (!reduceMotion) {
+      scale.value = withTiming(1 / ZOOM_FROM, { duration: ZOOM_MS, easing: Easing.out(Easing.cubic) }, onIntroEnd);
     }
-  }, [triggerExit]);
+  }, [finishIntro, reduceMotion, scale, wordOpacity]);
 
-  // Intro: a small settle, cheap to composite.
   useEffect(() => {
-    Animated.timing(intro, {
-      toValue: 1,
-      duration: INTRO_MS,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start(exitWhenAllowed);
+    const timer = setTimeout(() => {
+      if (exiting.current) return;
+      exiting.current = true;
+      onComplete();
+    }, SAFETY_MS);
+    return () => clearTimeout(timer);
+  }, [onComplete]);
 
-    const safety = setTimeout(triggerExit, SAFETY_MS);
-    return () => clearTimeout(safety);
-  }, [intro, exitWhenAllowed, triggerExit]);
-
-  // Auth may settle after the intro has already finished.
   useEffect(() => {
-    if (ready) exitWhenAllowed();
-  }, [ready, exitWhenAllowed]);
+    if (!ready || introDoneAt === null || exiting.current) return;
+    exiting.current = true;
+    // The hold counts from the end of the intro, so a late `ready` doesn't add it again.
+    const hold = Math.max(0, HOLD_MS - (Date.now() - introDoneAt));
+    splashOpacity.value = withDelay(
+      hold,
+      withTiming(
+        0,
+        { duration: EXIT_MS, easing: Easing.inOut(Easing.quad), reduceMotion: ReduceMotion.Never },
+        (finished) => {
+          if (finished) runOnJS(onComplete)();
+        },
+      ),
+      ReduceMotion.Never,
+    );
+  }, [ready, introDoneAt, onComplete, splashOpacity]);
+
+  const splashStyle = useAnimatedStyle(() => ({ opacity: splashOpacity.value }));
+  const wordStyle = useAnimatedStyle(() => ({
+    opacity: wordOpacity.value,
+    transform: [{ scale: scale.value }],
+  }));
+
+  // A cached layer only while it's scaling. At rest the text is drawn directly, crisp, instead of
+  // as a texture shrunk 3x.
+  const rasterize = !reduceMotion && introDoneAt === null;
 
   return (
-    <Animated.View pointerEvents="none" style={[styles.container, { opacity: exitOpacity }]}>
-      <Animated.Text
-        style={[
-          styles.wordmark,
-          {
-            opacity: intro.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),
-            transform: [
-              { scale: intro.interpolate({ inputRange: [0, 1], outputRange: [1.06, 1] }) },
-            ],
-          },
-        ]}
-      >
-        expenso
-      </Animated.Text>
+    <Animated.View pointerEvents="none" style={[styles.container, splashStyle]} onLayout={start}>
+      <View style={styles.stage}>
+        <Animated.View
+          collapsable={false}
+          renderToHardwareTextureAndroid={rasterize}
+          shouldRasterizeIOS={rasterize}
+          style={wordStyle}
+        >
+          {/* Fixed size: it's a logo, and at 200% font the large layout would break the word. */}
+          <Text allowFontScaling={false} style={styles.wordmark}>
+            expenso
+          </Text>
+        </Animated.View>
+      </View>
     </Animated.View>
   );
 }
@@ -104,18 +143,21 @@ export function AnimatedSplash({ ready, onComplete }: Props) {
 const styles = StyleSheet.create({
   container: {
     ...(StyleSheet.absoluteFill as object),
-    backgroundColor: colors.background,
+    // Same colour as the native splash (app.json `expo-splash-screen` backgroundColor).
+    backgroundColor: darkColors.background,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 9999,
   },
+  // Wider than the screen, so the zoomed-in word lays out on one line and overflows both edges.
+  stage: {
+    width: `${ZOOM_FROM * 100}%`,
+    alignItems: "center",
+  },
   wordmark: {
-    // The brand wordmark, sized to match the native splash it takes over from: a logo, not text on
-    // the type ramp.
-    // eslint-disable-next-line no-restricted-syntax
-    fontSize: 48,
+    fontSize: WORDMARK_SIZE * ZOOM_FROM,
     fontWeight: "800",
     color: colors.accent,
-    letterSpacing: -1.2,
+    letterSpacing: -1.2 * ZOOM_FROM,
   },
 });

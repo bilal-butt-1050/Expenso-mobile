@@ -1,13 +1,5 @@
 import React, { useState } from "react";
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
 import { check, emailSchema, loginPasswordSchema } from "../../utils/validation";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { getFreshGoogleIdToken } from "../../services/googleSignIn";
@@ -69,11 +61,9 @@ export function LoginScreen() {
 
   return (
     <ScreenContainer>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView
+          overScrollMode="never"
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -128,12 +118,7 @@ export function LoginScreen() {
               }
             />
 
-            <Button
-              label="Sign in"
-              onPress={handleEmailLogin}
-              loading={isLoading}
-              style={{ marginTop: spacing.sm }}
-            />
+            <Button label="Sign in" onPress={handleEmailLogin} loading={isLoading} style={{ marginTop: spacing.sm }} />
 
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
@@ -261,4 +246,3 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
-

@@ -280,6 +280,8 @@ export function BudgetScreen() {
         // No budgets this month: say so, and offer the one next step (D-64).
         <Reanimated.View key="empty" style={styles.flex} entering={FadeIn.duration(200)}>
           <ScrollView
+            showsVerticalScrollIndicator={false}
+            overScrollMode="never"
             contentContainerStyle={{ paddingBottom: bottomPadding }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
           >
@@ -301,6 +303,8 @@ export function BudgetScreen() {
       ) : (
         <Reanimated.View key={settingUp ? "setup" : "list"} style={styles.flex} entering={FadeIn.duration(200)}>
           <FlatList
+            showsVerticalScrollIndicator={false}
+            overScrollMode="never"
             data={settingUp ? rows : budgetedRows}
             keyExtractor={(item) => item.category.id}
             refreshing={refreshing}
