@@ -116,6 +116,9 @@ export interface NetDebtSnapshot {
   totalLent: number;
   totalBorrowed: number;
   net: number;
+  /** Of the totals above, what has been paid back in later months (absent from older servers). */
+  lentRepaidSince?: number;
+  borrowedRepaidSince?: number;
 }
 
 export interface UpcomingObligation {
@@ -225,7 +228,17 @@ export interface Loan {
   /** When the money moved (D-62). Missing from older servers and cached payloads: use `loanDate()`. */
   date?: string;
   /** Present on the month view (`GET /loans?month`): the loan as of that month's end. */
-  asOf?: { settledAmount: number; remainingAmount: number; status: LoanStatus };
+  /**
+   * The loan as of the month's end (R-41). `repaidSince` and `settledOn` say what happened after it
+   * (absent from older servers): a past month shows the later payback instead of looking stale.
+   */
+  asOf?: {
+    settledAmount: number;
+    remainingAmount: number;
+    status: LoanStatus;
+    repaidSince?: number;
+    settledOn?: string | null;
+  };
   createdAt: string;
   updatedAt: string;
 }

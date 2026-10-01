@@ -12,6 +12,8 @@ interface Props {
   month: string;
   onChange: (month: string) => void;
   allowFuture?: boolean;
+  /** The earliest month that can be shown: the join month (D-67). */
+  minMonth?: string;
 }
 
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -29,13 +31,14 @@ function monthKey(year: number, monthIndex: number) {
  * ‹ Month ▾ › (DESIGN §S6). The arrows step one month; tapping the label opens a month/year grid,
  * so jumping to last March no longer takes six taps.
  */
-export function MonthPicker({ month, onChange, allowFuture = false }: Props) {
+export function MonthPicker({ month, onChange, allowFuture = false, minMonth }: Props) {
   const { fontScale } = useWindowDimensions();
   const [sheetOpen, setSheetOpen] = useState(false);
   // The year the grid shows. Reset to the selected month's year each time the sheet opens (§8.2).
   const [gridYear, setGridYear] = useState(() => Number(month.slice(0, 4)));
 
   const isRightDisabled = !allowFuture && isCurrentOrFutureMonth(month);
+  const isLeftDisabled = !!minMonth && month <= minMonth;
   const [year, monthNum] = month.split("-").map(Number);
   const label =
     fontScale >= SHORT_LABEL_AT_FONT_SCALE
@@ -45,6 +48,7 @@ export function MonthPicker({ month, onChange, allowFuture = false }: Props) {
   const current = currentMonthKey();
   const currentYear = Number(current.slice(0, 4));
   const nextYearDisabled = !allowFuture && gridYear >= currentYear;
+  const prevYearDisabled = !!minMonth && gridYear <= Number(minMonth.slice(0, 4));
 
   const openSheet = () => {
     setGridYear(year);
@@ -62,12 +66,18 @@ export function MonthPicker({ month, onChange, allowFuture = false }: Props) {
       <View style={styles.container}>
         <TouchableOpacity
           style={styles.arrowBtn}
-          onPress={() => onChange(shiftMonth(month, -1))}
+          onPress={() => !isLeftDisabled && onChange(shiftMonth(month, -1))}
+          disabled={isLeftDisabled}
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel="Previous month"
+          accessibilityState={{ disabled: isLeftDisabled }}
         >
-          <MaterialCommunityIcons name="chevron-left" size={24} color={colors.textPrimary} />
+          <MaterialCommunityIcons
+            name="chevron-left"
+            size={24}
+            color={isLeftDisabled ? colors.textMuted : colors.textPrimary}
+          />
         </TouchableOpacity>
 
         <Pressable
@@ -103,11 +113,17 @@ export function MonthPicker({ month, onChange, allowFuture = false }: Props) {
         <View style={styles.yearRow}>
           <TouchableOpacity
             style={styles.arrowBtn}
-            onPress={() => setGridYear((y) => y - 1)}
+            onPress={() => !prevYearDisabled && setGridYear((y) => y - 1)}
+            disabled={prevYearDisabled}
             accessibilityRole="button"
             accessibilityLabel="Previous year"
+            accessibilityState={{ disabled: prevYearDisabled }}
           >
-            <MaterialCommunityIcons name="chevron-left" size={24} color={colors.textPrimary} />
+            <MaterialCommunityIcons
+              name="chevron-left"
+              size={24}
+              color={prevYearDisabled ? colors.textMuted : colors.textPrimary}
+            />
           </TouchableOpacity>
           <Text style={styles.yearLabel} accessibilityRole="header">
             {gridYear}
@@ -133,7 +149,7 @@ export function MonthPicker({ month, onChange, allowFuture = false }: Props) {
             const key = monthKey(gridYear, i);
             const selected = key === month;
             const isCurrent = key === current;
-            const disabled = !allowFuture && key > current;
+            const disabled = (!allowFuture && key > current) || (!!minMonth && key < minMonth);
             return (
               <Pressable
                 key={key}

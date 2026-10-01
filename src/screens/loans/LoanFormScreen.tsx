@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useJoined } from "../../hooks/useJoined";
 import { amountSchema, check, parseAmount, personNameSchema } from "../../utils/validation";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -36,6 +37,8 @@ const CHECKBOX_SIZE = 22;
 type Props = NativeStackScreenProps<RootStackParamList, "LoanForm">;
 
 export function LoanFormScreen({ route, navigation }: Props) {
+  // History starts at the join date: the pickers stop there (D-67).
+  const joined = useJoined();
   const { user } = useAuth();
   const { addLoan, editLoan } = useLoans();
   const editing = route.params?.loan;
@@ -48,7 +51,7 @@ export function LoanFormScreen({ route, navigation }: Props) {
     editing?.dueDate ? new Date(editing.dueDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   );
   // When the money moved (R-41): today by default; never in the future (D-63).
-  const originalDate = editing ? new Date(loanDate(editing)) : null;
+  const originalDate = React.useMemo(() => (editing ? new Date(loanDate(editing)) : null), [editing]);
   // A new loan defaults to today at noon, as the date picker saves any day (D-63).
   const [date, setDate] = useState<Date>(() => {
     if (originalDate) return originalDate;
@@ -66,6 +69,17 @@ export function LoanFormScreen({ route, navigation }: Props) {
   const [amountError, setAmountError] = useState<string | null>(null);
   const [personError, setPersonError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // On edit, Save waits for a change, like the expense and income forms.
+  const hasChanges = React.useMemo(() => {
+    if (!editing) return true;
+    if (personName.trim() !== editing.personName) return true;
+    const amountNow = Number(rawAmount.replace(/,/g, ""));
+    if (!isNaN(amountNow) && amountNow !== editing.amount) return true;
+    if (hasDueDate !== Boolean(editing.dueDate)) return true;
+    if (hasDueDate && editing.dueDate && dueDate.toDateString() !== new Date(editing.dueDate).toDateString()) return true;
+    if (originalDate && date.toDateString() !== originalDate.toDateString()) return true;
+    return false;
+  }, [editing, personName, rawAmount, hasDueDate, dueDate, date, originalDate]);
 
   const amountRef = useRef<TextInput>(null);
   const personRef = useRef<TextInput>(null);
@@ -235,7 +249,7 @@ export function LoanFormScreen({ route, navigation }: Props) {
         />
 
         {/* When the money moved (R-41). Future days can't be picked (D-63). */}
-        <DatePicker label="Date" value={date} onChange={setDate} maxDate={new Date()} />
+        <DatePicker label="Date" value={date} onChange={setDate} maxDate={new Date()} minDate={joined.date} />
 
         {!editing && (
           <View>
@@ -244,20 +258,24 @@ export function LoanFormScreen({ route, navigation }: Props) {
               onPress={() => setRecordCashflow(!recordCashflow)}
               activeOpacity={0.7}
               accessibilityRole="checkbox"
-              accessibilityState={{ checked: recordCashflow }}
+              accessibilityState={{ checked: !recordCashflow }}
             >
+              {/* Asked the other way round (an opt-in): unticking "came out of my cash" by mistake
+                  made a recent loan inflate cash when it was paid back (Bilal's report). */}
               <MaterialCommunityIcons
-                name={recordCashflow ? "checkbox-marked" : "checkbox-blank-outline"}
+                name={!recordCashflow ? "checkbox-marked" : "checkbox-blank-outline"}
                 size={CHECKBOX_SIZE}
-                color={recordCashflow ? colors.accent : colors.textMuted}
+                color={!recordCashflow ? colors.accent : colors.textMuted}
               />
-              <Text style={styles.dueToggleLabel}>
-                {type === "LENT"
-                  ? "This money came out of my cash on that date"
-                  : "This money went into my cash on that date"}
-              </Text>
+              <Text style={styles.dueToggleLabel}>This is an old debt, from before I joined Expenso</Text>
             </TouchableOpacity>
-            <Text style={styles.checkboxHint}>Untick for a debt from before you started using Expenso.</Text>
+            <Text style={styles.checkboxHint}>
+              {recordCashflow
+                ? type === "LENT"
+                  ? "Your cash goes down by this amount on the loan's date."
+                  : "Your cash goes up by this amount on the loan's date."
+                : "Your cash doesn't change now. It changes when the money is paid back."}
+            </Text>
           </View>
         )}
 
@@ -293,7 +311,7 @@ export function LoanFormScreen({ route, navigation }: Props) {
             {error}
           </Text>
         ) : null}
-        <Button label={editing ? "Save changes" : "Save loan"} onPress={handleSave} loading={isSubmitting} />
+        <Button label={editing ? "Save changes" : "Save loan"} onPress={handleSave} loading={isSubmitting} disabled={!hasChanges} />
       </FormFooter>
     </KeyboardAvoidingView>
   );

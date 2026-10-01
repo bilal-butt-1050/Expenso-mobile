@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, SectionList, RefreshControl, LayoutAnimation, ActivityIndicator } from "react-native";
+import { useJoined } from "../../hooks/useJoined";
 import Reanimated, { FadeIn } from "react-native-reanimated";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -106,7 +107,15 @@ const TAB_OPTIONS: SegmentOption<ActivityTab>[] = [
   { label: "Loans", value: "LOANS" },
 ];
 
+/** "8 Oct", or "8 Oct 2027" when it isn't this year: the same style as the other dates. */
+function shortDate(iso: string): string {
+  const year = new Date(iso).getFullYear();
+  return year === new Date().getFullYear() ? formatDayMonth(iso) : `${formatDayMonth(iso)} ${year}`;
+}
+
 export function ActivityScreen() {
+  // History starts at the join date: the pickers stop there (D-67).
+  const joined = useJoined();
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteProp<TabParamList, "Activity">>();
   const { selectedMonth, setSelectedMonth } = useAppData();
@@ -215,12 +224,22 @@ export function ActivityScreen() {
         .map((loan) => {
           const isLent = loan.type === "LENT";
           // The row is the loan as it stood at the end of the selected month (R-41).
-          const paid = loan.asOf?.settledAmount ?? loan.settledAmount;
-          const settled = (loan.asOf?.status ?? loan.status) === "SETTLED";
+          const asOfPaid = loan.asOf?.settledAmount ?? loan.settledAmount;
+          const settledThen = (loan.asOf?.status ?? loan.status) === "SETTLED";
+          // Cleared in a later month: say so, so a past month doesn't look stale (Bilal).
+          const settledOn = !settledThen ? loan.asOf?.settledOn ?? null : null;
+          const repaidSince = loan.asOf?.repaidSince ?? 0;
+          const settled = settledThen || Boolean(settledOn);
+          const paid = settledOn ? loan.amount : asOfPaid;
           // "Overdue" is a fact about today, so only the current month says it (S12).
           const today = loansById.get(loan.id) ?? loan;
           const status = settled ? "settled" : isCurrentMonth && isOverdue(today) ? "overdue" : "open";
-          const due = !settled && isCurrentMonth && loan.dueDate ? ` · due ${formatDate(loan.dueDate)}` : "";
+          const due = !settled && isCurrentMonth && loan.dueDate ? ` · due ${shortDate(loan.dueDate)}` : "";
+          const later = settledOn
+            ? ` · ${isLent ? "paid back" : "repaid"} in full on ${formatDayMonth(settledOn)}`
+            : repaidSince > 0
+              ? ` · ${formatCurrency(repaidSince)} more since`
+              : "";
           return {
             id: `loan-${loan.id}`,
             rawId: loan.id,
@@ -236,7 +255,9 @@ export function ActivityScreen() {
             repayment: {
               paid,
               total: loan.amount,
-              label: `${formatCurrency(paid)} of ${formatCurrency(loan.amount)} ${isLent ? "paid back" : "repaid"} · ${formatDayMonth(loanDate(loan))}${due}`,
+              label: settledOn
+                ? `${formatDayMonth(loanDate(loan))}${later}`
+                : `${formatCurrency(paid)} of ${formatCurrency(loan.amount)} ${isLent ? "paid back" : "repaid"} · ${formatDayMonth(loanDate(loan))}${due}${later}`,
               status,
             },
             raw: loan,
@@ -298,7 +319,11 @@ export function ActivityScreen() {
       monthLoans
         .filter((l) => l.type === type && !hiddenIds.has(`loan-${l.id}`))
         .reduce((t, l) => t + (l.asOf?.remainingAmount ?? l.remainingAmount ?? 0), 0);
-    return { lent: remaining("LENT"), borrowed: remaining("BORROWED") };
+    // Of those month-end balances, what has been settled in later months (a past month's note).
+    const since = monthLoans
+      .filter((l) => !hiddenIds.has(`loan-${l.id}`))
+      .reduce((t, l) => t + (l.asOf?.repaidSince ?? 0), 0);
+    return { lent: remaining("LENT"), borrowed: remaining("BORROWED"), since };
   }, [monthLoans, hiddenIds]);
 
   // Group into clean date sections
@@ -490,7 +515,7 @@ export function ActivityScreen() {
     <ScreenContainer style={styles.noPad}>
       {/* The month picker leads, as on Home; the tab bar already names the screen (W7, B2). */}
       <View style={styles.header}>
-        <MonthPicker month={selectedMonth} onChange={setSelectedMonth} />
+        <MonthPicker month={selectedMonth} onChange={setSelectedMonth} minMonth={joined.month} />
 
         {pendingWrites > 0 && (
           <View style={styles.offlineBanner}>
@@ -566,6 +591,13 @@ export function ActivityScreen() {
                     <Text style={styles.loanColLabel}>Still to pay back</Text>
                     <MoneyText amount={monthTotals.borrowed} style={[styles.loanColValue, styles.borrowedValue]} />
                   </View>
+                  {monthTotals.since > 0 ? (
+                    <Text style={styles.loansSince}>
+                      {monthTotals.since >= monthTotals.lent + monthTotals.borrowed
+                        ? "All of this has been settled since"
+                        : `${formatCurrency(monthTotals.since)} of this has been settled since`}
+                    </Text>
+                  ) : null}
                 </View>
               ) : null
             }
@@ -645,6 +677,8 @@ const styles = StyleSheet.create({
   // A grouped card: `surface`, 1pt `borderLight`, `radius.lg`; the rows below are the raised level (W5).
   loansOverviewCard: {
     flexDirection: "row",
+    // The "settled since" note wraps onto its own line under the two columns.
+    flexWrap: "wrap",
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     paddingVertical: spacing.md,
@@ -657,6 +691,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
   },
+  loansSince: { ...typography.small, fontWeight: "400", color: colors.success, textAlign: "center", width: "100%", marginTop: spacing.sm },
   loanDivider: {
     width: 1,
     backgroundColor: colors.borderLight,
