@@ -51,12 +51,14 @@ const MOVEMENT_TITLE: Partial<Record<TransactionKind, string>> = {
   BORROW_IN: "You borrowed",
   COLLECT: "Paid back to you",
   REPAY: "You paid back",
+  ADJUST: "Balance correction",
 };
 const MOVEMENT_ICON: Partial<Record<TransactionKind, string>> = {
   LEND_OUT: "arrow-top-right",
   BORROW_IN: "arrow-bottom-left",
   COLLECT: "arrow-bottom-left",
   REPAY: "arrow-top-right",
+  ADJUST: "scale-balance",
 };
 /** The server writes "Lent to Ali", "Repayment from Ali", ...: the name, if the loan isn't loaded. */
 const personFromDescription = (description: string | null) =>
@@ -76,6 +78,8 @@ function toneOf(kind: TransactionKind): UnifiedActivityItem["tone"] {
     case "COLLECT":
     case "BORROW_IN":
     case "REPAY":
+    // A correction is neither income nor spending: its direction is said in words.
+    case "ADJUST":
       return "neutral";
     default: {
       const unhandled: never = kind;
@@ -115,6 +119,42 @@ const TAB_OPTIONS: SegmentOption<ActivityTab>[] = [
   { label: "Income", value: "INCOME" },
   { label: "Loans", value: "LOANS" },
 ];
+
+/**
+ * The expense a loan came from, as the expense form edits it: a loan's "Edit" opens the expense,
+ * because the two are one record (the loan follows the expense).
+ */
+function expenseOf(loan: Loan): Transaction | null {
+  const e = loan.expense;
+  if (!e) return null;
+  return {
+    id: e.id,
+    kind: "SPEND",
+    amount: e.amount,
+    date: e.date,
+    month: e.month,
+    description: e.description,
+    paymentMethod: e.paymentMethod,
+    categoryId: e.categoryId,
+    category: e.category,
+    needWant: e.needWant,
+    source: null,
+    sourceIcon: null,
+    sourceColor: null,
+    loanId: loan.id,
+    movesCash: e.movesCash,
+    paidBy: loan.type === "BORROWED" ? { personName: loan.personName } : null,
+    split: loan.type === "LENT" ? { personName: loan.personName, share: loan.amount } : null,
+    createdAt: loan.createdAt,
+  };
+}
+
+/** What an expense row adds under its title when someone else was involved. */
+function sharingNote(tx: Transaction): string | undefined {
+  if (tx.paidBy) return `${tx.paidBy.personName} paid`;
+  if (tx.split) return `split with ${tx.split.personName}`;
+  return undefined;
+}
 
 /** "8 Oct", or "8 Oct 2027" when it isn't this year: the same style as the other dates. */
 function shortDate(iso: string): string {
@@ -193,10 +233,10 @@ export function ActivityScreen() {
   } = useTransactions({ kinds });
   // The pull-to-refresh spinner shows a refresh the user asked for, not the first load.
   const [refreshing, setRefreshing] = useState(false);
-  const { commitDelete } = useTransactionMutations();
+  const { commitDelete, deleteTransaction } = useTransactionMutations();
 
   // Today's loans: the settle sheet acts on these, and movement rows find their loan here (D-63).
-  const { loans, refresh: refetchLoans, recordPayment, removeLoan } = useLoans();
+  const { loans, refresh: refetchLoans, recordPayment, removePayment, removeLoan } = useLoans();
   // The Loans tab follows the month picker: loans visible that month, as of its end (R-41).
   const {
     loans: monthLoans,
@@ -243,12 +283,14 @@ export function ActivityScreen() {
           const repaidSince = loan.asOf?.repaidSince ?? 0;
           const settled = settledThen || Boolean(settledOn);
           const paid = settledOn ? loan.amount : asOfPaid;
+          // Some of it was let go or paid in kind: "paid back" would overstate it (§5.4).
+          const repaidWord = loan.payments?.some((p) => !p.movesCash) ? "settled" : isLent ? "paid back" : "repaid";
           // "Overdue" is a fact about today, so only the current month says it (S12).
           const today = loansById.get(loan.id) ?? loan;
           const status = settled ? "settled" : isCurrentMonth && isOverdue(today) ? "overdue" : "open";
           const due = !settled && isCurrentMonth && loan.dueDate ? ` · due ${shortDate(loan.dueDate)}` : "";
           const later = settledOn
-            ? ` · ${isLent ? "paid back" : "repaid"} in full on ${formatDayMonth(settledOn)}`
+            ? ` · ${repaidWord} in full on ${formatDayMonth(settledOn)}`
             : repaidSince > 0
               ? ` · ${formatCurrency(repaidSince)} more since`
               : "";
@@ -256,9 +298,12 @@ export function ActivityScreen() {
             id: `loan-${loan.id}`,
             rawId: loan.id,
             type: "LOAN" as const,
-            // What happened, then who with (R-29). The person is the identity of the record.
+            // What happened, then who with (R-29). The person is the identity of the record. A loan
+            // from an expense says which one.
             title: isLent ? "You lent" : "You borrowed",
-            subtitle: loan.personName,
+            subtitle: loan.expense
+              ? `${loan.personName} · for ${loan.expense.description || loan.expense.category?.name || "an expense"}`
+              : loan.personName,
             amount: loan.amount,
             date: loanDate(loan),
             icon: isLent ? "arrow-top-right" : "arrow-bottom-left",
@@ -269,7 +314,7 @@ export function ActivityScreen() {
               total: loan.amount,
               label: settledOn
                 ? `${formatDayMonth(loanDate(loan))}${later}`
-                : `${formatCurrency(paid)} of ${formatCurrency(loan.amount)} ${isLent ? "paid back" : "repaid"} · ${formatDayMonth(loanDate(loan))}${due}${later}`,
+                : `${formatCurrency(paid)} of ${formatCurrency(loan.amount)} ${repaidWord} · ${formatDayMonth(loanDate(loan))}${due}${later}`,
               status,
             },
             raw: loan,
@@ -284,14 +329,30 @@ export function ActivityScreen() {
     );
     return visible.map((tx): UnifiedActivityItem => {
       const tone = toneOf(tx.kind);
+      if (tx.kind === "ADJUST") {
+        return {
+          id: tx.id,
+          rawId: tx.id,
+          type: "LOAN_MOVEMENT",
+          title: "Balance correction",
+          subtitle: tx.amount >= 0 ? "Added to your cash" : "Taken off your cash",
+          amount: Math.abs(tx.amount),
+          date: tx.date,
+          icon: "scale-balance",
+          tone: "neutral",
+          raw: tx,
+        };
+      }
       if (tone === "neutral") {
         const loan = tx.loanId ? loansById.get(tx.loanId) : undefined;
+        const person = tx.personName ?? loan?.personName ?? personFromDescription(tx.description);
         return {
           id: tx.id,
           rawId: tx.id,
           type: "LOAN_MOVEMENT",
           title: MOVEMENT_TITLE[tx.kind] ?? "Loan",
-          subtitle: loan?.personName ?? personFromDescription(tx.description),
+          // An old debt, or a debt let go: the debt changed, the cash didn't.
+          subtitle: tx.movesCash === false ? [person, "no cash moved"].filter(Boolean).join(" · ") : person,
           amount: tx.amount,
           date: tx.date,
           icon: MOVEMENT_ICON[tx.kind] ?? "swap-horizontal",
@@ -303,18 +364,20 @@ export function ActivityScreen() {
       }
 
       const isSpend = tx.kind === "SPEND";
+      const detail = isSpend
+        ? tx.category?.name
+          ? tx.description || undefined
+          : undefined
+        : tx.source
+          ? tx.description || undefined
+          : undefined;
       return {
         id: tx.id,
         rawId: tx.id,
         type: isSpend ? "EXPENSE" : "INCOME",
         title: isSpend ? tx.category?.name || tx.description || "Expense" : tx.source || tx.description || "Income",
-        subtitle: isSpend
-          ? tx.category?.name
-            ? tx.description || undefined
-            : undefined
-          : tx.source
-            ? tx.description || undefined
-            : undefined,
+        // "KFC · Ali paid": someone else was involved, so the cash and the debt differ from the amount.
+        subtitle: [detail, isSpend ? sharingNote(tx) : undefined].filter(Boolean).join(" · ") || undefined,
         amount: tx.amount,
         date: tx.date,
         icon: isSpend ? tx.category?.icon || "credit-card-outline" : tx.sourceIcon || "wallet-plus-outline",
@@ -396,9 +459,29 @@ export function ActivityScreen() {
 
     const tx = item.raw as Transaction;
 
+    // A correction can only be removed: asked first, since it moves the balance.
+    if (tx.kind === "ADJUST") {
+      confirm({
+        title: "Remove this correction?",
+        message: "Your cash goes back to what your entries add up to.",
+        confirmText: "Remove",
+        destructive: true,
+        onConfirm: async () => {
+          hapticDelete();
+          try {
+            await deleteTransaction(tx.id, "the balance correction");
+          } catch (err) {
+            alert({ title: "Couldn't remove it", message: getErrorMessage(err) });
+          }
+        },
+      });
+      return;
+    }
+
     // A loan's movements are owned by the loan; editing one directly would desynchronise it
-    // from the loan's settled amount. Send the user to the loan instead.
-    if (tx.loanId) {
+    // from the loan's settled amount. Send the user to the loan instead. An expense that carries a
+    // loan is edited as an expense, and its loan follows.
+    if (tx.loanId && tx.kind !== "SPEND") {
       const loan = loansById.get(tx.loanId);
       // Loans live in the Loans segment now; there's no separate Loans screen (R-29).
       if (loan) setSettlingLoan(loan);
@@ -429,7 +512,9 @@ export function ActivityScreen() {
   const confirmDeleteLoan = (loan: Loan) => {
     confirm({
       title: "Delete loan?",
-      message: `${loan.personName} · ${formatCurrency(loan.amount)}. Any payments recorded against it go too.`,
+      message: loan.expense
+        ? `${loan.personName} · ${formatCurrency(loan.amount)}. The expense it came from and any payments go too.`
+        : `${loan.personName} · ${formatCurrency(loan.amount)}. Any payments recorded against it go too.`,
       destructive: true,
       confirmText: "Delete",
       onConfirm: async () => {
@@ -486,7 +571,7 @@ export function ActivityScreen() {
 
     const tx = item.raw as Transaction;
     // A loan's movements belong to the loan; deleting one here would desynchronise its balance.
-    if (tx.loanId) {
+    if (tx.loanId && tx.kind !== "SPEND") {
       const loan = loansById.get(tx.loanId);
       hapticLight();
       snackbar.show({
@@ -509,18 +594,23 @@ export function ActivityScreen() {
       return;
     }
 
+    // An expense and the loan it made are one record: both go, and both come back on undo.
+    const loanKey = tx.loanId ? `loan-${tx.loanId}` : null;
+    const person = tx.paidBy?.personName ?? tx.split?.personName;
     hapticDelete();
     animateLayout();
     setHidden(tx.id, true);
+    if (loanKey) setHidden(loanKey, true);
     snackbar.show({
       id: `S-1-${tx.id}`,
-      text: `Deleted ${item.title} · ${formatCurrency(item.amount)}`,
+      text: `Deleted ${item.title} · ${formatCurrency(item.amount)}${person ? `, and what's owed with ${person}` : ""}`,
       action: {
         label: "Undo",
         a11yLabel: `Undo deleting ${item.title}`,
         onPress: () => {
           animateLayout();
           setHidden(tx.id, false);
+          if (loanKey) setHidden(loanKey, false);
         },
       },
       duration: 5000,
@@ -532,7 +622,10 @@ export function ActivityScreen() {
         // defaults refetch it and show "Couldn't delete". Offline, this waits for the replay.
         commitDelete(tx.id, item.title)
           .catch(() => {})
-          .finally(() => setHidden(tx.id, false));
+          .finally(() => {
+            setHidden(tx.id, false);
+            if (loanKey) setHidden(loanKey, false);
+          });
       },
     });
   };
@@ -672,15 +765,25 @@ export function ActivityScreen() {
       <LoanSettleSheet
         loan={settlingLoan}
         onClose={() => setSettlingLoan(null)}
-        onSettle={async (loanId, amount) => {
-          await recordPayment(loanId, amount);
+        onSettle={async (loanId, amount, options) => {
+          await recordPayment(loanId, amount, options);
           await handleRefresh();
+        }}
+        onRemovePayment={async (loanId, paymentId) => {
+          const updated = await removePayment(loanId, paymentId);
+          // The sheet stays open on the recomputed loan.
+          if (updated) setSettlingLoan(updated);
+          void handleRefresh();
         }}
         onDelete={(loanId) => {
           const loan = loansById.get(loanId);
           if (loan) confirmDeleteLoan(loan);
         }}
-        onEdit={(loan) => navigation.navigate("LoanForm", { loan })}
+        onEdit={(loan) => {
+          const expense = expenseOf(loan);
+          if (expense) navigation.navigate("ExpenseForm", { transaction: expense });
+          else navigation.navigate("LoanForm", { loan });
+        }}
       />
     </ScreenContainer>
   );

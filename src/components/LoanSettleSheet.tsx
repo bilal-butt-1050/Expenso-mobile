@@ -6,31 +6,51 @@ import { BottomSheet } from "./BottomSheet";
 import { TextField } from "./TextField";
 import { Button } from "./Button";
 import { MoneyText } from "./MoneyText";
+import { DatePicker } from "./DatePicker";
 import { colors } from "../theme/colors";
-import { radius, spacing } from "../theme/spacing";
+import { radius, size, spacing } from "../theme/spacing";
 import { typography } from "../theme/typography";
 import { formatCurrency, formatAmountInput } from "../utils/currency";
-import { Loan } from "../types/models";
+import { formatDate } from "../utils/date";
+import { Loan, PaymentOptions, loanDate } from "../types/models";
 import { getErrorMessage } from "../api/client";
-import { feedbackSettled, hapticError } from "../utils/haptics";
+import { feedbackSettled, hapticDelete, hapticError, hapticLight } from "../utils/haptics";
 
 /** A 20pt icon plus 14 on every side: the 48pt minimum target (W13, B6). */
 const ICON_HIT_SLOP = 14;
+/** The checkbox icon's size; the hint under it lines up with its label. */
+const CHECKBOX_SIZE = 22;
 
 interface LoanSettleSheetProps {
   loan: Loan | null;
   onClose: () => void;
-  onSettle: (loanId: string, amount?: number) => Promise<void>;
+  onSettle: (loanId: string, amount?: number, options?: PaymentOptions) => Promise<void>;
+  /** Undoes one repayment. The sheet stays open. */
+  onRemovePayment: (loanId: string, paymentId: string) => Promise<void>;
   onDelete: (loanId: string) => void;
-  /** Opens the loan form for this loan (R-29). */
+  /** Opens the loan form for this loan, or the expense form for a loan that came from an expense. */
   onEdit: (loan: Loan) => void;
 }
 
-export function LoanSettleSheet({ loan, onClose, onSettle, onDelete, onEdit }: LoanSettleSheetProps) {
+/** Today at noon, as the date picker saves any picked day (D-63). */
+function todayAtNoon() {
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  return today;
+}
+
+export function LoanSettleSheet({ loan, onClose, onSettle, onRemovePayment, onDelete, onEdit }: LoanSettleSheetProps) {
   const [partialAmount, setPartialAmount] = useState("");
+  // When the money changed hands: today unless the user says otherwise.
+  const [paidOn, setPaidOn] = useState<Date>(todayAtNoon);
+  // Forgiven, paid in kind, or offset: the debt goes down, the cash doesn't move.
+  const [noCash, setNoCash] = useState(false);
   // Which button is working, so only that one spins (W13). Both are disabled meanwhile.
   const [submitting, setSubmitting] = useState<"full" | "partial" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A payment's remove asks once, in its own row (a dialog would open under the sheet).
+  const [confirmingPayment, setConfirmingPayment] = useState<string | null>(null);
+  const [removingPayment, setRemovingPayment] = useState<string | null>(null);
 
   // Retain the last loan so the sheet still has something to render while it animates out.
   // It used to `return null` the moment `loan` went null, so it vanished instead of closing.
@@ -46,19 +66,33 @@ export function LoanSettleSheet({ loan, onClose, onSettle, onDelete, onEdit }: L
   // first loan's figure still in the field.
   useEffect(() => {
     setPartialAmount("");
+    setPaidOn(todayAtNoon());
+    setNoCash(false);
     setError(null);
+    setConfirmingPayment(null);
   }, [loan?.id]);
 
   const isLent = shown?.type === "LENT";
   const remaining = shown ? Math.max(0, shown.amount - shown.settledAmount) : 0;
   const isSettled = !shown || shown.status === "SETTLED" || remaining <= 0;
+  const payments = shown?.payments ?? [];
+  const loanDay = shown ? new Date(loanDate(shown)) : undefined;
+
+  // Under the name: what the loan is, when that isn't plain lending.
+  const context = shown?.expense
+    ? ` · for ${shown.expense.description || shown.expense.category?.name || "an expense"}`
+    : shown?.cashMoved === false
+      ? " · didn't go through your cash"
+      : "";
+
+  const paymentOptions = (): PaymentOptions => ({ date: paidOn.toISOString(), movesCash: !noCash });
 
   const handleSettleFull = async () => {
     if (!shown) return;
     setSubmitting("full");
     setError(null);
     try {
-      await onSettle(shown.id);
+      await onSettle(shown.id, undefined, paymentOptions());
       feedbackSettled();
       onClose();
     } catch (err) {
@@ -85,7 +119,7 @@ export function LoanSettleSheet({ loan, onClose, onSettle, onDelete, onEdit }: L
     setSubmitting("partial");
     setError(null);
     try {
-      await onSettle(shown.id, num);
+      await onSettle(shown.id, num, paymentOptions());
       feedbackSettled();
       onClose();
     } catch (err) {
@@ -95,6 +129,29 @@ export function LoanSettleSheet({ loan, onClose, onSettle, onDelete, onEdit }: L
       setSubmitting(null);
     }
   };
+
+  const removePayment = async (paymentId: string) => {
+    if (!shown) return;
+    hapticDelete();
+    setRemovingPayment(paymentId);
+    setError(null);
+    try {
+      await onRemovePayment(shown.id, paymentId);
+    } catch (err) {
+      hapticError();
+      setError(getErrorMessage(err));
+    } finally {
+      setRemovingPayment(null);
+      setConfirmingPayment(null);
+    }
+  };
+
+  // What saving does to the user's cash, in words, so the choice is never a guess.
+  const effect = noCash
+    ? "Your cash doesn't change. Only what's owed goes down."
+    : isLent
+      ? "Your cash goes up by what you were paid."
+      : "Your cash goes down by what you paid.";
 
   return (
     <BottomSheet
@@ -126,7 +183,7 @@ export function LoanSettleSheet({ loan, onClose, onSettle, onDelete, onEdit }: L
                 }}
                 hitSlop={ICON_HIT_SLOP}
                 accessibilityRole="button"
-                accessibilityLabel="Edit loan"
+                accessibilityLabel={shown?.expense ? "Edit the expense" : "Edit loan"}
               >
                 <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
@@ -146,7 +203,7 @@ export function LoanSettleSheet({ loan, onClose, onSettle, onDelete, onEdit }: L
 
           <Text style={styles.personName}>{shown?.personName}</Text>
           {/* Opened from any month, the sheet always shows and acts on today's loan (D-63). */}
-          <Text style={styles.asOfToday}>As of today</Text>
+          <Text style={styles.asOfToday}>As of today{context}</Text>
         </View>
 
         {/* Balance breakdown */}
@@ -170,16 +227,62 @@ export function LoanSettleSheet({ loan, onClose, onSettle, onDelete, onEdit }: L
           </View>
         </View>
 
+        {/* Each payment, removable: a wrong one is undone here instead of deleting the loan. */}
+        {payments.length > 0 ? (
+          <View style={styles.payments}>
+            {payments.map((p) => (
+              <View key={p.id} style={styles.paymentRow}>
+                <Text style={styles.paymentText} numberOfLines={1}>
+                  {formatDate(p.date)} · {formatCurrency(p.amount)}
+                  {p.movesCash ? "" : " · no cash"}
+                </Text>
+                {confirmingPayment === p.id ? (
+                  <View style={styles.paymentConfirm}>
+                    <TouchableOpacity
+                      onPress={() => setConfirmingPayment(null)}
+                      hitSlop={ICON_HIT_SLOP}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.paymentKeep}>Keep</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => void removePayment(p.id)}
+                      disabled={removingPayment !== null}
+                      hitSlop={ICON_HIT_SLOP}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove the payment of ${formatCurrency(p.amount)}`}
+                    >
+                      <Text style={styles.paymentRemove}>{removingPayment === p.id ? "Removing…" : "Remove"}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => {
+                      hapticLight();
+                      setConfirmingPayment(p.id);
+                    }}
+                    hitSlop={ICON_HIT_SLOP}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove the payment of ${formatCurrency(p.amount)} on ${formatDate(p.date)}`}
+                  >
+                    <MaterialCommunityIcons name="close" size={18} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {error ? (
+          <Text style={styles.errorText} accessibilityLiveRegion="polite">
+            {error}
+          </Text>
+        ) : null}
+
         {/* Actions if not fully settled */}
         {!isSettled ? (
           <View style={styles.actionSection}>
             <Text style={styles.actionSectionTitle}>Record a payment</Text>
-
-            {error ? (
-              <Text style={styles.errorText} accessibilityLiveRegion="polite">
-                {error}
-              </Text>
-            ) : null}
 
             <TextField
               label="Amount paid"
@@ -188,6 +291,29 @@ export function LoanSettleSheet({ loan, onClose, onSettle, onDelete, onEdit }: L
               value={partialAmount}
               onChangeText={(text) => setPartialAmount(formatAmountInput(text))}
             />
+            {/* Never before the loan, never in the future (D-63). */}
+            <DatePicker label="Paid on" value={paidOn} onChange={setPaidOn} maxDate={new Date()} minDate={loanDay} />
+
+            <View>
+              <TouchableOpacity
+                style={styles.checkRow}
+                onPress={() => {
+                  hapticLight();
+                  setNoCash(!noCash);
+                }}
+                activeOpacity={0.7}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: noCash }}
+              >
+                <MaterialCommunityIcons
+                  name={noCash ? "checkbox-marked" : "checkbox-blank-outline"}
+                  size={CHECKBOX_SIZE}
+                  color={noCash ? colors.accent : colors.textMuted}
+                />
+                <Text style={styles.checkLabel}>No money changed hands (forgiven, or paid in kind)</Text>
+              </TouchableOpacity>
+              <Text style={styles.checkHint}>{effect}</Text>
+            </View>
 
             <View style={styles.buttonsRow}>
               {partialAmount.trim().length > 0 && (
@@ -202,7 +328,7 @@ export function LoanSettleSheet({ loan, onClose, onSettle, onDelete, onEdit }: L
               )}
               {/* The amount is the Remaining figure just above, so the label stays short (W13). */}
               <Button
-                label="Settle in full"
+                label={noCash ? "Forgive the rest" : "Settle in full"}
                 variant="primary"
                 onPress={handleSettleFull}
                 loading={submitting === "full"}
@@ -297,6 +423,31 @@ const styles = StyleSheet.create({
   settledVal: { color: colors.success },
   remainingOpen: { color: colors.accent },
   remainingDone: { color: colors.textMuted },
+  payments: {
+    gap: spacing.xs,
+  },
+  paymentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+    minHeight: size.minTouch,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+  },
+  paymentText: {
+    ...typography.small,
+    flexShrink: 1,
+    color: colors.textSecondary,
+  },
+  paymentConfirm: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.lg,
+  },
+  paymentKeep: { ...typography.small, fontWeight: "600", color: colors.textSecondary },
+  paymentRemove: { ...typography.small, fontWeight: "700", color: colors.danger },
   actionSection: {
     gap: spacing.sm,
     marginTop: spacing.xs,
@@ -307,6 +458,23 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 0.5,
+  },
+  checkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    minHeight: size.minTouch,
+  },
+  checkLabel: {
+    ...typography.small,
+    flexShrink: 1,
+    fontWeight: "500",
+    color: colors.textSecondary,
+  },
+  checkHint: {
+    ...typography.small,
+    color: colors.textSecondary,
+    marginLeft: CHECKBOX_SIZE + spacing.sm,
   },
   errorText: {
     ...typography.small,

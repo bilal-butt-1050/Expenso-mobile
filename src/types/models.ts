@@ -239,8 +239,46 @@ export interface Loan {
     repaidSince?: number;
     settledOn?: string | null;
   };
+  /**
+   * Whether the money went out of (or came into) the user's cash when the loan started. False for
+   * an old debt and for an expense someone else paid. Absent from older servers.
+   */
+  cashMoved?: boolean;
+  /** The expense this loan came from (someone else paid it, or it was split). */
+  expense?: LoanExpense | null;
+  /** Repayments, oldest first. `movesCash` false = settled without money (forgiven, in kind). */
+  payments?: LoanPayment[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LoanPayment {
+  id: string;
+  amount: number;
+  date: string;
+  movesCash: boolean;
+}
+
+export interface LoanExpense {
+  id: string;
+  description: string | null;
+  categoryId: string | null;
+  category: Category | null;
+  /** The user's own share: what counts as spending. */
+  amount: number;
+  date: string;
+  month: string;
+  paymentMethod: string;
+  needWant: NeedWant | null;
+  movesCash: boolean;
+}
+
+/** Options for a repayment. */
+export interface PaymentOptions {
+  /** When it was paid: an ISO date-time. Defaults to now on the server. */
+  date?: string;
+  /** False = no money changed hands (forgiven, paid in kind). */
+  movesCash?: boolean;
 }
 
 export interface LoanInput {
@@ -278,8 +316,12 @@ export function loanDate(loan: Pick<Loan, "date" | "createdAt">): string {
  *   COLLECT    cash in,  loan-linked
  *   BORROW_IN  cash in,  loan-linked
  *   REPAY      cash out, loan-linked
+ *   ADJUST     a balance correction: signed amount, neither income nor spending
+ *
+ * A row with `movesCash` false didn't change cash (an expense someone else paid, an old debt, a
+ * loan settled without money). It still counts as spending, income or debt as its kind says.
  */
-export type TransactionKind = "SPEND" | "EARN" | "LEND_OUT" | "COLLECT" | "BORROW_IN" | "REPAY";
+export type TransactionKind = "SPEND" | "EARN" | "LEND_OUT" | "COLLECT" | "BORROW_IN" | "REPAY" | "ADJUST";
 
 /** Kinds a user creates directly; the rest are written by the loan lifecycle. */
 export const MANUAL_KINDS: TransactionKind[] = ["SPEND", "EARN"];
@@ -293,6 +335,7 @@ export const CASH_SIGN: Record<TransactionKind, 1 | -1> = {
   COLLECT: 1,
   BORROW_IN: 1,
   REPAY: -1,
+  ADJUST: 1,
 };
 
 export interface Transaction {
@@ -314,8 +357,19 @@ export interface Transaction {
   sourceIcon: string | null;
   sourceColor: string | null;
 
-  /** Set for loan-linked kinds. Such rows are managed by the loan, not edited directly. */
+  /**
+   * Set for loan-linked kinds, which are managed by the loan, and for an expense that carries a loan
+   * (`paidBy` / `split`), which is edited as an expense.
+   */
   loanId: string | null;
+  /** False when the user's cash didn't change. Absent from older servers (= true). */
+  movesCash?: boolean;
+  /** An expense someone else paid: the user owes them `amount`. */
+  paidBy?: { personName: string } | null;
+  /** An expense the user paid in full and split: `share` is theirs, owed to the user. */
+  split?: { personName: string; share: number } | null;
+  /** For a loan movement: the person on the other side. */
+  personName?: string | null;
   createdAt: string;
 }
 
@@ -330,4 +384,7 @@ export interface TransactionInput {
   source?: string;
   sourceIcon?: string;
   sourceColor?: string;
+  /** SPEND only. `amount` is always the user's own share. Null clears it on an edit. */
+  paidBy?: { personName: string } | null;
+  split?: { personName: string; share: number } | null;
 }

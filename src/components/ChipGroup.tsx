@@ -9,7 +9,8 @@ import { hapticLight } from "../utils/haptics";
 interface Props<T extends string> {
   label: string;
   options: readonly T[];
-  value: T;
+  /** Undefined = nothing chosen yet (a question that must be answered). */
+  value?: T;
   onChange: (value: T) => void;
   /** Text shown for an option, when it isn't the value itself (e.g. with a count). */
   optionLabel?: (value: T) => string;

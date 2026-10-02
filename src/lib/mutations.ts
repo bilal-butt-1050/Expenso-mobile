@@ -3,7 +3,7 @@ import { InfiniteData, MutationFunctionContext, MutationKey, onlineManager } fro
 import * as txApi from "../api/transactions";
 import * as loansApi from "../api/loans";
 import { getErrorMessage } from "../api/client";
-import { Loan, LoanInput, TransactionInput } from "../types/models";
+import { Loan, LoanInput, PaymentOptions, TransactionInput } from "../types/models";
 import { invalidateMoney, queryClient } from "./queryClient";
 import { showSnackbar } from "../components/snackbar/snackbarBridge";
 
@@ -23,7 +23,9 @@ export const mutationKeys = {
   createLoan: ["loans", "create"],
   updateLoan: ["loans", "update"],
   settleLoan: ["loans", "settle"],
+  deleteLoanPayment: ["loans", "deletePayment"],
   deleteLoan: ["loans", "delete"],
+  adjustBalance: ["transactions", "adjust"],
 } satisfies Record<string, MutationKey>;
 
 /**
@@ -41,7 +43,9 @@ export type UpdateTransactionVars = WriteMeta & { id: string; input: Partial<Tra
 export type DeleteTransactionVars = WriteMeta & { id: string };
 export type CreateLoanVars = WriteMeta & { input: LoanInput };
 export type UpdateLoanVars = WriteMeta & { id: string; input: Partial<LoanInput> };
-export type SettleLoanVars = WriteMeta & { id: string; amount?: number };
+export type SettleLoanVars = WriteMeta & { id: string; amount?: number; options?: PaymentOptions };
+export type DeleteLoanPaymentVars = WriteMeta & { id: string; paymentId: string };
+export type AdjustBalanceVars = WriteMeta & { actualCash: number };
 export type DeleteLoanVars = WriteMeta & { id: string };
 
 /** Writes that move money replay one at a time, in order: a queued create runs before its delete. */
@@ -209,10 +213,27 @@ queryClient.setMutationDefaults(mutationKeys.updateLoan, {
 });
 
 queryClient.setMutationDefaults(mutationKeys.settleLoan, {
-  mutationFn: (vars: SettleLoanVars) => loansApi.settleLoan(vars.id, vars.amount),
+  mutationFn: (vars: SettleLoanVars) => loansApi.settleLoan(vars.id, vars.amount, vars.options),
   scope: MONEY_SCOPE,
   onSuccess: invalidateMoney,
   onError: (error: unknown, vars: SettleLoanVars, _result: unknown, context?: MutationFunctionContext) =>
+    onWriteError(error, vars, context),
+});
+
+queryClient.setMutationDefaults(mutationKeys.deleteLoanPayment, {
+  mutationFn: (vars: DeleteLoanPaymentVars) => loansApi.deleteLoanPayment(vars.id, vars.paymentId),
+  scope: MONEY_SCOPE,
+  onSuccess: invalidateMoney,
+  onError: (error: unknown, vars: DeleteLoanPaymentVars, _result: unknown, context?: MutationFunctionContext) =>
+    onWriteError(error, vars, context),
+});
+
+// Not idempotent (the difference is taken when it runs), so it never retries.
+queryClient.setMutationDefaults(mutationKeys.adjustBalance, {
+  mutationFn: (vars: AdjustBalanceVars) => txApi.adjustBalance(vars.actualCash),
+  scope: MONEY_SCOPE,
+  onSuccess: invalidateMoney,
+  onError: (error: unknown, vars: AdjustBalanceVars, _result: unknown, context?: MutationFunctionContext) =>
     onWriteError(error, vars, context),
 });
 
