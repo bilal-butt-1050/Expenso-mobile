@@ -766,14 +766,19 @@ export function ActivityScreen() {
         loan={settlingLoan}
         onClose={() => setSettlingLoan(null)}
         onSettle={async (loanId, amount, options) => {
-          await recordPayment(loanId, amount, options);
+          const updated = await recordPayment(loanId, amount, options);
           await handleRefresh();
+          // Settled: follow it to the Loans tab's Settled group, highlighted (Bilal). The highlight
+          // effect picks the group from the refreshed month view.
+          if (updated?.status === "SETTLED") navigation.setParams({ filter: "LOANS", highlightId: loanId });
         }}
         onRemovePayment={async (loanId, paymentId) => {
           const updated = await removePayment(loanId, paymentId);
           // The sheet stays open on the recomputed loan.
           if (updated) setSettlingLoan(updated);
-          void handleRefresh();
+          await handleRefresh();
+          // A settled loan reopened by the undo moves back to Open: the highlight follows it there.
+          if (updated) navigation.setParams({ highlightId: loanId });
         }}
         onDelete={(loanId) => {
           const loan = loansById.get(loanId);
