@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { iconName } from "../../utils/icons";
 import { Image, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
-import { check, nameSchema } from "../../utils/validation";
+import { check, nameSchema, parseAmount } from "../../utils/validation";
+import { useDashboard } from "../../hooks/useDashboard";
+import { useTransactionMutations } from "../../hooks/useTransactions";
+import { formatAmountInput, formatCurrency } from "../../utils/currency";
+import { currentMonthKey } from "../../utils/date";
+import { feedbackUpdated, hapticError } from "../../utils/haptics";
 import md5 from "md5";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -31,6 +36,37 @@ export function SettingsScreen() {
   const [nameInput, setNameInput] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+
+  // Correct my balance (Bilal, 2026-10-02): when the app and the wallet disagree, the difference is
+  // saved as a correction instead of a made-up income or expense.
+  const { data: thisMonth } = useDashboard(currentMonthKey());
+  const cashNow = thisMonth?.cashAvailable.amount;
+  const { adjustBalance } = useTransactionMutations();
+  const [isAdjustOpen, setIsAdjustOpen] = useState(false);
+  const [actualInput, setActualInput] = useState("");
+  const [adjustError, setAdjustError] = useState<string | null>(null);
+  const [isAdjusting, setIsAdjusting] = useState(false);
+  const actualCash = parseAmount(actualInput);
+  const adjustDifference = cashNow === undefined || isNaN(actualCash) ? null : Math.round((actualCash - cashNow) * 100) / 100;
+
+  const handleAdjust = async () => {
+    setAdjustError(null);
+    if (!actualInput.trim() || isNaN(actualCash) || actualCash < 0) {
+      setAdjustError("Enter the money you have now");
+      return;
+    }
+    setIsAdjusting(true);
+    try {
+      await adjustBalance(actualCash);
+      feedbackUpdated();
+      setIsAdjustOpen(false);
+    } catch (error) {
+      hapticError();
+      setAdjustError(getErrorMessage(error));
+    } finally {
+      setIsAdjusting(false);
+    }
+  };
 
 
   // The avatar used to fall back to the phone's Google session and then *save* it to this account,
@@ -161,6 +197,16 @@ export function SettingsScreen() {
             setIsEditNameOpen(true);
           }}
         />
+        <SettingsRow
+          icon="scale-balance"
+          label="Correct my balance"
+          subtitle="When Expenso doesn't match the money you have"
+          onPress={() => {
+            setActualInput("");
+            setAdjustError(null);
+            setIsAdjustOpen(true);
+          }}
+        />
 
         <Text style={styles.sectionTitle}>Preferences</Text>
         <SwitchRow
@@ -248,7 +294,40 @@ export function SettingsScreen() {
         </View>
       </BottomSheet>
 
-
+      <BottomSheet visible={isAdjustOpen} onClose={() => setIsAdjustOpen(false)}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Correct my balance</Text>
+          {cashNow !== undefined ? (
+            <Text style={styles.adjustNote}>Expenso says you have {formatCurrency(cashNow)} today.</Text>
+          ) : null}
+          <TextField
+            label={`What you actually have (${user?.currency || "PKR"})`}
+            value={actualInput}
+            onChangeText={(text) => {
+              setActualInput(formatAmountInput(text));
+              if (adjustError) setAdjustError(null);
+            }}
+            placeholder="0"
+            keyboardType="decimal-pad"
+            error={adjustError}
+          />
+          <Text style={styles.adjustNote}>
+            {adjustDifference === null || adjustDifference === 0
+              ? "All your money: cash, bank and wallets. The difference is saved as a correction, not as income or spending."
+              : `Saves a correction of ${adjustDifference > 0 ? "+" : "−"}${formatCurrency(Math.abs(adjustDifference))}. It isn't income or spending.`}
+          </Text>
+          <View style={styles.modalActions}>
+            <Button label="Cancel" variant="secondary" onPress={() => setIsAdjustOpen(false)} style={{ flex: 1 }} />
+            <Button
+              label="Save"
+              onPress={handleAdjust}
+              loading={isAdjusting}
+              disabled={adjustDifference === null || adjustDifference === 0}
+              style={{ flex: 1 }}
+            />
+          </View>
+        </View>
+      </BottomSheet>
     </ScreenContainer>
   );
 }
@@ -371,5 +450,6 @@ const styles = StyleSheet.create({
   modalContent: { gap: spacing.md },
   modalTitle: { ...typography.subtitle, color: colors.textPrimary, fontWeight: "700" },
   modalActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.md },
+  adjustNote: { ...typography.small, color: colors.textSecondary },
   errorText: { ...typography.caption, color: colors.danger, marginBottom: -spacing.sm },
 });

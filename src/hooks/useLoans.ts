@@ -1,9 +1,10 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import * as loansApi from "../api/loans";
-import { Loan, LoanInput, LoanStatus, LoanType } from "../types/models";
+import { Loan, LoanInput, LoanStatus, LoanType, PaymentOptions } from "../types/models";
 import { queryKeys } from "../lib/queryClient";
 import {
   CreateLoanVars,
+  DeleteLoanPaymentVars,
   DeleteLoanVars,
   SettleLoanVars,
   UpdateLoanVars,
@@ -49,6 +50,10 @@ export function useLoans(filterType?: LoanType, filterStatus?: LoanStatus) {
   const edit = useMutation<Loan, Error, UpdateLoanVars>({ mutationKey: mutationKeys.updateLoan, meta });
   const settle = useMutation<Loan, Error, SettleLoanVars>({ mutationKey: mutationKeys.settleLoan, meta });
   const remove = useMutation<void, Error, DeleteLoanVars>({ mutationKey: mutationKeys.deleteLoan, meta });
+  const removePaymentMutation = useMutation<Loan, Error, DeleteLoanPaymentVars>({
+    mutationKey: mutationKeys.deleteLoanPayment,
+    meta,
+  });
 
   const titleOf = (id: string) => {
     const loan = (loansQuery.data as Loan[] | undefined)?.find((l) => l.id === id);
@@ -64,8 +69,11 @@ export function useLoans(filterType?: LoanType, filterStatus?: LoanStatus) {
     },
     addLoan: (input: LoanInput) => submitWrite(add, { input, title: `the loan with ${input.personName}` }),
     editLoan: (id: string, input: Partial<LoanInput>) => submitWrite(edit, { id, input, title: titleOf(id) }),
-    recordPayment: (id: string, amount?: number) =>
-      submitWrite(settle, { id, amount, title: `a payment on ${titleOf(id)}` }),
+    recordPayment: (id: string, amount?: number, options?: PaymentOptions) =>
+      submitWrite(settle, { id, amount, options, title: `a payment on ${titleOf(id)}` }),
+    /** Undoes one repayment. Resolves to the recomputed loan (undefined when queued offline). */
+    removePayment: (id: string, paymentId: string) =>
+      submitWrite(removePaymentMutation, { id, paymentId, title: `a payment on ${titleOf(id)}` }),
     removeLoan: (id: string) => submitWrite(remove, { id, title: titleOf(id) }),
   };
 }

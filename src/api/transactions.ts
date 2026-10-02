@@ -42,6 +42,12 @@ export async function updateTransaction(
   return data;
 }
 
+/** Corrects the balance to what the user actually has: the difference is saved as an ADJUST row. */
+export async function adjustBalance(actualCash: number): Promise<Transaction> {
+  const { data } = await apiClient.post<Transaction>("/transactions/adjust-balance", { actualCash });
+  return data;
+}
+
 export async function deleteTransaction(id: string): Promise<void> {
   await apiClient.delete(`/transactions/${id}`);
 }

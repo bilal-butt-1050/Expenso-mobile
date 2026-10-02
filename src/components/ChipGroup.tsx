@@ -9,8 +9,13 @@ import { hapticLight } from "../utils/haptics";
 interface Props<T extends string> {
   label: string;
   options: readonly T[];
-  value: T;
+  /** Undefined = nothing chosen yet (a question that must be answered). */
+  value?: T;
   onChange: (value: T) => void;
+  /** Text shown for an option, when it isn't the value itself (e.g. with a count). */
+  optionLabel?: (value: T) => string;
+  /** Keep the label for screen readers only. */
+  hideLabel?: boolean;
 }
 
 /**
@@ -18,10 +23,10 @@ interface Props<T extends string> {
  * "Bank Transfer" on a narrow phone. Chips size to their label and wrap instead, and the selected
  * one carries a check mark so selection isn't signalled by colour alone.
  */
-export function ChipGroup<T extends string>({ label, options, value, onChange }: Props<T>) {
+export function ChipGroup<T extends string>({ label, options, value, onChange, optionLabel, hideLabel }: Props<T>) {
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      {hideLabel ? null : <Text style={styles.label}>{label}</Text>}
       <View style={styles.row} accessibilityRole="radiogroup" accessibilityLabel={label}>
         {options.map((option) => {
           const checked = option === value;
@@ -36,10 +41,12 @@ export function ChipGroup<T extends string>({ label, options, value, onChange }:
               style={({ pressed }) => [styles.chip, checked && styles.chipChecked, pressed && styles.pressed]}
               accessibilityRole="radio"
               accessibilityState={{ checked }}
-              accessibilityLabel={option}
+              accessibilityLabel={optionLabel ? optionLabel(option) : option}
             >
               {checked ? <MaterialCommunityIcons name="check" size={16} color={colors.textPrimary} /> : null}
-              <Text style={[styles.chipLabel, checked && styles.chipLabelChecked]}>{option}</Text>
+              <Text style={[styles.chipLabel, checked && styles.chipLabelChecked]}>
+                {optionLabel ? optionLabel(option) : option}
+              </Text>
             </Pressable>
           );
         })}

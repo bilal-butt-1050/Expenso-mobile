@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import { Loan, LoanInput, LoanType, LoanStatus } from "../types/models";
+import { Loan, LoanInput, LoanType, LoanStatus, PaymentOptions } from "../types/models";
 
 export async function fetchLoans(params?: {
   type?: LoanType;
@@ -20,8 +20,14 @@ export async function createLoan(input: LoanInput): Promise<Loan> {
   return data;
 }
 
-export async function settleLoan(id: string, paymentAmount?: number): Promise<Loan> {
-  const { data } = await apiClient.patch<Loan>(`/loans/${id}/settle`, { paymentAmount });
+export async function settleLoan(id: string, paymentAmount?: number, options: PaymentOptions = {}): Promise<Loan> {
+  const { data } = await apiClient.patch<Loan>(`/loans/${id}/settle`, { paymentAmount, ...options });
+  return data;
+}
+
+/** Undoes one repayment; the loan comes back recomputed. */
+export async function deleteLoanPayment(id: string, paymentId: string): Promise<Loan> {
+  const { data } = await apiClient.delete<Loan>(`/loans/${id}/payments/${paymentId}`);
   return data;
 }
 

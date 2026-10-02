@@ -20,6 +20,7 @@ import { Loan, LoanType, loanDate } from "../../types/models";
 import { useAppData } from "../../context/AppDataContext";
 import { toMonthKey } from "../../utils/date";
 import { TextField } from "../../components/TextField";
+import { ChipGroup } from "../../components/ChipGroup";
 import { Button } from "../../components/Button";
 import { DatePicker } from "../../components/DatePicker";
 import { FormFooter } from "../../components/FormFooter";
@@ -27,14 +28,33 @@ import { useFocusAfterTransition } from "../../hooks/useFocusAfterTransition";
 import { colors } from "../../theme/colors";
 import { radius, size, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
-import { formatAmountInput } from "../../utils/currency";
+import { formatAmountInput, formatCurrency } from "../../utils/currency";
+import { formatDayMonth } from "../../utils/date";
 import { getErrorMessage } from "../../api/client";
 import { hapticRecordCreated, hapticError, hapticLight, feedbackUpdated } from "../../utils/haptics";
 
 /** The checkbox icons' size; the hint under one lines up with its label. */
 const CHECKBOX_SIZE = 22;
 
+/**
+ * Did the money go through the user's cash? The one question that decides what a loan does to the
+ * balance (Bilal, 2026-10-02), so it's asked first and never pre-answered on a new loan.
+ */
+type CashChoice = "NOW" | "BEFORE";
+const CASH_CHOICES: readonly CashChoice[] = ["NOW", "BEFORE"];
+
 type Props = NativeStackScreenProps<RootStackParamList, "LoanForm">;
+
+/** What the cash choice does, in words: "Your cash goes down by Rs 2,000 on 20 Sep." */
+function cashEffect(type: LoanType, choice: CashChoice, amount: number, date: Date): string {
+  const sum = amount > 0 ? formatCurrency(amount) : "this amount";
+  if (choice === "BEFORE") {
+    return type === "LENT"
+      ? "It left your cash before you started Expenso, so your cash doesn't change now. It goes up when you're paid back."
+      : "You spent it before you started Expenso, so your cash doesn't change now. It goes down when you pay it back.";
+  }
+  return `Your cash goes ${type === "LENT" ? "down" : "up"} by ${sum} on ${formatDayMonth(date.toISOString())}.`;
+}
 
 export function LoanFormScreen({ route, navigation }: Props) {
   // History starts at the join date: the pickers stop there (D-67).
@@ -61,10 +81,13 @@ export function LoanFormScreen({ route, navigation }: Props) {
   });
   const { selectedMonth, setSelectedMonth } = useAppData();
   /**
-   * Whether the money moves now. Recording a debt that predates the app must not fabricate a cash
-   * movement today, so this is offered on create. On edit the principal has already been recorded.
+   * Whether the money went through the user's cash. No default on a new loan: a wrong guess is what
+   * made a loan's repayment inflate the balance. On edit it starts from the saved choice and can be
+   * changed (undefined from an older server: left alone).
    */
-  const [recordCashflow, setRecordCashflow] = useState(true);
+  const savedChoice: CashChoice | null =
+    editing?.cashMoved === undefined ? null : editing.cashMoved ? "NOW" : "BEFORE";
+  const [cashChoice, setCashChoice] = useState<CashChoice | null>(savedChoice);
   const [error, setError] = useState<string | null>(null);
   const [amountError, setAmountError] = useState<string | null>(null);
   const [personError, setPersonError] = useState<string | null>(null);
@@ -78,8 +101,9 @@ export function LoanFormScreen({ route, navigation }: Props) {
     if (hasDueDate !== Boolean(editing.dueDate)) return true;
     if (hasDueDate && editing.dueDate && dueDate.toDateString() !== new Date(editing.dueDate).toDateString()) return true;
     if (originalDate && date.toDateString() !== originalDate.toDateString()) return true;
+    if (cashChoice !== savedChoice) return true;
     return false;
-  }, [editing, personName, rawAmount, hasDueDate, dueDate, date, originalDate]);
+  }, [editing, personName, rawAmount, hasDueDate, dueDate, date, originalDate, cashChoice, savedChoice]);
 
   const amountRef = useRef<TextInput>(null);
   const personRef = useRef<TextInput>(null);
@@ -109,6 +133,11 @@ export function LoanFormScreen({ route, navigation }: Props) {
     const amountInvalid = amountProblem !== null;
     setAmountError(amountProblem);
     setPersonError(personProblem);
+    if (!cashChoice) {
+      hapticError();
+      setError(type === "LENT" ? "Say whether this came out of your cash" : "Say whether this came into your cash");
+      return;
+    }
     if (amountInvalid || personProblem) {
       hapticError();
       (amountInvalid ? amountRef : personRef).current?.focus();
@@ -129,6 +158,7 @@ export function LoanFormScreen({ route, navigation }: Props) {
           amount: numericAmount,
           dueDate: hasDueDate ? dueDate.toISOString() : null,
           ...(dateChanged ? { date: date.toISOString() } : {}),
+          ...(cashChoice && cashChoice !== savedChoice ? { recordCashflow: cashChoice === "NOW" } : {}),
         });
       } else {
         created = await addLoan({
@@ -136,7 +166,7 @@ export function LoanFormScreen({ route, navigation }: Props) {
           personName: cleanName,
           amount: numericAmount,
           dueDate: hasDueDate ? dueDate.toISOString() : undefined,
-          recordCashflow,
+          recordCashflow: cashChoice === "NOW",
           date: date.toISOString(),
         });
       }
@@ -224,6 +254,28 @@ export function LoanFormScreen({ route, navigation }: Props) {
           </View>
         )}
 
+        {/* The question that decides what this does to the balance, asked before anything else
+            and never pre-answered (Bilal, 2026-10-02). */}
+        <View>
+          <ChipGroup
+            label={type === "LENT" ? "Where did this money come from?" : "Where did this money go?"}
+            options={CASH_CHOICES}
+            value={cashChoice ?? undefined}
+            onChange={(choice) => {
+              setCashChoice(choice);
+              if (error) setError(null);
+            }}
+            optionLabel={(choice) =>
+              choice === "NOW"
+                ? type === "LENT"
+                  ? "From my cash"
+                  : "Into my cash"
+                : "Before Expenso"
+            }
+          />
+          {cashChoice ? <Text style={styles.choiceHint}>{cashEffect(type, cashChoice, parseAmount(rawAmount), date)}</Text> : null}
+        </View>
+
         {/* Amount first, like the other forms (D-33). */}
         <TextField
           ref={amountRef}
@@ -250,34 +302,6 @@ export function LoanFormScreen({ route, navigation }: Props) {
 
         {/* When the money moved (R-41). Future days can't be picked (D-63). */}
         <DatePicker label="Date" value={date} onChange={setDate} maxDate={new Date()} minDate={joined.date} />
-
-        {!editing && (
-          <View>
-            <TouchableOpacity
-              style={styles.dueToggleRow}
-              onPress={() => setRecordCashflow(!recordCashflow)}
-              activeOpacity={0.7}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: !recordCashflow }}
-            >
-              {/* Asked the other way round (an opt-in): unticking "came out of my cash" by mistake
-                  made a recent loan inflate cash when it was paid back (Bilal's report). */}
-              <MaterialCommunityIcons
-                name={!recordCashflow ? "checkbox-marked" : "checkbox-blank-outline"}
-                size={CHECKBOX_SIZE}
-                color={!recordCashflow ? colors.accent : colors.textMuted}
-              />
-              <Text style={styles.dueToggleLabel}>This is an old debt, from before I joined Expenso</Text>
-            </TouchableOpacity>
-            <Text style={styles.checkboxHint}>
-              {recordCashflow
-                ? type === "LENT"
-                  ? "Your cash goes down by this amount on the loan's date."
-                  : "Your cash goes up by this amount on the loan's date."
-                : "Your cash doesn't change now. It changes when the money is paid back."}
-            </Text>
-          </View>
-        )}
 
         {/* Due Date Toggle & Picker */}
         <View style={styles.dueSection}>
@@ -311,7 +335,12 @@ export function LoanFormScreen({ route, navigation }: Props) {
             {error}
           </Text>
         ) : null}
-        <Button label={editing ? "Save changes" : "Save loan"} onPress={handleSave} loading={isSubmitting} disabled={!hasChanges} />
+        <Button
+          label={editing ? "Save changes" : "Save loan"}
+          onPress={handleSave}
+          loading={isSubmitting}
+          disabled={!hasChanges || !cashChoice}
+        />
       </FormFooter>
     </KeyboardAvoidingView>
   );
@@ -367,11 +396,10 @@ const styles = StyleSheet.create({
     minHeight: size.minTouch,
     paddingVertical: spacing.xs,
   },
-  checkboxHint: {
+  choiceHint: {
     ...typography.small,
     color: colors.textSecondary,
-    marginTop: spacing.xs,
-    marginLeft: CHECKBOX_SIZE + spacing.sm,
+    marginTop: -spacing.xs,
   },
   dueToggleLabel: {
     ...typography.small,

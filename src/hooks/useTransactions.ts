@@ -5,6 +5,7 @@ import { Transaction, TransactionInput, TransactionKind } from "../types/models"
 import { useAppData } from "../context/AppDataContext";
 import { queryKeys } from "../lib/queryClient";
 import {
+  AdjustBalanceVars,
   CreateTransactionVars,
   DeleteTransactionVars,
   UpdateTransactionVars,
@@ -88,6 +89,10 @@ export function useTransactionMutations() {
     mutationKey: mutationKeys.deleteTransaction,
     meta,
   });
+  const adjust = useMutation<Transaction, Error, AdjustBalanceVars>({
+    mutationKey: mutationKeys.adjustBalance,
+    meta,
+  });
 
   return {
     /** `input.id` should be a fresh client id (newTransactionId) so a replay can't duplicate. */
@@ -96,6 +101,8 @@ export function useTransactionMutations() {
     updateTransaction: (id: string, input: Partial<TransactionInput>, title: string) =>
       submitWrite(update, { id, input, title }),
     deleteTransaction: (id: string, title: string) => submitWrite(remove, { id, title }),
+    /** Corrects the balance to what the user actually has (an ADJUST row for the difference). */
+    adjustBalance: (actualCash: number) => submitWrite(adjust, { actualCash, title: "the balance correction" }),
     /**
      * Commit a delete nobody waits on (the swipe undo expiring). Failure shows in the snackbar
      * (S-5) and the row comes back.

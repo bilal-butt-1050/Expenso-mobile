@@ -11,7 +11,7 @@ import {
   Keyboard,
 } from "react-native";
 import { useJoined } from "../../hooks/useJoined";
-import { amountSchema, check, parseAmount } from "../../utils/validation";
+import { amountSchema, check, parseAmount, personNameSchema } from "../../utils/validation";
 import { StackActions } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -37,8 +37,8 @@ import { newTransactionId } from "../../lib/newId";
 import { toMonthKey } from "../../utils/date";
 import { colors } from "../../theme/colors";
 import { radius, size, spacing } from "../../theme/spacing";
-import { NeedWant, PaymentMethod } from "../../types/models";
-import { formatAmountInput } from "../../utils/currency";
+import { PaymentMethod, TransactionInput } from "../../types/models";
+import { formatAmountInput, formatCurrency } from "../../utils/currency";
 import { typography } from "../../theme/typography";
 import { RootStackParamList } from "../../types/navigation";
 import { hapticRecordCreated, hapticDelete, hapticError, hapticWarning, feedbackUpdated } from "../../utils/haptics";
@@ -46,7 +46,28 @@ import { hapticRecordCreated, hapticDelete, hapticError, hapticWarning, feedback
 type Props = NativeStackScreenProps<RootStackParamList, "ExpenseForm">;
 
 const PAYMENT_METHODS: PaymentMethod[] = ["Cash", "Bank Transfer", "Card", "Cheque"];
-const NEED_WANT: NeedWant[] = ["Need", "Want"];
+
+/**
+ * Who paid (Bilal, 2026-10-02). It took Need/Want's place on the form: no screen read that, and this
+ * decides where the money lands.
+ * - ME: an ordinary expense.
+ * - OTHER: someone paid for the user, who owes them. Spending, no cash.
+ * - SPLIT: the user paid the whole bill; part of it is someone else's, who owes the user that part.
+ */
+type Payer = "ME" | "OTHER" | "SPLIT";
+const PAYERS: readonly Payer[] = ["ME", "OTHER", "SPLIT"];
+const PAYER_LABEL: Record<Payer, string> = { ME: "Me", OTHER: "Someone else", SPLIT: "Split" };
+
+/** What saving does, in words, so nobody has to guess where the money lands. */
+function sharingEffect(payer: Payer, person: string, amount: number, share: number): string {
+  const name = person.trim();
+  const money = (n: number) => (n > 0 ? formatCurrency(n) : "this");
+  if (payer === "OTHER") {
+    return `Counts as your spending. You owe ${name || "them"} ${money(amount)}, and your cash doesn't change until you pay it back.`;
+  }
+  const mine = amount > 0 && share > 0 && share < amount ? amount - share : 0;
+  return `Your cash goes down by ${money(amount)}. Your part${mine ? `, ${formatCurrency(mine)},` : ""} counts as spending, and ${name ? `${name} owes` : "they owe"} you ${money(share)}.`;
+}
 
 export function ExpenseFormScreen({ route, navigation }: Props) {
   // History starts at the join date: the pickers stop there (D-67).
@@ -69,16 +90,24 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
   const { confirm } = useDialog();
   const snackbar = useSnackbar();
 
+  const savedPayer: Payer = editing?.paidBy ? "OTHER" : editing?.split ? "SPLIT" : "ME";
+  const savedPerson = editing?.paidBy?.personName ?? editing?.split?.personName ?? "";
+  const savedShare = editing?.split?.share ?? 0;
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? "");
   const [description, setDescription] = useState(editing?.description ?? "");
-  const [amount, setAmount] = useState(editing ? formatAmountInput(String(editing.amount)) : "");
+  // A split shows the whole bill; the expense itself is the user's part of it.
+  const [amount, setAmount] = useState(editing ? formatAmountInput(String(editing.amount + savedShare)) : "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
     (editing?.paymentMethod as PaymentMethod) ?? "Cash",
   );
-  const [needWant, setNeedWant] = useState<NeedWant>(editing?.needWant ?? "Need");
+  const [payer, setPayer] = useState<Payer>(savedPayer);
+  const [person, setPerson] = useState(savedPerson);
+  const [share, setShare] = useState(savedShare ? formatAmountInput(String(savedShare)) : "");
   const [error, setError] = useState<string | null>(null);
   const [amountError, setAmountError] = useState<string | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [personError, setPersonError] = useState<string | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const amountRef = useRef<TextInput>(null);
@@ -92,12 +121,13 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
     if (categoryId !== editing.categoryId) return true;
     if (description !== (editing.description ?? "")) return true;
     const parsedAmount = Number(amount.replace(/,/g, ""));
-    if (!isNaN(parsedAmount) && parsedAmount !== editing.amount) return true;
+    if (!isNaN(parsedAmount) && parsedAmount !== editing.amount + savedShare) return true;
     if (paymentMethod !== editing.paymentMethod) return true;
-    if (needWant !== editing.needWant) return true;
+    if (payer !== savedPayer || person.trim() !== savedPerson) return true;
+    if (payer === "SPLIT" && parseAmount(share) !== savedShare) return true;
     if (date.toISOString().split("T")[0] !== new Date(editing.date).toISOString().split("T")[0]) return true;
     return false;
-  }, [editing, categoryId, description, amount, paymentMethod, needWant, date]);
+  }, [editing, categoryId, description, amount, paymentMethod, payer, person, share, savedPayer, savedPerson, savedShare, date]);
 
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -129,14 +159,30 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
     const amountInvalid = amountProblem !== null;
     setAmountError(amountProblem);
     setCategoryError(!categoryId ? "Choose a category" : null);
+    // Someone else involved: who, and for a split, how much of the bill is theirs.
+    const personProblem = payer === "ME" ? null : check(personNameSchema, person);
+    const parsedShare = parseAmount(share);
+    const shareProblem =
+      payer !== "SPLIT"
+        ? null
+        : (check(amountSchema, parsedShare) ??
+          (!amountInvalid && parsedShare >= parsedAmount ? "Their share must be less than the total" : null));
+    setPersonError(personProblem);
+    setShareError(shareProblem);
     if (amountInvalid) {
       amountRef.current?.focus();
+      return;
+    }
+    if (personProblem || shareProblem) {
+      hapticError();
       return;
     }
     if (!categoryId) {
       openSheet();
       return;
     }
+    // What counts as the user's spending: the whole amount, or their part of a split bill.
+    const ownShare = payer === "SPLIT" ? Math.round((parsedAmount - parsedShare) * 100) / 100 : parsedAmount;
 
     // Read before saving: the budget position this save starts from, in the expense's own month.
     const budgetItem = dashboardData?.budgetVsActual.find((b) => b.categoryId === categoryId);
@@ -144,18 +190,21 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
     const alreadyCounted =
       editing && editing.categoryId === categoryId && editing.month === expenseMonth ? editing.amount : 0;
     const before = budgetItem?.actual ?? 0;
-    const after = before - alreadyCounted + parsedAmount;
+    const after = before - alreadyCounted + ownShare;
 
     try {
       setIsSaving(true);
-      const input = {
-        kind: "SPEND" as const,
+      const name = person.trim();
+      const input: TransactionInput = {
+        kind: "SPEND",
         categoryId,
         date: date.toISOString(),
         description: description || undefined,
-        amount: parsedAmount,
+        amount: ownShare,
         paymentMethod,
-        needWant,
+        // Both sent, one null, so an edit can also switch back to "Me".
+        paidBy: payer === "OTHER" ? { personName: name } : null,
+        split: payer === "SPLIT" ? { personName: name, share: parsedShare } : null,
       };
 
       // Save first, always (R-3). A budget warning never stands between the user and their entry.
@@ -224,9 +273,13 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
 
   const handleDelete = React.useCallback(() => {
     if (!editing) return;
+    const other = editing.paidBy?.personName ?? editing.split?.personName;
     confirm({
       title: "Delete this expense?",
-      message: "This action cannot be undone.",
+      // An expense and what's owed over it are one record: both go.
+      message: other
+        ? `What's owed between you and ${other} over it goes too, with any payments. This can't be undone.`
+        : "This action cannot be undone.",
       confirmText: "Delete",
       destructive: true,
       icon: "trash-can-outline",
@@ -275,7 +328,7 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
         >
           <TextField
             ref={amountRef}
-            label={`Amount (${user?.currency || "PKR"})`}
+            label={`${payer === "OTHER" ? "Your share" : payer === "SPLIT" ? "Total you paid" : "Amount"} (${user?.currency || "PKR"})`}
             keyboardType="decimal-pad"
             value={amount}
             onChangeText={(val) => {
@@ -322,12 +375,54 @@ export function ExpenseFormScreen({ route, navigation }: Props) {
           <DatePicker value={date} onChange={setDate} label="Date" maxDate={new Date()} minDate={joined.date} />
 
           <ChipGroup
-            label="Payment method"
-            options={PAYMENT_METHODS}
-            value={paymentMethod}
-            onChange={setPaymentMethod}
+            label="Who paid?"
+            options={PAYERS}
+            value={payer}
+            onChange={(next) => {
+              setPayer(next);
+              setPersonError(null);
+              setShareError(null);
+            }}
+            optionLabel={(p) => PAYER_LABEL[p]}
           />
-          <ChipGroup label="Need or want" options={NEED_WANT} value={needWant} onChange={setNeedWant} />
+          {payer !== "ME" ? (
+            <View style={styles.sharing}>
+              <TextField
+                label={payer === "OTHER" ? "Paid by" : "Split with"}
+                value={person}
+                onChangeText={(text) => {
+                  setPerson(text);
+                  if (personError) setPersonError(null);
+                }}
+                placeholder="Their name"
+                autoCapitalize="words"
+                error={personError}
+              />
+              {payer === "SPLIT" ? (
+                <TextField
+                  label={`Their share (${user?.currency || "PKR"})`}
+                  value={share}
+                  onChangeText={(text) => {
+                    setShare(formatAmountInput(text));
+                    if (shareError) setShareError(null);
+                  }}
+                  placeholder="0"
+                  keyboardType="decimal-pad"
+                  error={shareError}
+                />
+              ) : null}
+              <Text style={styles.sharingHint}>{sharingEffect(payer, person, parseAmount(amount), parseAmount(share))}</Text>
+            </View>
+          ) : null}
+          {/* Someone else paid: how they paid isn't the user's to record. */}
+          {payer !== "OTHER" ? (
+            <ChipGroup
+              label="Payment method"
+              options={PAYMENT_METHODS}
+              value={paymentMethod}
+              onChange={setPaymentMethod}
+            />
+          ) : null}
         </ScrollView>
 
         {/* Save stays reachable with the keyboard up (B1); a save error shows right above it. */}
@@ -424,6 +519,8 @@ const styles = StyleSheet.create({
   headerAction: { marginRight: spacing.sm },
   label: { ...typography.caption, fontWeight: "600", color: colors.textSecondary, marginBottom: spacing.xs },
   fieldWrap: { marginBottom: spacing.md },
+  sharing: { marginTop: -spacing.xs, marginBottom: spacing.md },
+  sharingHint: { ...typography.small, color: colors.textSecondary },
   error: { ...typography.small, fontWeight: "400", color: colors.danger, marginBottom: spacing.sm },
   fieldError: { ...typography.small, fontWeight: "500", color: colors.danger, marginTop: spacing.xs },
 
