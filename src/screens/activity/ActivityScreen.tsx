@@ -408,11 +408,7 @@ export function ActivityScreen() {
       monthLoans
         .filter((l) => l.type === type && !hiddenIds.has(`loan-${l.id}`))
         .reduce((t, l) => t + (l.asOf?.remainingAmount ?? l.remainingAmount ?? 0), 0);
-    // Of those month-end balances, what has been settled in later months (a past month's note).
-    const since = monthLoans
-      .filter((l) => !hiddenIds.has(`loan-${l.id}`))
-      .reduce((t, l) => t + (l.asOf?.repaidSince ?? 0), 0);
-    return { lent: remaining("LENT"), borrowed: remaining("BORROWED"), since };
+    return { lent: remaining("LENT"), borrowed: remaining("BORROWED") };
   }, [monthLoans, hiddenIds]);
 
   // Group into clean date sections
@@ -711,13 +707,6 @@ export function ActivityScreen() {
                       <Text style={styles.loanColLabel}>Still to pay back</Text>
                       <MoneyText amount={monthTotals.borrowed} style={[styles.loanColValue, styles.borrowedValue]} />
                     </View>
-                    {monthTotals.since > 0 ? (
-                      <Text style={styles.loansSince}>
-                        {monthTotals.since >= monthTotals.lent + monthTotals.borrowed
-                          ? "All of this has been settled since"
-                          : `${formatCurrency(monthTotals.since)} of this has been settled since`}
-                      </Text>
-                    ) : null}
                   </View>
                   {/* One group at a time: open loans by default (Bilal). */}
                   <View style={styles.loanSwitch}>
@@ -832,8 +821,6 @@ const styles = StyleSheet.create({
   // A grouped card: `surface`, 1pt `borderLight`, `radius.lg`; the rows below are the raised level (W5).
   loansOverviewCard: {
     flexDirection: "row",
-    // The "settled since" note wraps onto its own line under the two columns.
-    flexWrap: "wrap",
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     paddingVertical: spacing.md,
@@ -848,14 +835,6 @@ const styles = StyleSheet.create({
   },
   loanSwitch: { marginTop: spacing.md, marginBottom: -spacing.sm },
   loanGroupEmpty: { ...typography.caption, color: colors.textSecondary, textAlign: "center", marginTop: spacing.xl },
-  loansSince: {
-    ...typography.small,
-    fontWeight: "400",
-    color: colors.success,
-    textAlign: "center",
-    width: "100%",
-    marginTop: spacing.sm,
-  },
   loanDivider: {
     width: 1,
     backgroundColor: colors.borderLight,
