@@ -352,13 +352,14 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
 
+  // The weekday labels sit in the same seven equal columns as the dates, so each lines up with
+  // its column at any card width (Bilal: they drifted when spaced on their own).
   dayHeaderRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
     marginBottom: spacing.xs,
   },
   dayHeaderText: {
-    width: CELL_SIZE,
+    width: `${100 / 7}%`,
     textAlign: "center",
     ...typography.small,
     fontWeight: "700",
@@ -376,9 +377,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: spacing.xs,
   },
+  // Fills its column up to CELL_SIZE, and stays round: a fixed size overflowed narrow columns.
   cell: {
-    width: CELL_SIZE,
-    height: CELL_SIZE,
+    width: "100%",
+    maxWidth: CELL_SIZE,
+    aspectRatio: 1,
     borderRadius: CELL_SIZE / 2,
     alignItems: "center",
     justifyContent: "center",
