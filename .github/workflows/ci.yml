@@ -1,0 +1,38 @@
+name: CI
+
+# Typecheck and lint on every pull request to main, so nothing broken can be merged. Mark the
+# "Typecheck and lint" check as required in the main branch ruleset.
+#
+# `pull_request`, never `pull_request_target`: a fork's PR runs with read-only access and no
+# secrets.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck and lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
