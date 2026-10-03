@@ -1,146 +1,105 @@
-# Expenso Mobile
+# Expenso
 
-The mobile client for the **Expenso** personal finance platform. Built with **React Native**, **Expo (SDK 57)**, and **TypeScript**, designed with a modern dark-first aesthetic.
+**A personal finance app that tells you the truth about your money.** Track expenses, income, budgets and money lent or borrowed. At a glance, see what you have, where it went, whether you're within budget, and who owes whom.
+
+This is the Android app, built with React Native and Expo. The API lives in [Expenso-backend](https://github.com/bilal-butt-1050/Expenso-backend).
+
+**Stack:** React Native 0.86 · Expo SDK 57 · TypeScript · React Navigation 7 · TanStack Query · Reanimated
+
+[![CI](https://github.com/bilal-butt-1050/Expenso-mobile/actions/workflows/ci.yml/badge.svg)](https://github.com/bilal-butt-1050/Expenso-mobile/actions/workflows/ci.yml)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 
 ---
 
 ## Features
 
-- **Consolidated Dashboard:** Real-time visibility into monthly net balance, income, total expenses, savings goals, and a 6-month trend bar chart.
-- **Expense Tracking:** Fast expense logging with customizable categories, payment method tags, "Need" vs "Want" flags, and one-tap "Paid / Unpaid" toggling.
-- **Budget Monitoring:** Visual category budget utilization bars alerting you before spending limits are exceeded.
-- **Income Logging:** Detailed monthly income records for salary, bonuses, and additional revenue streams.
-- **Custom Categories:** Full category customization with tailored colors and icon selection.
-- **Cross-Platform:** Runs natively on **iOS**, **Android**, and in modern **Web browsers**.
+- **Home:** cash available today; this month's income, expenses and what's left; spending by category with budget bars; what's still owed both ways. Any past month can be opened as it stood at that month's end.
+- **Activity:** one feed with All, Expenses, Income and Loans segments. Swipe to delete with undo, and a saved record is highlighted when you land on it.
+- **Loans:** lent or borrowed, with dates, due dates and partial repayments. The form first asks whether the money went through your cash, and that answer can be changed later. Repayments can be dated, forgiven or undone. Loans are grouped as Open or Settled.
+- **Who paid?** Every expense can be paid by you, by someone else (it counts as your spending and as a debt to them), or split (only your part counts as spending; their share is owed to you).
+- **Budgets:** monthly limits per category, and a notice when a save crosses one.
+- **Correct my balance:** when the app and your wallet disagree, the difference is saved as a correction, never as fake income or spending.
+- **Offline-first:** saves made offline are queued, survive a restart and replay in order. A client-generated id means a retried save can never be duplicated.
+- **Sign-in:** passwordless email codes or Google; optional App lock with fingerprint, face or screen lock.
+- **Polish:** dark and light themes, sounds and haptics, screen-reader labels, and layouts that hold at 200% font size. Nine currencies, with lakh and crore for rupees.
 
 ---
 
-## Architecture & Project Structure
+## Run it locally
 
-The codebase is strictly layered so presentational components never handle network logic or storage directly:
-
-```text
-mobile/
-├── assets/             # Icons, splash screen, and branding assets
-├── src/
-│   ├── api/            # HTTP client & endpoint callers (Axios + token interceptors)
-│   ├── components/     # Reusable UI primitives (Buttons, Cards, Inputs, Charts)
-│   ├── context/        # Global state (AuthContext, AppDataContext)
-│   ├── hooks/          # Domain data hooks (useDashboard, useExpenses, useBudgets, etc.)
-│   ├── navigation/     # React Navigation stacks (Auth, Tabs, Modals)
-│   ├── screens/        # Screen components organized by domain
-│   │   ├── auth/       # Login & Registration screens
-│   │   ├── budget/     # Budget allocation & management
-│   │   ├── expenses/   # Expense list, filters, and logging form
-│   │   ├── home/       # Primary dashboard overview
-│   │   └── settings/   # Income, categories, and account preferences
-│   ├── theme/          # Centralized tokens (colors, spacing, typography)
-│   ├── types/          # TypeScript interface definitions (API models & navigation)
-│   └── utils/          # Currency formatting and date arithmetic helpers
-├── App.tsx             # Root application component & context providers
-├── app.json            # Expo project configuration & API URL settings
-├── babel.config.js     # Babel configuration with module alias mapping
-├── package.json        # Dependencies and scripts
-└── tsconfig.json       # TypeScript configuration extending Expo base
-```
-
----
-
-## Prerequisites
-
-- **Node.js** (v18 or higher)
-- **npm** (v9 or higher)
-- **Expenso Backend** running locally (see [Backend Setup Guide](https://github.com/bilal-butt-1050/Expenso-backend))
-- **Expo Go** app installed on your physical mobile device ([Android](https://play.google.com/store/apps/details?id=host.exp.exponent) or [iOS](https://apps.apple.com/app/expo-go/id982107779)), or an Android/iOS emulator
-
----
-
-## Getting Started
-
-### 1. Clone the Repository
+You need **Node.js 20+** and the **[backend](https://github.com/bilal-butt-1050/Expenso-backend) running locally**. Start the backend first; it serves `http://localhost:4000`.
 
 ```bash
 git clone https://github.com/bilal-butt-1050/Expenso-mobile.git
 cd Expenso-mobile
-```
-
-### 2. Install Dependencies
-
-```bash
 npm install
+cp .env.example .env     # set EXPO_PUBLIC_API_URL (see below)
 ```
 
-### 3. Configure the Backend API URL
+### Option A: in the browser (quickest)
 
-Open `app.json` and verify the `"extra" -> "apiUrl"` setting:
-
-```json
-"extra": {
-  "apiUrl": "http://localhost:4000"
-}
-```
-
-- **For Web & Emulators:** Keep `http://localhost:4000` (or `http://10.0.2.2:4000` for Android Studio emulators).
-- **For Physical Devices via Expo Go (LAN):** Replace `localhost` with your computer's local Wi-Fi IPv4 address (e.g., `http://192.168.1.50:4000`). Both devices must be on the same Wi-Fi network.
-
----
-
-### 4. Run the Development Server
-
-#### Option A: Run in Web Browser
 ```bash
+# .env: EXPO_PUBLIC_API_URL=http://localhost:4000
 npx expo start --web
 ```
-Opens the application immediately at `http://localhost:8081`.
 
-#### Option B: Run on Physical Device (Expo Go)
+### Option B: on an Android phone or emulator
+
+The app uses native modules (Google sign-in, biometrics, audio), so it needs a **development build**, not Expo Go:
+
 ```bash
-npx expo start
+# .env: EXPO_PUBLIC_API_URL=http://<your PC's Wi-Fi IP>:4000   (an emulator can use http://10.0.2.2:4000)
+npx expo run:android     # builds and installs the dev build (needs the Android SDK)
+npx expo start           # then open the app on the device
 ```
-- **Android:** Open the Expo Go app and tap **Scan QR Code**.
-- **iOS:** Open the native **Camera** app and scan the QR code.
 
-*(If your local network blocks direct device-to-device communication, run with tunnel mode: `npx expo start --tunnel`)*
-
-#### Option C: Run on Emulators
-- **Android Emulator:** `npm run android`
-- **iOS Simulator:** `npm run ios`
+### Signing in locally
+Enter any email. In development the backend doesn't send email; **it prints the 6-digit code in the backend's terminal**. Google sign-in needs your own OAuth client IDs, so use email locally.
 
 ---
 
-## Demo Account Credentials
+## Check it
 
-If you seeded the backend using `npm run seed`, you can authenticate immediately with:
+```bash
+npm run typecheck        # 0 errors required
+npm run lint             # 0 errors required
+```
 
-- **Email:** `demo@expenso.app`
-- **Password:** `password123`
-
-You can also register a brand new account directly from the mobile app.
-
----
-
-## Theming
-
-All visual styles reference tokens defined in `src/theme/`:
-- `colors.ts` — Semantic color definitions (backgrounds, surfaces, accents, alerts).
-- `spacing.ts` — Standardized margin, padding, and layout scale.
-- `typography.ts` — Consistent font sizing, letter spacing, and line heights.
-
-To customize the primary accent color across the entire application, simply update `colors.accent` in `src/theme/colors.ts`.
+CI runs both on every pull request.
 
 ---
 
-## Available Scripts
+## Project layout
 
-| Script | Command | Description |
-| :--- | :--- | :--- |
-| `npm start` | `expo start` | Launches the Expo Metro bundler |
-| `npm run android` | `expo start --android` | Launches the project on a connected Android device / emulator |
-| `npm run ios` | `expo start --ios` | Launches the project on an iOS simulator |
-| `npm run typecheck` | `tsc --noEmit` | Runs full static TypeScript type checks |
+```
+src/
+  api/          HTTP calls, one module per resource (no React)
+  hooks/        data fetching and mutations (TanStack Query)
+  lib/          query client, offline write queue, app lock
+  screens/      home, activity, loans, expenses, income, budget, settings, auth, onboarding
+  components/   shared UI: sheets, pickers, rows, buttons, money text
+  navigation/   root stack and tabs
+  theme/        colours, spacing, typography tokens (dark and light)
+  utils/        money and date formatting, validation, haptics
+  types/        models that mirror the API
+```
+
+Screens call hooks, and hooks call `api/`. A screen never calls the HTTP client directly. Every colour, spacing and font size comes from `src/theme/`. The design rules are in [docs/design-system.md](docs/design-system.md).
 
 ---
+
+## How releases work
+
+- **Preview and production** are separate EAS channels, and separate apps installed side by side.
+- App-code changes ship as over-the-air updates, which reach installed apps without a store release. Every change goes to preview first and is tested on a real phone before production.
+- `main` is protected: changes arrive through reviewed pull requests with a green CI check.
+
+---
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). Found a security problem? Please report it privately; see [SECURITY.md](SECURITY.md).
 
 ## License
 
-This project is licensed under the MIT License.
+[MIT](LICENSE) © 2026 Muhammad Bilal Afzal
