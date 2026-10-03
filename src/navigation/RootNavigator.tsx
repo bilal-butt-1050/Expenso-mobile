@@ -140,8 +140,10 @@ export function RootNavigator() {
                 <Stack.Screen name="OnboardingTour" component={OnboardingTourScreen} />
                 {/* Header titles follow the mode (P11): an edit says so, and a new loan names its
                     direction like the + sheet does. LoanFormScreen updates it if the toggle flips. */}
+                {/* Forms open from the right and close back to it, like Settings (Bilal: the bottom
+                    sheet-style slide looked cheap), whether adding or editing. */}
                 <Stack.Group
-                  screenOptions={{ presentation: "modal", headerShown: true, animation: "slide_from_bottom" }}
+                  screenOptions={{ presentation: "card", headerShown: true, animation: "slide_from_right" }}
                 >
                   <Stack.Screen
                     name="ExpenseForm"
